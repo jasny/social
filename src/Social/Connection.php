@@ -108,7 +108,7 @@ abstract class Connection
      * @package array $params
      * @return string
      */
-    public static function getRequestUrl($params=array())
+    public static function getRequestUrl(array $params=array())
     {
         if (!isset($_SERVER['HTTP_HOST'])) return null;
 
@@ -120,14 +120,16 @@ abstract class Connection
         if (empty($params)) {
             $query = $parts['query'];
         } else {
-            $query = '';
-            $query_params = array();
-            parse_str($parts['query'], $query_params);
-            $params += $query_params;
+            if (isset($parts['query'])) {
+                $query_params = array();
+                parse_str($parts['query'], $query_params);
+                $params += $query_params;
+            }
+
             foreach ($params as $key=>$value) {
                 if (!isset($value)) unset($params[$key]);
             }
-            if (!empty($params)) $query = '?' . http_build_query($params, null, '&');
+            $query = !empty($params) ? '?' . http_build_query($params, null, '&') : '';
         }
 
         // Use port if non default

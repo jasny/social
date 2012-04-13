@@ -57,7 +57,7 @@ abstract class Entity
     protected function setProperties($data)
     {
         foreach ($data as $key=>&$value) {
-            $this->$key = $this->convertValue($value);
+            $this->$key = $this->convertProperty($value);
         }
     }
     
@@ -100,6 +100,13 @@ abstract class Entity
         return $this->_stub;
     }
     
+    /**
+     * Expand stub by fetching new data.
+     */
+    public function expand()
+    {
+        if ($this->_stub) $this->reload(true);
+    }
     
     /**
      * Fetch new data.
@@ -126,7 +133,7 @@ abstract class Entity
     public function __get($name)
     {
         if ($this->_stub) {
-            $this->reload(true);
+            $this->expand();
             if (property_exists($this, $name)) return $this->$name;
         }
         

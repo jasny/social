@@ -33,16 +33,16 @@ class Entity extends Base
      */
     protected function convertProperty($value)
     {
-        if (is_scalar($value) || is_null($var)) {
+        if (is_scalar($value) || is_null($value)) {
             if (preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$/', $value)) return new \DateTime($value);
             return $value;
         }
 
-        if ($value instanceof stdClass && isset($value->id)) return new Entity($this->_connection, $value, null, true);
+        if ($value instanceof \stdClass && isset($value->id)) return new Entity($this->_connection, null, $value, true);
         
         // TODO autoexpending array
         
-        if (is_array($value) || $value instanceof stdClass) {
+        if (is_array($value) || $value instanceof \stdClass) {
             foreach ($value as &$v) {
                 $v = $this->convertProperty($v);
             }
@@ -115,9 +115,9 @@ class Entity extends Base
         }
         
         // Fetch and set new properties
-        if (!$this->_stub || $expand) $params = array('fields'=>$fields);
+        $params = !$this->_stub || !$expand ? array('fields'=>$fields) : array();
         
-        $data = $this->_connection->fetchData($this->id, $params);
+        $data = $this->_connection->fetchData($id, $params);
         $this->setProperties($data);
         
         $this->_stub = false;
