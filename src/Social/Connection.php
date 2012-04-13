@@ -36,7 +36,7 @@ abstract class Connection
      */
     public function getUrl($path=null, array $params=array())
     {
-        $url = (strpos('://', $path) != false ? $this->getBaseUrl() : null) . ltrim($path, '/');
+        $url = strpos($path, '://') === false ? $this->getBaseUrl() . ltrim($path, '/') : $path;
         
         foreach ($params as $key=>$value) {
             if (!isset($value)) unset($params[$key]);
@@ -85,7 +85,7 @@ abstract class Connection
         if (isset($params)) curl_setopt(CURLOPT_POSTFIELDS, $params);
 
         $result = curl_exec($ch);
-        if ($result === false) $exception = new Exception("Failed do HTTP request for '$url': " . curl_error($ch));
+        if ($result === false) $exception = new Exception("Failed do HTTP request for '" . preg_replace('/\?.*/', '', $url) . "': " . curl_error($ch));
 
         curl_close($ch);
 
@@ -100,7 +100,7 @@ abstract class Connection
      * @package array $params
      * @return string
      */
-    protected function getCurrentUrl($params=array())
+    public static function getRequestUrl($params=array())
     {
         if (!isset($_SERVER['HTTP_HOST'])) return null;
 

@@ -114,7 +114,7 @@ class Connection extends Base
     public function getAuthUrl($scope=array(), $redirectUrl=null)
     {
         if (empty($redirectUrl)) {
-            $redirectUrl = $this->getCurrentUrl(array('code'=>null, 'state'=>null));
+            $redirectUrl = $this->getRequestUrl(array('code'=>null, 'state'=>null));
             if (!isset($redirectUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         }
         
@@ -136,16 +136,17 @@ class Connection extends Base
             if (isset($_GET['state'])) $state = $_GET['state'];
         }
         
-        $redirectUrl = $this->getCurrentUrl(array('code'=>null, 'state'=>null));
+        $redirectUrl = $this->getRequestUrl(array('code'=>null, 'state'=>null));
         
         if ($state !== false && $this->getUniqueState() != $state) {
             throw new Exception('Authentication response not accepted. IP mismatch, possible cross-site request forgery.');
         }
         
-        $response = $this->fetchData("oauth/access_token", array('redirect_uri' => $redirectUrl, 'code' => $code));
+        $response = $this->fetchData("oauth/access_token", array('client_id' => $this->appId, 'client_secret' => $this->apiSecret, 'redirect_uri' => $redirectUrl, 'code' => $code));
         parse_str($response, $data);
-        
-        if (!isset($data['access_token'])) throw new Exception("Did not receive the requested access token from Facebook");
+	if (reset($data) == '') $data = json_decode($response, true);
+
+        if (!isset($data['access_token'])) throw new Exception("Did not receive the requested access token from Facebook" . (isset($data['error']['message']) ? ': ' . $data['error']['message'] : ''));
         
         $this->setAccessToken($data['access_token']);
         return (object)$data;
