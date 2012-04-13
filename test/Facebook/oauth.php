@@ -20,7 +20,7 @@ if (isset($_GET['code'])) {
 }
 
 if (!$facebook->isAuth()) {
-    $url = $facebook->getAuthUrl();
+    $url = $facebook->getAuthUrl(isset($_GET['scope']) ? explode(',', $_GET['scope']) : array());
     echo "<a href='$url'>$url</a>";
     exit();
 }
