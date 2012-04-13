@@ -1,5 +1,12 @@
 <?php
+/**
+ * Facebook Graph API connection.
+ * 
+ * @license MIT
+ * @copyright 2012 Jasny
+ */
 
+/** */
 namespace Social\Facebook;
 
 use Social\Connection as Base;
@@ -7,6 +14,7 @@ use Social\Exception;
 
 /**
  * Facebook Graph API connection.
+ * @see http://developers.facebook.com/docs/reference/api/
  */
 class Connection extends Base
 {
@@ -67,6 +75,7 @@ class Connection extends Base
      */
     public function setAccessToken($accessToken)
     {
+        if (isset($this->accessToken) && $this->accessToken != $accessToken) throw new Exception("Changing the access token is not allowed. Please create a new connection instead.");
         $this->accessToken = $accessToken;
     }
     
@@ -111,14 +120,14 @@ class Connection extends Base
      * @param string $redirectUrl
      * @return string
      */
-    public function getAuthUrl($scope=array(), $redirectUrl=null)
+    public function getAuthUrl($scope=null, $redirectUrl=null)
     {
         if (empty($redirectUrl)) {
             $redirectUrl = $this->getRequestUrl(array('code'=>null, 'state'=>null));
             if (!isset($redirectUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         }
         
-        return $this->getUrl(self::authURL, array('client_id' => $this->appId, 'redirect_uri' => $redirectUrl, 'scope' => join(',', $scope), 'state' => $this->getUniqueState()));
+        return $this->getUrl(self::authURL, array('client_id' => $this->appId, 'redirect_uri' => $redirectUrl, 'scope' => $scope, 'state' => $this->getUniqueState()));
     }
     
     /**
@@ -142,11 +151,11 @@ class Connection extends Base
             throw new Exception('Authentication response not accepted. IP mismatch, possible cross-site request forgery.');
         }
         
-        $response = $this->fetchData("oauth/access_token", array('client_id' => $this->appId, 'client_secret' => $this->apiSecret, 'redirect_uri' => $redirectUrl, 'code' => $code));
+        $response = $this->request("oauth/access_token", array('client_id' => $this->appId, 'client_secret' => $this->apiSecret, 'redirect_uri' => $redirectUrl, 'code' => $code));
         parse_str($response, $data);
-	if (reset($data) == '') $data = json_decode($response, true);
+        if (reset($data) == '') $data = json_decode($response);
 
-        if (!isset($data['access_token'])) throw new Exception("Did not receive the requested access token from Facebook" . (isset($data['error']['message']) ? ': ' . $data['error']['message'] : ''));
+        if (!isset($data['access_token'])) throw new Exception("Did not receive the requested access token from Facebook" . (isset($data->error->message) ? ': ' . $data->error->message : ''));
         
         $this->setAccessToken($data['access_token']);
         return (object)$data;
@@ -160,5 +169,68 @@ class Connection extends Base
     public function isAuth()
     {
         return isset($this->accessToken);
+    }
+    
+    
+    /**
+     * Fetch raw data from facebook.
+     * 
+     * @param string $id
+     * @param array  $params  Get parameters
+     * @return array
+     */
+    public function fetchData($id, array $params=array())
+    {
+        $url = $id . ($item ? "/$item" : '');
+        $response = $this->request($url, $params);
+
+        $data = json_decode($response);
+        if (isset($data['error'])) throw new Exception("Fetching '$url' from Facebook failed: " . $data['error']['message']);
+        
+        return $data;
+    }
+
+    /**
+     * Fetch an entity (or other data) from Facebook.
+     * 
+     * @param string $id
+     * @param array  $params
+     * @return Entity
+     */
+    public function fetch($id, array $params=array())
+    {
+        $data = $this->fetchData($id, $params);
+
+        if (!is_object($data)) return $data;
+        
+        // Todo check + impl autoexpanding array
+        return new Entity($this, null, $data);
+    }
+    
+    /**
+     * Get current user profile.
+     * Shortcut for $facebook->fetch('me')
+     * 
+     * @param array $params
+     * @return Entity
+     */
+    public function me(array $params=array())
+    {
+        if (!$this->isAuth()) throw new Exception("There is no current user. Please set the access token.");
+        
+        $data = $this->fetchData('me', $params);
+        return new Entity($this, 'user', $data);
+    }
+    
+    /**
+     * Create a new entity.
+     * 
+     * @param string $type
+     * @param array  $data
+     * @return Entity
+     */
+    public function create($type, $data=array())
+    {
+        return new Entity($this, $type, $data);
     }
 }

@@ -1,9 +1,16 @@
 <?php
+/**
+ * Base connection class.
+ * 
+ * @license MIT
+ * @copyright 2012 Jasny
+ */
 
+/** */
 namespace Social;
 
 /**
- * Base connection
+ * Base connection.
  */
 abstract class Connection
 {
@@ -38,8 +45,9 @@ abstract class Connection
     {
         $url = strpos($path, '://') === false ? $this->getBaseUrl() . ltrim($path, '/') : $path;
         
-        foreach ($params as $key=>$value) {
+        foreach ($params as $key=>&$value) {
             if (!isset($value)) unset($params[$key]);
+            if (is_array($value)) $value = join(',', $value);
         }
         if (!empty($params)) $url .= '?' . http_build_query($params, null, '&');
 
@@ -53,7 +61,7 @@ abstract class Connection
      * @param array  $params  GET parameters
      * @return string
      */
-    protected function fetchData($url, array $params=array())
+    protected function request($url, array $params=array())
     {
         $url = $this->getUrl($url, $params);
         return $this->makeRequest($url);
@@ -66,7 +74,7 @@ abstract class Connection
      * @param array  $params  POST parameters
      * @return string
      */
-    protected function postData($url, array $params=array())
+    protected function post($url, array $params=array())
     {
         $url = $this->getUrl($url);
         return $this->makeRequest($url, (array)$params);

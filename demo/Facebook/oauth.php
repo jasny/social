@@ -24,13 +24,15 @@ if (isset($_GET['code'])) {
 }
 
 if (!$facebook->isAuth()) {
-    $url = $facebook->getAuthUrl(isset($_GET['scope']) ? explode(',', $_GET['scope']) : array(), Social\Connection::getRequestUrl(array('scope'=>null, 'state'=>null, 'code'=>null, 'logout'=>null)));
+    $url = $facebook->getAuthUrl(isset($_GET['scope']) ? $_GET['scope'] : null, Social\Connection::getRequestUrl(array('scope'=>null, 'state'=>null, 'code'=>null, 'logout'=>null)));
     echo "<a href='$url'>$url</a>";
     exit();
 }
 
+$me = $facebook->me();
+
 ?>
 
-<h1>Logged in</h1>
+<h1>Hi <?= $me->first_name; ?></h1>
 
 <div><a href="?logout=1">Logout</a></div>
