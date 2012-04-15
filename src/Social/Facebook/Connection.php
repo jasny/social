@@ -248,8 +248,9 @@ class Connection extends Base
         $response = $this->request($id, ($this->accessToken ? array('access_token' => $this->accessToken) : array('client_id' => $this->appId)) + $params);
         $data = json_decode($response);
 
-        if (isset($data->error)) throw new Exception("Fetching '$id' from Facebook failed: " . $data->error->message);
-        
+	if (!isset($data)) return $response; // Not json
+
+        if (isset($data->error)) throw new Exception("Fetching '$id' from Facebook failed: " . $data->error->message);        
         return $data;
     }
 
@@ -269,22 +270,15 @@ class Connection extends Base
     /**
      * Get current user profile.
      * 
-     * @param array $preload  Additional fields/subdata to fetch
      * @return Entity
      */
-    public function me(array $preload=array())
+    public function me()
     {
         if (isset($this->me)) return $this->me;
         if (!$this->isAuth()) throw new Exception("There is no current user. Please set the access token.");
         
-        $params = array();
-        if (!empty($preload)) {
-            $params['fields'] = array('id', 'name', 'first_name', 'middle_name', 'last_name', 'gender', 'locale', 'languages', 'link', 'username', 'installed', 'timezone', 'updated_time', 'verified', 'bio', 'birthday', 'education', 'email', 'hometown', 'interested_in', 'location', 'political', 'favorite_athletes', 'favorite_teams', 'quotes', 'relationship_status', 'religion', 'significant_other', 'video_upload_limits', 'website', 'work') + $preload;
-        }
-        
-        $data = $this->fetchData('me', $params);
+        $data = $this->fetchData('me');
         $this->me = new Entity($this, 'user', $data);
-        
         return $this->me;
     }
 
