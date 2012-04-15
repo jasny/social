@@ -54,7 +54,14 @@ class Connection extends Base
      * @var int
      */
     protected $accessTimestamp;
-
+    
+    
+    /**
+     * Current user
+     * @var Entity
+     */
+    protected $me;
+    
 
     /**
      * Class constructor.
@@ -256,30 +263,34 @@ class Connection extends Base
     public function fetch($id, array $params=array())
     {
         $data = $this->fetchData($id, $params);
-
-        if (!is_object($data)) return $data;
-        
-        // Todo check + impl autoexpanding array
-        return new Entity($this, null, $data);
+        return $this->convertData($data, $params + $this->extractParams($id));
     }
     
     /**
      * Get current user profile.
-     * Shortcut for $facebook->fetch('me')
      * 
-     * @param array $params
+     * @param array $preload  Additional fields/subdata to fetch
      * @return Entity
      */
-    public function me(array $params=array())
+    public function me(array $preload=array())
     {
+        if (isset($this->me)) return $this->me;
         if (!$this->isAuth()) throw new Exception("There is no current user. Please set the access token.");
         
+        $params = array();
+        if (!empty($preload)) {
+            $params['fields'] = array('id', 'name', 'first_name', 'middle_name', 'last_name', 'gender', 'locale', 'languages', 'link', 'username', 'installed', 'timezone', 'updated_time', 'verified', 'bio', 'birthday', 'education', 'email', 'hometown', 'interested_in', 'location', 'political', 'favorite_athletes', 'favorite_teams', 'quotes', 'relationship_status', 'religion', 'significant_other', 'video_upload_limits', 'website', 'work') + $preload;
+        }
+        
         $data = $this->fetchData('me', $params);
-        return new Entity($this, 'user', $data);
+        $this->me = new Entity($this, 'user', $data);
+        
+        return $this->me;
     }
+
     
     /**
-     * Create a new entity.
+     * Create a new entity
      * 
      * @param string $type
      * @param array  $data
@@ -287,6 +298,81 @@ class Connection extends Base
      */
     public function create($type, $data=array())
     {
-        return new Entity($this, $type, $data);
+        return new Entity($this, $type, (object)$data);
+    }
+    
+    /**
+     * Create a new collection
+     * 
+     * @param array $data 
+     */
+    public function collection(array $data=array())
+    {
+        return new Collection($this, $type, $data);
+    }
+    
+    /**
+     * Create a stub.
+     * 
+     * @param object|string $data  Data or id
+     */
+    public function stub($data)
+    {
+        if (is_scalar($data)) $data = array('id' => $data);
+        return new Entity($this, null, (object)$data);
+    }
+    
+    
+    /**
+     * Convert data to Entity, Collection or DateTime.
+     * 
+     * @param mixed $data
+     * @param array $params  Parameters used to fetch data
+     * @return Entity|Collection|DateTime|mixed
+     */
+    public function convertData($data, array $params=array())
+    {
+        // Don't convert
+        if ($data instanceof Entity || $data instanceof Collection || $data instanceof \DateTime) {
+            return $data;
+        }
+        
+        // Scalar
+        if (is_scalar($data) || is_null($data)) {
+            if (preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$/', $data)) return new \DateTime($data);
+            return $data;
+        }
+
+        // Entity
+        if ($data instanceof \stdClass && isset($data->id)) return new Entity($this, null, $data, true);
+           
+        // Collection
+        if ($data instanceof \stdClass && isset($data->data) && is_array($data->data)) {
+            $nextPage = isset($data->paging->next) ? $data->paging->next = $this->buildUrl($data->paging->next, $params, false) : null; // Make sure the same parameters are used in the next query
+            return new Collection($this, $data->data, $nextPage);
+        }
+        
+        // Array or stdClass
+        if (is_array($data) || $data instanceof \stdClass) {
+            foreach ($data as &$value) {
+                $value = $this->convertData($value);
+            }
+            return $data;
+        }
+        
+        // Probably some other kind of object
+        return $data;
+    }
+    
+    
+    /**
+     * Serialization
+     * { @internal Don't serialze cached objects }}
+     * 
+     * @return array
+     */
+    public function __sleep()
+    {
+        return array('appId', 'appSecret', 'accessToken', 'accessExpires', 'accessTimestamp');
     }
 }

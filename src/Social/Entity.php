@@ -1,6 +1,6 @@
 <?php
 /**
- * Base class for Entitys
+ * Base class for Entities
  * 
  * @license MIT
  * @copyright 2012 Jasny
@@ -37,7 +37,7 @@ abstract class Entity
      * 
      * @param Connection $connection
      * @param string     $type
-     * @param Entity     $data 
+     * @param object     $data 
      * @param boolean    $stub
      */
     public function __construct(Connection $connection, $type=null, $data=array(), $stub=false)
@@ -57,18 +57,20 @@ abstract class Entity
     protected function setProperties($data)
     {
         foreach ($data as $key=>&$value) {
-            $this->$key = $this->convertProperty($value);
+            $this->$key = $this->convertData($value);
         }
     }
     
     /**
-     * Convert value to Entity
+     * Convert value to object.
      * 
-     * @param mixed $value
+     * @param mixed $data
      * @return mixed 
      */
-    protected abstract function convertProperty($value);
-    
+    protected function convertData($data)
+    {
+        return $this->_connection->convertData($data);
+    }
     
     /**
      * Get API connection.

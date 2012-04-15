@@ -1,6 +1,6 @@
 <?php
 /**
- * Social Entity
+ * Facebook Entity
  * 
  * @license MIT
  * @copyright 2012 Jasny
@@ -25,33 +25,6 @@ class Entity extends Base
     protected $_metadata;
     
     
-    /**
-     * Convert value to Entity
-     * 
-     * @param mixed $value
-     * @return mixed 
-     */
-    protected function convertProperty($value)
-    {
-        if (is_scalar($value) || is_null($value)) {
-            if (preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$/', $value)) return new \DateTime($value);
-            return $value;
-        }
-
-        if ($value instanceof \stdClass && isset($value->id)) return new Entity($this->_connection, null, $value, true);
-        
-        // TODO autoexpending array
-        
-        if (is_array($value) || $value instanceof \stdClass) {
-            foreach ($value as &$v) {
-                $v = $this->convertProperty($v);
-            }
-        }
-        
-        // Probably some other kind of object
-        return $value;
-    }
-
     /**
      * Get Entity type.
      * 

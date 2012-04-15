@@ -44,14 +44,7 @@ abstract class Connection
     public function getUrl($path=null, array $params=array())
     {
         $url = strpos($path, '://') === false ? $this->getBaseUrl() . ltrim($path, '/') : $path;
-        
-        foreach ($params as $key=>&$value) {
-            if (!isset($value)) unset($params[$key]);
-            if (is_array($value)) $value = join(',', $value);
-        }
-        if (!empty($params)) $url .= '?' . http_build_query($params, null, '&');
-
-        return $url;
+        return self::buildUrl($url, $params);
     }
     
     /**
@@ -108,34 +101,58 @@ abstract class Connection
      * @package array $params
      * @return string
      */
-    public static function getRequestUrl(array $params=array())
+    static public function getRequestUrl(array $params=array())
     {
         if (!isset($_SERVER['HTTP_HOST'])) return null;
 
         $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on' ? 'https://' : 'http://';
         $currentUrl = $protocol . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-        $parts = parse_url($currentUrl);
+        
+        return self::buildUrl($currentUrl, $params);
+    }
+    
+    /**
+     * Build a url, setting parameters.
+     * 
+     * @param string  $url
+     * @param array   $params
+     * @param boolean $overwrite  Overwrite existing parameters
+     */
+    static protected function buildUrl($url, array $params, $overwrite=true)
+    {
+        if (empty($params)) return $url;
+        
+        $parts = parse_url($url);
 
-        // Set/remove parameters
-        if (empty($params)) {
-            $query = $parts['query'];
-        } else {
-            if (isset($parts['query'])) {
-                $query_params = array();
-                parse_str($parts['query'], $query_params);
-                $params += $query_params;
-            }
+        if (isset($parts['query'])) {
+            $query_params = array();
+            parse_str($parts['query'], $query_params);
 
-            foreach ($params as $key=>$value) {
-                if (!isset($value)) unset($params[$key]);
-            }
-            $query = !empty($params) ? '?' . http_build_query($params, null, '&') : '';
+            if ($overwrite) $params = $params += $query_params;
+             else $params = $query_params + $params;
         }
 
-        // Use port if non default
-        $port = isset($parts['port']) && (($protocol === 'http://' && $parts['port'] !== 80) || ($protocol === 'https://' && $parts['port'] !== 443)) ? ':' . $parts['port'] : '';
+        foreach ($params as $key=>$value) {
+            if (!isset($value)) unset($params[$key]);
+        }
+        $query = !empty($params) ? '?' . http_build_query($params, null, '&') : '';
 
-        // Rebuild
-        return $protocol . $parts['host'] . $port . $parts['path'] . $query;
+        return $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '') . $parts['path'] . $query;
+    }
+    
+    /**
+     * Parse URL and return parameters
+     * 
+     * @param string $url
+     * @return array
+     */
+    static protected function extractParams($url)
+    {
+        $params = array();
+
+        $query = parse_url($url, PHP_URL_QUERY);
+        if ($query) parse_str($query, $params);
+        
+        return $params;
     }
 }   
