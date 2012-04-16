@@ -28,8 +28,8 @@ class Collection extends Base
         
         $collection = $this->_connection->fetch($this->_nextPage);
         if (!$collection instanceof self) throw new Exception("I expected a Collection, but instead got " . (is_object($collection) ? 'a ' . get_class($collection) : (is_scalar($collection) ? "'$collection'" : 'a ' . get_type($collection))));
-        
-        if (empty($collection->_data)) {
+
+        if ($collection->count() == 0) {
             if (!empty($collection->_nextPage) && $this->_nextPage != $collection->_nextPage) {
                 $this->_nextPage = $collection->_nextPage;
                 return $this->loadNext();
@@ -38,9 +38,9 @@ class Collection extends Base
             $this->_nextPage = null;
             return false;
         }
-        
+
         $this->_nextPage = !empty($collection->_nextPage) && $this->_nextPage != $collection->_nextPage ? $collection->_nextPage : null;
-        $this->appendData($collection->_data);
+        $this->appendData($collection->getArrayCopy());
         
         return true;
     }

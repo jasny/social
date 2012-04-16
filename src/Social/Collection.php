@@ -45,19 +45,22 @@ abstract class Collection extends \ArrayObject
      * @param Connection $connection
      * @param string     $type
      * @param array      $data
-     * @param object     $next        Next page
+     * @param object     $nextPage    Next page
      */
-    public function __construct(Connection $connection, array $data=array(), $next=null)
+    public function __construct(Connection $connection, array $data=array(), $nextPage=null)
     {
-        $this->setIteratorClass(__NAMESPACE__ . '\CollectionIterator');
-        
         $this->_connection = $connection;
-        $this->_paging = $paging;
+        $this->_nextPage = $nextPage;
         
         $data = $this->convertData(array_values($data));
         parent::__construct($data);
     }
     
+    public function getIterator()
+    {
+        return new CollectionIterator($this);
+    }
+
     /**
      * Append new data to the collection.
      * 
@@ -219,49 +222,49 @@ abstract class Collection extends \ArrayObject
     }
     
     
-	/**
-	 * Whether a offset exists.
+    /**
+     * Whether a offset exists.
      * 
-	 * @param int $offset
-	 * @return boolean
-	 */
-	public function offsetExists($offset)
+     * @param int $offset
+     * @return boolean
+     */
+    public function offsetExists($offset)
     {
         $this->loadAll();
         return parent::offsetExists($offset);
     }
 
-	/**
-	 * Retrieve by offset.
+    /**
+     * Retrieve by offset.
      * 
-	 * @param int $offset  The offset to retrieve.
-	 * @return Entity|mixed
-	 */
-	public function offsetGet($offset)
+     * @param int $offset  The offset to retrieve.
+     * @return Entity|mixed
+     */
+    public function offsetGet($offset)
     {
         $this->loadAll();
         return parent::offsetGet($offset);
     }
 
-	/**
-	 * Add/change by offset.
+    /**
+     * Add/change by offset.
      * 
-	 * @param int|null $offset The offset to assign the value to.
-	 * @param Entity|mixed $value  The value to set.
-	 */
-	public function offsetSet($offset, $value)
+     * @param int|null $offset The offset to assign the value to.
+     * @param Entity|mixed $value  The value to set.
+     */
+    public function offsetSet($offset, $value)
     {
         if (isset($offset) && parent::offsetExists($offset)) $this->_removed[] = parent::offsetGet($offset);
         $this->_added[] = $value;
         parent::offsetSet($offset, $value);
     }
 
-	/**
-	 * Unset by offset.
+    /**
+     * Unset by offset.
      * 
-	 * @param int $offset  The offset to unset.
-	 */
-	abstract public function offsetUnset($offset)
+     * @param int $offset  The offset to unset.
+     */
+    public function offsetUnset($offset)
     {
         $item = parent::offsetGet($offset);
         
@@ -275,14 +278,15 @@ abstract class Collection extends \ArrayObject
     }
     
     
-	/**
-	 * Count the number or items.
+    /**
+     * Count the number or items.
      * 
-	 * @return int
-	 */
-	public function count()
+     * @param boolean $load  Load all items
+     * @return int
+     */
+    public function count($load=true)
     {
-        $this->loadAll();
+        if ($load) $this->loadAll();
         return parent::count();
     }    
 }

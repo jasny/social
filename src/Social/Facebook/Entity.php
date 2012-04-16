@@ -63,7 +63,7 @@ class Entity extends Base
     public function fetch($item, array $params=array())
     {
         if (!isset($this->id)) throw new Exception("Unable to fetch subdata. The id is unknown.");
-        $this->$item = $this->_connection->fetch($this->id, $params);
+        $this->$item = $this->_connection->fetch("{$this->id}/$item", $params);
         
         return $this->$item;
     }

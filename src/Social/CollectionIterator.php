@@ -33,11 +33,14 @@ class CollectionIterator extends \ArrayIterator
     }
     
     /**
-	 * Move forward to next element.
-	 */
-	public function next()
+     * Move forward to next element.
+     */
+    public function next()
     {
         parent::next();
-        if (!$this->valid()) $this->collection->loadNext();
+	if (!$this->valid()) {
+            $cnt = $this->collection->count(false);
+            if ($this->collection->loadNext()) $this->seek($cnt);
+	}
     }
 }

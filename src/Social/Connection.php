@@ -20,11 +20,14 @@ abstract class Connection
      * @var array
      */
     protected static $CURL_OPTS = array(
-        CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 60,
-        CURLOPT_USERAGENT      => 'jasny-social-1.0',
-        CURLOPT_HTTPHEADER     => array('Expect:'),
+        CURLOPT_CONNECTTIMEOUT      => 10,
+        CURLOPT_RETURNTRANSFER      => true,
+        CURLOPT_TIMEOUT             => 60,
+        CURLOPT_USERAGENT           => 'jasny-social-1.0',
+        CURLOPT_HTTPHEADER          => array('Expect:'),
+        CURLOPT_FAILONERROR         => true,
+        CURLOPT_FOLLOWLOCATION      => true,
+        CURLOPT_MAXREDIRS           => 3,
     );
     
     /**
@@ -97,9 +100,7 @@ abstract class Connection
         }
         
         $result = curl_exec($ch);
-        if ($result === false) $exception = new Exception("Failed do HTTP request for '" . preg_replace('/\?.*/', '', $url) . "': " . curl_error($ch));
-
-        curl_close($ch);
+        if ($result === false) throw new Exception("Failed do HTTP request for '" . preg_replace('/\?.*/', '', $url) . "': " . curl_error($ch));
 
         if (isset($exception)) throw $exception;
         return $result;
@@ -143,8 +144,9 @@ abstract class Connection
              else $params = $query_params + $params;
         }
 
-        foreach ($params as $key=>$value) {
+        foreach ($params as $key=>&$value) {
             if (!isset($value)) unset($params[$key]);
+            if (is_array($value)) $value = join(',', $value);
         }
         $query = !empty($params) ? '?' . http_build_query($params, null, '&') : '';
 
