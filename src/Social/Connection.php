@@ -51,21 +51,21 @@ abstract class Connection
     }
     
     /**
-     * Do an HTTP GET request and fetch data
+     * Do an HTTP GET request
      * 
      * @param string $url      Absolute or relative URL
-     * @param array  $params   GET parameters
+     * @param array  $params   URL parameters
      * @param array  $headers  Additional HTTP headers
      * @return string
      */
     protected function request($url, array $params=array(), array $headers=array())
     {
         $url = $this->getUrl($url, $params);
-        return $this->makeRequest($url);
+        return $this->makeRequest('GET', $url, null, $headers);
     }
 
     /**
-     * Do an HTTP POST request and fetch data
+     * Do an HTTP POST request
      * 
      * @param string $url      Absolute or relative URL
      * @param array  $params   POST parameters
@@ -75,22 +75,38 @@ abstract class Connection
     protected function postRequest($url, array $params=array(), array $headers=array())
     {
         $url = $this->getUrl($url);
-        return $this->makeRequest($url, (array)$params);
+        return $this->makeRequest('POST', $url, (array)$params, $headers);
+    }
+    
+    /**
+     * Do an HTTP DELETE request
+     * 
+     * @param string $url      Absolute or relative URL
+     * @param array  $params   URL parameters
+     * @param array  $headers  Additional HTTP headers
+     * @return string
+     */
+    protected function deleteRequest($url, array $params=array(), array $headers=array())
+    {
+        $url = $this->getUrl($url, (array)$params);
+        return $this->makeRequest('DELETE', $url, null, $headers);
     }
     
     /**
      * Do an HTTP request.
      * 
+     * @param string $type     GET, POST or DELETE
      * @param string $url
      * @param array  $params   POST parameters
      * @param array  $headers  Additional HTTP headers
      */
-    protected function makeRequest($url, $params=null, array $headers=array())
+    protected function makeRequest($type, $url, $params=null, array $headers=array())
     {
         $ch = curl_init($url);
         curl_setopt_array($ch, static::$CURL_OPTS);
+        curl_setopt(CURLOPT_CUSTOMREQUEST, $type);
         if (isset($params)) curl_setopt(CURLOPT_POSTFIELDS, $params);
-
+        
         if ($headers) {
             foreach ($headers as $key=>&$value) {
                 if (!is_int($key)) $value = "$key: $value";
