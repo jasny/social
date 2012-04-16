@@ -15,6 +15,8 @@ use Social\Exception;
 /**
  * Facebook Graph API connection.
  * @see http://developers.facebook.com/docs/reference/api/
+ * 
+ * Before you start register your application at https://developers.facebook.com/apps and retrieve an App ID and App Secret
  */
 class Connection extends Base
 {
@@ -37,7 +39,7 @@ class Connection extends Base
     /**
      * @var string
      */
-    protected $apiSecret;
+    protected $appSecret;
 
 
     /**
@@ -66,14 +68,14 @@ class Connection extends Base
     /**
      * Class constructor.
      * 
-     * @param string $appId
-     * @param string $secret
+     * @param string $appId   Application ID
+     * @param string $secret  Application secret
      * @param object $access  { 'access_token': token, 'expires': seconds, 'timestamp': unixtime }
      */
-    public function __construct($appId, $apiSecret, $access=null)
+    public function __construct($appId, $appSecret, $access=null)
     {
         $this->appId = $appId;
-        $this->apiSecret = $apiSecret;
+        $this->appSecret = $appSecret;
 
         // Set access token, expecting stdClass object, but let's be flexible
         if (is_array($access)) $access = (object)$access;
@@ -134,13 +136,11 @@ class Connection extends Base
     protected function getUniqueState()
     {
         $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['SERVER_ADDR'] : $_SERVER['REMOTE_ADDR'];
-        return md5($ip . $this->apiSecret);
+        return md5($ip . $this->appSecret);
     }
     
     /**
      * Get authentication url.
-     *
-     * Add 'extend_token' to $scope to request a 60 day valid token.
      * 
      * For permssions @see http://developers.facebook.com/docs/authentication/permissions/
      * 
@@ -179,7 +179,7 @@ class Connection extends Base
             throw new Exception('Authentication response not accepted. IP mismatch, possible cross-site request forgery.');
         }
         
-        $response = $this->request("oauth/access_token", array('client_id' => $this->appId, 'client_secret' => $this->apiSecret, 'redirect_uri' => $redirectUrl, 'code' => $code));
+        $response = $this->request("oauth/access_token", array('client_id' => $this->appId, 'client_secret' => $this->appSecret, 'redirect_uri' => $redirectUrl, 'code' => $code));
         parse_str($response, $data);
         if (reset($data) == '') $data = json_decode($response, true);
 
@@ -200,7 +200,7 @@ class Connection extends Base
     public function extendAccess()
     {
         if (!isset($this->accessToken)) throw new Exception("Unable to extend access token. Access token isn't set.");
-        $response = $this->request("oauth/access_token", array('client_id' => $this->appId, 'client_secret' => $this->apiSecret, 'grant_type' => 'fb_exchange_token', 'fb_exchange_token' => $this->getAccessToken()));
+        $response = $this->request("oauth/access_token", array('client_id' => $this->appId, 'client_secret' => $this->appSecret, 'grant_type' => 'fb_exchange_token', 'fb_exchange_token' => $this->getAccessToken()));
 
         parse_str($response, $data);
         if (reset($data) == '') $data = json_decode($response, true);
@@ -248,7 +248,7 @@ class Connection extends Base
         $response = $this->request($id, ($this->accessToken ? array('access_token' => $this->accessToken) : array('client_id' => $this->appId)) + $params);
         $data = json_decode($response);
 
-	if (!isset($data)) return $response; // Not json
+        if (!isset($data)) return $response; // Not json
 
         if (isset($data->error)) throw new Exception("Fetching '$id' from Facebook failed: " . $data->error->message);        
         return $data;
