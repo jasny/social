@@ -151,7 +151,7 @@ class Connection extends Base
     public function getAuthUrl($scope=null, $redirectUrl=null)
     {
         if (empty($redirectUrl)) {
-            $redirectUrl = $this->getRequestUrl(array('code'=>null, 'state'=>null));
+            $redirectUrl = $this->getCurrentUrl(array('code'=>null, 'state'=>null));
             if (!isset($redirectUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         }
         
@@ -173,7 +173,7 @@ class Connection extends Base
             if (isset($_GET['state'])) $state = $_GET['state'];
         }
         
-        $redirectUrl = $this->getRequestUrl(array('code'=>null, 'state'=>null));
+        $redirectUrl = $this->getCurrentUrl(array('code'=>null, 'state'=>null));
         
         if ($state !== false && $this->getUniqueState() != $state) {
             throw new Exception('Authentication response not accepted. IP mismatch, possible cross-site request forgery.');
@@ -314,7 +314,7 @@ class Connection extends Base
     /**
      * Create a stub.
      * 
-     * @param object|string $data  Data or id
+     * @param array|string $data  Data or id
      */
     public function stub($data)
     {

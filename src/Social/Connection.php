@@ -19,7 +19,7 @@ abstract class Connection
      * 
      * @var array
      */
-    private static $CURL_OPTS = array(
+    protected static $CURL_OPTS = array(
         CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 60,
@@ -50,11 +50,12 @@ abstract class Connection
     /**
      * Do an HTTP GET request and fetch data
      * 
-     * @param string $url     Absolute or relative URL
-     * @param array  $params  GET parameters
+     * @param string $url      Absolute or relative URL
+     * @param array  $params   GET parameters
+     * @param array  $headers  Additional HTTP headers
      * @return string
      */
-    protected function request($url, array $params=array())
+    protected function request($url, array $params=array(), array $headers=array())
     {
         $url = $this->getUrl($url, $params);
         return $this->makeRequest($url);
@@ -63,28 +64,38 @@ abstract class Connection
     /**
      * Do an HTTP POST request and fetch data
      * 
-     * @param string $url     Absolute or relative URL
-     * @param array  $params  POST parameters
+     * @param string $url      Absolute or relative URL
+     * @param array  $params   POST parameters
+     * @param array  $headers  Additional HTTP headers
      * @return string
      */
-    protected function post($url, array $params=array())
+    protected function postRequest($url, array $params=array(), array $headers=array())
     {
         $url = $this->getUrl($url);
         return $this->makeRequest($url, (array)$params);
     }
     
     /**
-     * Do an HTTP request
+     * Do an HTTP request.
      * 
      * @param string $url
-     * @param array  $post  POST parameters
+     * @param array  $params   POST parameters
+     * @param array  $headers  Additional HTTP headers
      */
-    protected function makeRequest($url, $params=null)
+    protected function makeRequest($url, $params=null, array $headers=array())
     {
         $ch = curl_init($url);
-        curl_setopt_array($ch, self::$CURL_OPTS);
+        curl_setopt_array($ch, static::$CURL_OPTS);
         if (isset($params)) curl_setopt(CURLOPT_POSTFIELDS, $params);
 
+        if ($headers) {
+            foreach ($headers as $key=>&$value) {
+                if (!is_int($key)) $value = "$key: $value";
+            }
+            if (isset(static::$CURL_OPTS[CURLOPT_HTTPHEADER])) $headers = array_merge(static::$CURL_OPTS[CURLOPT_HTTPHEADER], $headers);
+            curl_setopt(CURLOPT_HTTPHEADER, $headers);
+        }
+        
         $result = curl_exec($ch);
         if ($result === false) $exception = new Exception("Failed do HTTP request for '" . preg_replace('/\?.*/', '', $url) . "': " . curl_error($ch));
 
@@ -101,7 +112,7 @@ abstract class Connection
      * @package array $params
      * @return string
      */
-    static public function getRequestUrl(array $params=array())
+    static public function getCurrentUrl(array $params=array())
     {
         if (!isset($_SERVER['HTTP_HOST'])) return null;
 
