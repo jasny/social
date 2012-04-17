@@ -5,15 +5,15 @@ use Social\Facebook;
 require_once __DIR__ . '/../include.php';
 
 if (!empty($_GET['logout'])) {
-    unset($_SESSION['fb']);
+    unset($_SESSION['facebook']);
     header('Location: http://' . $_SERVER['HTTP_HOST'] . preg_replace('/\?.*$/', '', $_SERVER['REQUEST_URI']));
     exit();
 }
 
-$facebook = new Facebook\Connection($cfg->fb['appid'], $cfg->fb['secret'], isset($_SESSION['fb']) ? $_SESSION['fb'] : null);
+$facebook = new Facebook\Connection($cfg->facebook['appid'], $cfg->facebook['secret'], isset($_SESSION['facebook']) ? $_SESSION['facebook'] : null);
 
-if (isset($_GET['code'])) {
-    $_SESSION['fb'] = $facebook->handleAuthResponse();
+if (!empty($_GET['facebook_auth'])) {
+    $_SESSION['facebook'] = $facebook->handleAuthResponse();
 }
 
 if (!$facebook->isAuth()) {
@@ -22,7 +22,7 @@ if (!$facebook->isAuth()) {
     exit();
 }
 
-if ($facebook->isExpired(24 * 3600)) $_SESSION['fb'] = $facebook->extendAccess();
+if ($facebook->isExpired(24 * 3600)) $_SESSION['facebook'] = $facebook->extendAccess();
 
 $me = $facebook->me();
 ?>

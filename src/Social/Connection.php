@@ -126,15 +126,21 @@ abstract class Connection
     /**
      * Get the URL of the current script.
      *
-     * @package array $params
+     * @param string $page    Relative path to page
+     * @param array  $params
      * @return string
      */
-    static public function getCurrentUrl(array $params=array())
+    static public function getCurrentUrl($page=null, array $params=array())
     {
+        if (strpos($page, '://') !== false) return self::buildUrl($page, $params);
+        
         if (!isset($_SERVER['HTTP_HOST'])) return null;
 
+        if (!isset($page)) $page = $_SERVER['REQUEST_URI'];
+        if ($page[0] != '/') $page = dirname($_SERVER['REQUEST_URI']) . '/' . $page;
+        
         $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on' ? 'https://' : 'http://';
-        $currentUrl = $protocol . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+        $currentUrl = $protocol . $_SERVER['HTTP_HOST'] . $page;
         
         return self::buildUrl($currentUrl, $params);
     }
