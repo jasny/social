@@ -81,7 +81,11 @@ abstract class Connection
         if ($result === false) throw new Exception("HTTP $type request for '" . preg_replace('/\?.*/', '', $url) . "' failed: " . curl_error($ch));
         if (curl_getinfo($ch, CURLINFO_HTTP_CODE) >= 300) {
             $data = json_decode($result);
-            throw new Exception("HTTP $type request for '" . preg_replace('/\?.*/', '', $url) . "' failed: " . (isset($data->error) ? $data->error->message : (isset($data->error_msg) ? $data->error_msg : $result)));
+            if (isset($data->error)) $result = $data->error->message;
+              elseif (isset($data->errors)) $result = $data->errors[0]->message;
+              elseif (isset($data->error_msg)) $result = $data->error_msg;
+
+            throw new Exception("HTTP $type request for '" . preg_replace('/\?.*/', '', $url) . "' failed: $result");
         }
 
         return $result;

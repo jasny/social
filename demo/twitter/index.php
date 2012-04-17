@@ -31,6 +31,7 @@ if (!$twitter->isAuth()) {
 }
 
 $me = $twitter->get('account/verify_credentials');
+$followers = $twitter->get('followers/ids', array('user_id' => $me->id));
 ?>
 
 <div><a href="?logout=1">Logout</a></div>
@@ -38,3 +39,4 @@ $me = $twitter->get('account/verify_credentials');
 <h1>Logged in</h1>
 
 <?php var_dump($me) ?>
+<?php var_dump($followers) ?>

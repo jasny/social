@@ -283,11 +283,7 @@ class Connection extends Base
     {
         $response = $this->httpRequest('GET', $id, ($this->accessToken ? array('access_token' => $this->accessToken) : array('client_id' => $this->appId)) + $params);
         $data = json_decode($response);
-
-        if (!isset($data)) return $response;  // Not JSON
-
-        if (isset($data->error)) throw new Exception("Getting '$id' from Facebook failed: " . $data->error->message);
-        return $data;
+        return $data ?: $response;
     }
 
     /**

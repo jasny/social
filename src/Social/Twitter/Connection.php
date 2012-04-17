@@ -23,7 +23,7 @@ class Connection extends OAuth1
     /**
      * Twitter API URL
      */
-    const baseURL = "https://api.twitter.com/";
+    const baseURL = "https://api.twitter.com/1/";
 
     
     /**
