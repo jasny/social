@@ -189,7 +189,7 @@ class Connection extends Base
             throw new Exception('Authentication response not accepted. IP mismatch, possible cross-site request forgery.');
         }
         
-        $response = $this->request("oauth/access_token", array('client_id' => $this->appId, 'client_secret' => $this->appSecret, 'redirect_uri' => $redirectUrl, 'code' => $code));
+        $response = $this->httpRequest('GET', "oauth/access_token", array('client_id' => $this->appId, 'client_secret' => $this->appSecret, 'redirect_uri' => $redirectUrl, 'code' => $code));
         parse_str($response, $data);
         if (reset($data) == '') $data = json_decode($response, true);
 
@@ -209,7 +209,7 @@ class Connection extends Base
     public function extendAccess()
     {
         if (!isset($this->accessToken)) throw new Exception("Unable to extend access token. Access token isn't set.");
-        $response = $this->request("oauth/access_token", array('client_id' => $this->appId, 'client_secret' => $this->appSecret, 'grant_type' => 'fb_exchange_token', 'fb_exchange_token' => $this->getAccessToken()));
+        $response = $this->httpRequest('GET', "oauth/access_token", array('client_id' => $this->appId, 'client_secret' => $this->appSecret, 'grant_type' => 'fb_exchange_token', 'fb_exchange_token' => $this->getAccessToken()));
 
         parse_str($response, $data);
         if (reset($data) == '') $data = json_decode($response, true);
@@ -253,7 +253,7 @@ class Connection extends Base
      */
     public function fetchData($id, array $params=array())
     {
-        $response = $this->request($id, ($this->accessToken ? array('access_token' => $this->accessToken) : array('client_id' => $this->appId)) + $params);
+        $response = $this->httpRequest('GET', $id, ($this->accessToken ? array('access_token' => $this->accessToken) : array('client_id' => $this->appId)) + $params);
         $data = json_decode($response);
 
         if (!isset($data)) return $response; // Not json

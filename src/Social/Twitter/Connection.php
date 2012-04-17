@@ -132,7 +132,7 @@ class Connection extends Base
      */
     protected function getBaseUrl()
     {
-        return self::baseUrl;
+        return self::baseURL;
     }
     
     
@@ -216,10 +216,10 @@ class Connection extends Base
      * @param array  $headers  Additional HTTP headers
      * @param array  $oauth    Additional oAUth parameters
      */
-    protected function makeRequest($type, $url, $params=null, array $headers=array(), array $oauth=array())
+    protected function httpRequest($type, $url, $params=null, array $headers=array(), array $oauth=array())
     {
         $headers['Authentication'] = $this->getAuthenticationHeader($type, $url, $params, $oauth);
-        parent::makeRequest($type, $url, $params, $headers);
+        return parent::httpRequest($type, $url, $params, $headers);
     }
     
     
@@ -237,11 +237,11 @@ class Connection extends Base
         $callbackUrl = $this->getCurrentUrl($callbackUrl, array('twitter_auth' => 1));
         if (!isset($callbackUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
 
-        $response = $this->postRequest('oauth/request_token', array(), array(), array('oauth_callback' => $callbackUrl));
+        $response = $this->httpRequest('POST', 'oauth/request_token', array(), array(), array('oauth_callback' => $callbackUrl));
         parse_str($response, $tmp_access);
         
         $_SESSION['jasny/social/twitter/tmp_access'] = $tmp_access;
-        return $this->getUrl(self::baseURL . "/oauth/authorize", array('oauth_token' => $data['oauth_token']));
+        return $this->getUrl(self::baseURL . "/oauth/authorize", array('oauth_token' => $tmp_access['oauth_token']));
     }
     
     /**
