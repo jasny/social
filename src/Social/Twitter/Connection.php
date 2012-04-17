@@ -57,6 +57,22 @@ class Connection extends OAuth1
         return parent::getAuthUrl($level, $callbackUrl, $tmp_access);
     }
     
+    /**
+     * Get the URL of the current script.
+     *
+     * @param string $page    Relative path to page
+     * @param array  $params
+     * @return string
+     */
+    static public function getCurrentUrl($page=null, array $params=array())
+    {
+        if (!isset($params['twitter_auth'])) $params['twitter_auth'] = null;
+        $params['oauth_token'] = null;
+        $params['oauth_verifier'] = null;
+
+        return parent::getCurrentUrl($page, $params);
+    }
+
     
     /**
      * Fetch raw data from Twitter.
@@ -81,8 +97,9 @@ class Connection extends OAuth1
      */
     public function get($id, array $params=array())
     {
-        $data = $this->fetchData($id, $params);
-        return $this->convertData($data, $params + $this->extractParams($id));
+        $data = $this->getData($id, $params);
+	return $data;
+//        return $this->convertData($data, $params + $this->extractParams($id));
     }
     
     
@@ -137,5 +154,4 @@ class Connection extends OAuth1
     public function __sleep()
     {
         return array('appId', 'appSecret', 'accessToken', 'accessExpires', 'accessTimestamp');
-    }
-}
+    }}

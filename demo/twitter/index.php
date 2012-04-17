@@ -19,7 +19,9 @@ if (!empty($_GET['twitter_auth'])) {
             header("Location: $url");
             exit();
         case 'auth':
-            $_SESSION['facebook'] = $facebook->handleAuthResponse();
+            $_SESSION['twitter'] = $twitter->handleAuthResponse();
+            header("Location: " . $twitter->getCurrentUrl());
+            exit();
     }
 }
 
@@ -28,9 +30,11 @@ if (!$twitter->isAuth()) {
     exit();
 }
 
-$me = $twitter->me();
+$me = $twitter->get('account/verify_credentials');
 ?>
 
 <div><a href="?logout=1">Logout</a></div>
 
 <h1>Logged in</h1>
+
+<?php var_dump($me) ?>

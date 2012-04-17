@@ -79,7 +79,10 @@ abstract class Connection
         $result = curl_exec($ch);
 
         if ($result === false) throw new Exception("HTTP $type request for '" . preg_replace('/\?.*/', '', $url) . "' failed: " . curl_error($ch));
-        if (curl_getinfo($ch, CURLINFO_HTTP_CODE) >= 300) throw new Exception("HTTP $type request for '" . preg_replace('/\?.*/', '', $url) . "' failed: " . $result);
+        if (curl_getinfo($ch, CURLINFO_HTTP_CODE) >= 300) {
+            $data = json_decode($result);
+            throw new Exception("HTTP $type request for '" . preg_replace('/\?.*/', '', $url) . "' failed: " . (isset($data->error) ? $data->error->message : (isset($data->error_msg) ? $data->error_msg : $result)));
+        }
 
         return $result;
     }

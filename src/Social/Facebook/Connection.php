@@ -172,7 +172,7 @@ class Connection extends Base
      */
     public function getAuthUrl($scope=null, $redirectUrl=null)
     {
-        $redirectUrl = $this->getCurrentUrl($redirectUrl, array('facebook_auth' => 'auth', 'code' => null, 'state' => null));
+        $redirectUrl = parent::getCurrentUrl($redirectUrl, array('facebook_auth' => 'auth', 'code' => null, 'state' => null));
         if (!isset($redirectUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         
         return $this->getUrl(self::authURL, array('client_id' => $this->appId, 'redirect_uri' => $redirectUrl, 'scope' => $scope, 'state' => $this->getUniqueState()));
@@ -194,7 +194,7 @@ class Connection extends Base
             if (isset($_GET['state'])) $state = $_GET['state'];
         }
         
-        $redirectUrl = $this->getCurrentUrl(null, array('code' => null, 'state' => null));
+        $redirectUrl = parent::getCurrentUrl(null, array('code' => null, 'state' => null));
         
         if ($state !== false && $this->getUniqueState() != $state) {
             throw new Exception('Authentication response not accepted. IP mismatch, possible cross-site request forgery.');
@@ -253,6 +253,23 @@ class Connection extends Base
     {
         return isset($this->accessToken) && !$this->isExpired();
     }
+
+
+    /**
+     * Get the URL of the current script.
+     *
+     * @param string $page    Relative path to page
+     * @param array  $params
+     * @return string
+     */
+    static public function getCurrentUrl($page=null, array $params=array())
+    {
+        if (!isset($params['facebook_auth'])) $params['facebook_auth'] = null;
+        $params['code'] = null;
+        $params['state'] = null;
+
+        return parent::getCurrentUrl($page, $params);
+    }
     
     
     /**
@@ -267,9 +284,9 @@ class Connection extends Base
         $response = $this->httpRequest('GET', $id, ($this->accessToken ? array('access_token' => $this->accessToken) : array('client_id' => $this->appId)) + $params);
         $data = json_decode($response);
 
-        if (!isset($data)) return $response; // Not json
+        if (!isset($data)) return $response;  // Not JSON
 
-        if (isset($data->error)) throw new Exception("Getting '$id' from Facebook failed: " . $data->error->message);        
+        if (isset($data->error)) throw new Exception("Getting '$id' from Facebook failed: " . $data->error->message);
         return $data;
     }
 

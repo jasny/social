@@ -20,6 +20,8 @@ if (!empty($_GET['facebook_auth'])) {
             exit();
         case 'auth':
             $_SESSION['facebook'] = $facebook->handleAuthResponse();
+            header("Location: " . $facebook->getCurrentUrl());
+            exit();
     }
 }
 
