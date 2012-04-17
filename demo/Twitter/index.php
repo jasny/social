@@ -13,12 +13,18 @@ if (!empty($_GET['logout'])) {
 $twitter = new Twitter\Connection($cfg->twitter['consumer_key'], $cfg->twitter['consumer_secret'], isset($_SESSION['twitter']) ? $_SESSION['twitter'] : null);
 
 if (!empty($_GET['twitter_auth'])) {
-    $_SESSION['twitter'] = $twitter->handleAuthResponse();
+    switch ($_GET['twitter_auth']) {
+        case 'login':
+            $url = $twitter->getAuthUrl();
+            header("Location: $url");
+            exit();
+        case 'auth':
+            $_SESSION['facebook'] = $facebook->handleAuthResponse();
+    }
 }
 
 if (!$twitter->isAuth()) {
-    $url = $twitter->getAuthUrl();
-    echo "<a href='$url'>$url</a>";
+    echo "<a href='?twitter_auth=login'>Login with Twitter</a>";
     exit();
 }
 

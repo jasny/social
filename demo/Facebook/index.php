@@ -12,18 +12,19 @@ if (!empty($_GET['logout'])) {
 
 $facebook = new Facebook\Connection($cfg->facebook['appid'], $cfg->facebook['secret'], isset($_SESSION['facebook']) ? $_SESSION['facebook'] : null);
 
-if (!empty($_GET['facebook_login'])) {
-    $url = $facebook->getAuthUrl(array('user_hometown', 'user_events'));
-    header("Location: $url");
-    exit();
-}
-
 if (!empty($_GET['facebook_auth'])) {
-    $_SESSION['facebook'] = $facebook->handleAuthResponse();
+    switch ($_GET['facebook_auth']) {
+        case 'login':
+            $url = $facebook->getAuthUrl(array('user_hometown', 'user_events'));
+            header("Location: $url");
+            exit();
+        case 'auth':
+            $_SESSION['facebook'] = $facebook->handleAuthResponse();
+    }
 }
 
 if (!$facebook->isAuth()) {
-    echo "<a href='?facebook_login=1'>Login with facebook</a>";
+    echo "<a href='?facebook_auth=login'>Login with Facebook</a>";
     exit();
 }
 
@@ -41,7 +42,7 @@ $me = $facebook->me();
 <?= $me->hometown->description ?>
 <div><a href="<?= $me->hometown->link ?>">View on Facebook</a></div>
 
-<!-- Show friends -->
+<h2>Friends</h2>
 <?php $i=0; ?>
 <ul>
 <?php foreach($me->friends as $friend) : ?>
@@ -50,7 +51,7 @@ $me = $facebook->me();
 <?php endforeach;?>
 </ul>
 
-<!-- Load events -->
+<h2>Events</h2>
 <?php
     $me->fetch('events', array('since'=>time()));
     $i = 0;

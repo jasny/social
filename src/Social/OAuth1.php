@@ -218,8 +218,10 @@ abstract class OAuth1 extends Connection
      */
     public function getAuthUrl($level='authorize', $callbackUrl=null, &$tmp_access=null)
     {
-        $callbackUrl = $this->getCurrentUrl($callbackUrl, array('twitter_auth' => 1));
-        if (!isset($callbackUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
+        if (!isset($callbackUrl)) {
+            $callbackUrl = $this->getCurrentUrl($callbackUrl, array('twitter_auth' => 'auth'));
+            if (!isset($callbackUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
+        }
 
         $response = $this->httpRequest('POST', 'oauth/request_token', array(), array(), array('oauth_callback' => $callbackUrl));
         parse_str($response, $tmp_access);

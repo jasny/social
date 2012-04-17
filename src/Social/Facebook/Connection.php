@@ -172,7 +172,7 @@ class Connection extends Base
      */
     public function getAuthUrl($scope=null, $redirectUrl=null)
     {
-        $redirectUrl = $this->getCurrentUrl($redirectUrl, array('facebook_auth' => 1, 'code' => null, 'state' => null));
+        $redirectUrl = $this->getCurrentUrl($redirectUrl, array('facebook_auth' => 'auth', 'code' => null, 'state' => null));
         if (!isset($redirectUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         
         return $this->getUrl(self::authURL, array('client_id' => $this->appId, 'redirect_uri' => $redirectUrl, 'scope' => $scope, 'state' => $this->getUniqueState()));
