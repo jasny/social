@@ -24,8 +24,7 @@ abstract class Connection
         CURLOPT_RETURNTRANSFER      => true,
         CURLOPT_TIMEOUT             => 60,
         CURLOPT_USERAGENT           => 'jasny-social-1.0',
-        CURLOPT_HTTPHEADER          => array('Expect:'),
-        CURLOPT_FAILONERROR         => true,
+        CURLOPT_HTTPHEADER          => array('Content-Type:', 'Content-Length:', 'Expect:'),
         CURLOPT_FOLLOWLOCATION      => true,
         CURLOPT_MAXREDIRS           => 3,
     );
@@ -68,18 +67,20 @@ abstract class Connection
         if ($type == 'POST') curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
 
         if ($headers) {
-            foreach ($headers as $key=>&$value) {
-                if (!is_int($key)) $value = "$key: $value";
+            foreach ($headers as $key=>$value) {
+                if (is_int($key)) continue;
+                unset($headers[$key]);
+                $headers[] = "$key: $value";
             }
-            unset($value);
-            if (isset(static::$CURL_OPTS[CURLOPT_HTTPHEADER])) $headers = array_merge(static::$CURL_OPTS[CURLOPT_HTTPHEADER], $headers);
+            if (isset(static::$CURL_OPTS[CURLOPT_HTTPHEADER])) $headers = array_merge($headers, static::$CURL_OPTS[CURLOPT_HTTPHEADER]);
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         }
         
         $result = curl_exec($ch);
-        if ($result === false) throw new Exception("Failed do HTTP request for '" . preg_replace('/\?.*/', '', $url) . "': " . curl_error($ch));
 
-        if (isset($exception)) throw $exception;
+        if ($result === false) throw new Exception("HTTP $type request for '" . preg_replace('/\?.*/', '', $url) . "' failed: " . curl_error($ch));
+        if (curl_getinfo($ch, CURLINFO_HTTP_CODE) >= 300) throw new Exception("HTTP $type request for '" . preg_replace('/\?.*/', '', $url) . "' failed: " . $result);
+
         return $result;
     }
     

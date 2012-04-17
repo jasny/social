@@ -107,17 +107,6 @@ abstract class OAuth1 extends Connection
     }
     
     /**
-     * Get Facebook Open Graph API URL.
-     * 
-     * @return string
-     */
-    protected function getBaseUrl()
-    {
-        return self::baseURL;
-    }
-    
-    
-    /**
      * Generate a unique oAuth nonce.
      * 
      * @return string
@@ -149,9 +138,9 @@ abstract class OAuth1 extends Connection
 
         ksort($params);
         
-        $signing_key = rawurlencode($this->consumerSecret) . '&' . rawurlencode($user_secret);
         $base_string = strtoupper($type) . '&' . rawurlencode($url) . '&' . rawurlencode(http_build_query($params, null, '&'));
-        
+        $signing_key = rawurlencode($this->consumerSecret) . '&' . rawurlencode($user_secret);
+
         return base64_encode(hash_hmac('sha1', $base_string, $signing_key, true));
     }
     
@@ -164,7 +153,7 @@ abstract class OAuth1 extends Connection
      * @param array  $oauth   Additional/Alternative oAuth values
      * @return string
      */
-    protected function getAuthenticationHeader($type, $url, $params, array $oauth=array())
+    protected function getAuthorizationHeader($type, $url, $params, array $oauth=array())
     {
         $oauth += array(
           'oauth_consumer_key' => $this->consumerKey,
@@ -199,7 +188,8 @@ abstract class OAuth1 extends Connection
      */
     protected function httpRequest($type, $url, $params=null, array $headers=array(), array $oauth=array())
     {
-        $headers['Authentication'] = $this->getAuthenticationHeader($type, $url, $params, $oauth);
+	$url = $this->getUrl($url);
+        $headers['Authorization'] = $this->getAuthorizationHeader($type, $url, $params, $oauth);
         return parent::httpRequest($type, $url, $params, $headers);
     }
     
@@ -222,7 +212,7 @@ abstract class OAuth1 extends Connection
         parse_str($response, $tmp_access);
         
         $_SESSION[str_replace('\\', '/', get_class($this)) . ':tmp_access'] = $tmp_access;
-        return $this->getUrl(self::baseURL . "/oauth/authorize", array('oauth_token' => $tmp_access['oauth_token']));
+        return $this->getUrl($this->getBaseUrl() . "/oauth/authorize", array('oauth_token' => $tmp_access['oauth_token']));
     }
     
     /**
@@ -242,9 +232,10 @@ abstract class OAuth1 extends Connection
         
         $sessionkey = str_replace('\\', '/', get_class($this)) . ':tmp_access';
         if (!isset($tmp_access) && isset($_SESSION[$sessionkey])) $tmp_access = $_SESSION[$sessionkey];
-        if (!isset($tmp_access->oauth_token)) throw new Exception("Unable to handle authentication response: the temporary access token is unknown.");
+        if (!isset($tmp_access['oauth_token'])) throw new Exception("Unable to handle authentication response: the temporary access token is unknown.");
+	unset($tmp_access['oauth_callback_confirmed']); // What's this?
         
-        $response = $this->request("oauth/access_token", array(), array(), array('oauth_verifier' => $oauth_verifier) + $tmp_access);
+        $response = $this->httpRequest('GET', "oauth/access_token", array(), array(), array('oauth_verifier' => $oauth_verifier) + $tmp_access);
         parse_str($response, $data);
 
         $this->accessToken = $data['oauth_token'];

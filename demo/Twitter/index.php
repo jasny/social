@@ -14,7 +14,6 @@ $twitter = new Twitter\Connection($cfg->twitter['consumer_key'], $cfg->twitter['
 
 if (!empty($_GET['twitter_auth'])) {
     $_SESSION['twitter'] = $twitter->handleAuthResponse();
-    $db->query("UPDATE user SET token=?, secret=?", $twitter->getAccessToken(), $twitter->getAccessSecret());
 }
 
 if (!$twitter->isAuth()) {
@@ -23,7 +22,7 @@ if (!$twitter->isAuth()) {
     exit();
 }
 
-//$me = $twitter->me();
+$me = $twitter->me();
 ?>
 
 <div><a href="?logout=1">Logout</a></div>
