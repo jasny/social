@@ -64,6 +64,18 @@ abstract class OAuth1 extends Connection
     }
     
     /**
+     * Create a new Facebook connection using the specified access token.
+     * 
+     * @param string|object $access        User's access token or { 'token': string, 'secret': string }
+     * @param int           $accessSecret  User's access token secret (supply if $access is a string)
+     */
+    public function asUser($access, $accessSecret=null)
+    {
+        return new self($this->appId, $this->appSecret, $access, $accessSecret);
+    }
+    
+    
+    /**
      * Get the application's consumer key.
      * 
      * @return string
@@ -105,6 +117,7 @@ abstract class OAuth1 extends Connection
         $access = (object)array('token' => $this->accessToken, 'secret' => $this->accessSecret);
         return $access;
     }
+    
     
     /**
      * Generate a unique oAuth nonce.
@@ -188,7 +201,7 @@ abstract class OAuth1 extends Connection
      */
     protected function httpRequest($type, $url, $params=null, array $headers=array(), array $oauth=array())
     {
-	$url = $this->getUrl($url);
+        $url = $this->getUrl($url);
         $headers['Authorization'] = $this->getAuthorizationHeader($type, $url, $params, $oauth);
         return parent::httpRequest($type, $url, $params, $headers);
     }
@@ -233,7 +246,7 @@ abstract class OAuth1 extends Connection
         $sessionkey = str_replace('\\', '/', get_class($this)) . ':tmp_access';
         if (!isset($tmp_access) && isset($_SESSION[$sessionkey])) $tmp_access = $_SESSION[$sessionkey];
         if (!isset($tmp_access['oauth_token'])) throw new Exception("Unable to handle authentication response: the temporary access token is unknown.");
-	unset($tmp_access['oauth_callback_confirmed']); // What's this?
+        unset($tmp_access['oauth_callback_confirmed']);
         
         $response = $this->httpRequest('GET', "oauth/access_token", array(), array(), array('oauth_verifier' => $oauth_verifier) + $tmp_access);
         parse_str($response, $data);

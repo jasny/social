@@ -45,13 +45,13 @@ class Connection extends Base
 
 
     /**
-     * OAuth token
+     * User's access token
      * @var string
      */
     protected $accessToken;
 
     /**
-     * Timestamp for when token will expire
+     * Timestamp for when access token will expire
      * @var int
      */
     protected $accessExpires;
@@ -69,7 +69,7 @@ class Connection extends Base
      * 
      * @param string        $appId          Application ID
      * @param string        $secret         Application secret
-     * @param string|object $access         Access token or { 'token': string, 'expires': unixtime }
+     * @param string|object $access         User's access token or { 'token': string, 'expires': unixtime }
      * @param int           $accessExpires  Timestamp for when token will expire (supply if $access is a string)
      */
     public function __construct($appId, $appSecret, $access=null, $accessExpires=null)
@@ -85,6 +85,17 @@ class Connection extends Base
             $this->accessToken = $access;
             $this->accessExpires = $accessExpires;
         }
+    }
+    
+    /**
+     * Create a new Facebook connection using the specified access token.
+     * 
+     * @param string|object $access         User's access token or { 'token': string, 'expires': unixtime }
+     * @param int           $accessExpires  Timestamp for when token will expire (supply if $access is a string)
+     */
+    public function asUser($access, $accessExpires=null)
+    {
+        return new self($this->appId, $this->appSecret, $access, $accessExpires);
     }
     
     

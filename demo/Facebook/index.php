@@ -12,17 +12,20 @@ if (!empty($_GET['logout'])) {
 
 $facebook = new Facebook\Connection($cfg->facebook['appid'], $cfg->facebook['secret'], isset($_SESSION['facebook']) ? $_SESSION['facebook'] : null);
 
+if (!empty($_GET['facebook_login'])) {
+    $url = $facebook->getAuthUrl(array('user_hometown', 'user_events'));
+    header("Location: $url");
+    exit();
+}
+
 if (!empty($_GET['facebook_auth'])) {
     $_SESSION['facebook'] = $facebook->handleAuthResponse();
 }
 
 if (!$facebook->isAuth()) {
-    $url = $facebook->getAuthUrl(array('user_hometown', 'user_events'));
-    echo "<a href='$url'>$url</a>";
+    echo "<a href='?facebook_login=1'>Login with facebook</a>";
     exit();
 }
-
-if ($facebook->isExpired(24 * 3600)) $_SESSION['facebook'] = $facebook->extendAccess();
 
 $me = $facebook->me();
 ?>
