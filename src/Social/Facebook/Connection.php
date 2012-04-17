@@ -256,20 +256,20 @@ class Connection extends Base
     
     
     /**
-     * Fetch raw data from facebook.
+     * Fetch raw data from Facebook.
      * 
      * @param string $id
      * @param array  $params  Get parameters
      * @return array
      */
-    public function fetchData($id, array $params=array())
+    public function getData($id, array $params=array())
     {
         $response = $this->httpRequest('GET', $id, ($this->accessToken ? array('access_token' => $this->accessToken) : array('client_id' => $this->appId)) + $params);
         $data = json_decode($response);
 
         if (!isset($data)) return $response; // Not json
 
-        if (isset($data->error)) throw new Exception("Fetching '$id' from Facebook failed: " . $data->error->message);        
+        if (isset($data->error)) throw new Exception("Getting '$id' from Facebook failed: " . $data->error->message);        
         return $data;
     }
 
@@ -280,9 +280,9 @@ class Connection extends Base
      * @param array  $params
      * @return Entity
      */
-    public function fetch($id, array $params=array())
+    public function get($id, array $params=array())
     {
-        $data = $this->fetchData($id, $params);
+        $data = $this->getData($id, $params);
         return $this->convertData($data, $params + $this->extractParams($id));
     }
     
@@ -296,32 +296,9 @@ class Connection extends Base
         if (isset($this->me)) return $this->me;
         if (!$this->isAuth()) throw new Exception("There is no current user. Please set the access token.");
         
-        $data = $this->fetchData('me');
+        $data = $this->getData('me');
         $this->me = new Entity($this, 'user', $data);
         return $this->me;
-    }
-
-    
-    /**
-     * Create a new entity
-     * 
-     * @param string $type
-     * @param array  $data
-     * @return Entity
-     */
-    public function create($type, $data=array())
-    {
-        return new Entity($this, $type, (object)$data);
-    }
-    
-    /**
-     * Create a new collection
-     * 
-     * @param array $data 
-     */
-    public function collection(array $data=array())
-    {
-        return new Collection($this, $type, $data);
     }
     
     /**
@@ -340,7 +317,7 @@ class Connection extends Base
      * Convert data to Entity, Collection or DateTime.
      * 
      * @param mixed $data
-     * @param array $params  Parameters used to fetch data
+     * @param array $params  Parameters used to get data
      * @return Entity|Collection|DateTime|mixed
      */
     public function convertData($data, array $params=array())
@@ -365,7 +342,7 @@ class Connection extends Base
             return new Collection($this, $data->data, $nextPage);
         }
         
-        // Array or stdClass
+        // Array or value object
         if (is_array($data) || $data instanceof \stdClass) {
             foreach ($data as &$value) {
                 $value = $this->convertData($value);

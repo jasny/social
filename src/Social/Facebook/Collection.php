@@ -26,7 +26,7 @@ class Collection extends Base
     {
         if (!isset($this->_nextPage)) return false;
         
-        $collection = $this->_connection->fetch($this->_nextPage);
+        $collection = $this->_connection->get($this->_nextPage);
         if (!$collection instanceof self) throw new Exception("I expected a Collection, but instead got " . (is_object($collection) ? 'a ' . get_class($collection) : (is_scalar($collection) ? "'$collection'" : 'a ' . get_type($collection))));
 
         if ($collection->count() == 0) {

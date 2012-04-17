@@ -118,13 +118,13 @@ abstract class Entity
     abstract public function reload($expand=true);
     
     /**
-     * Get subdata.
+     * Fetch subdata.
      * 
      * @param string $item
      * @param array  $params
      * @return mixed
      */
-    abstract public function fetch($item, array $params=array());
+    abstract public function get($item, array $params=array());
     
     /**
      * Expand a stub when trying to get a non existing property.
@@ -139,6 +139,6 @@ abstract class Entity
             if (property_exists($this, $name)) return $this->$name;
         }
         
-        return $this->fetch($name);
+        return $this->get($name);
     }
 }

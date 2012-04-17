@@ -53,7 +53,7 @@ $me = $facebook->me();
 
 <h2>Events</h2>
 <?php
-    $me->fetch('events', array('since'=>time()));
+    $me->get('events', array('since'=>time()));
     $i = 0;
 ?>
 <ul>

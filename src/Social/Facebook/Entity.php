@@ -46,7 +46,7 @@ class Entity extends Base
         if (isset($this->_metadata)) {
             if (!isset($this->id)) throw new Exception("Unable to fetch metadata. The id is unknown.");
             
-            $data = $this->_connection->fetchData($this->id, array('fields' => 'id', 'metadata' => true));
+            $data = $this->_connection->getData($this->id, array('fields' => 'id', 'metadata' => true));
             $this->_metadata = new self($data->metadata);
         }
         
@@ -60,10 +60,10 @@ class Entity extends Base
      * @param array  $params
      * @return mixed
      */
-    public function fetch($item, array $params=array())
+    public function get($item, array $params=array())
     {
         if (!isset($this->id)) throw new Exception("Unable to fetch subdata. The id is unknown.");
-        $this->$item = $this->_connection->fetch("{$this->id}/$item", $params);
+        $this->$item = $this->_connection->get("{$this->id}/$item", $params);
         
         return $this->$item;
     }
@@ -90,7 +90,7 @@ class Entity extends Base
         // Fetch and set new properties
         $params = !$this->_stub || !$expand ? array('fields'=>$fields) : array();
         
-        $data = $this->_connection->fetchData($id, $params);
+        $data = $this->_connection->getData($id, $params);
         $this->setProperties($data);
         
         $this->_stub = false;
