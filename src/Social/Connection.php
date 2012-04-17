@@ -104,7 +104,7 @@ abstract class Connection
     {
         $ch = curl_init($url);
         curl_setopt_array($ch, static::$CURL_OPTS);
-        curl_setopt(CURLOPT_CUSTOMREQUEST, $type);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $type);
         if (isset($params)) curl_setopt(CURLOPT_POSTFIELDS, $params);
         
         if ($headers) {
