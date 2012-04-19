@@ -71,7 +71,7 @@ abstract class OAuth1 extends Connection
      */
     public function asUser($access, $accessSecret=null)
     {
-        return new self($this->appId, $this->appSecret, $access, $accessSecret);
+        return new static($this->appId, $this->appSecret, $access, $accessSecret);
     }
     
     
@@ -132,11 +132,11 @@ abstract class OAuth1 extends Connection
     /**
      * Generate oAuth signature.
      * 
-     * @param string $type    Request type: GET, POST or DELETE 
+     * @param string $method  Request type: GET, POST or DELETE 
      * @param string $url
      * @param array  $params  Request paramaters + oAuth parameters
      */
-    public function getOAuthSignature($type, $url, array $params)
+    public function getOAuthSignature($method, $url, array $params)
     {
         // Extract additional paramaters from the URL
         if (strpos($url, '?') !== false) {
@@ -151,7 +151,7 @@ abstract class OAuth1 extends Connection
 
         ksort($params);
         
-        $base_string = strtoupper($type) . '&' . rawurlencode($url) . '&' . rawurlencode(http_build_query($params, null, '&'));
+        $base_string = strtoupper($method) . '&' . rawurlencode($url) . '&' . rawurlencode(http_build_query($params, null, '&'));
         $signing_key = rawurlencode($this->consumerSecret) . '&' . rawurlencode($user_secret);
 
         return base64_encode(hash_hmac('sha1', $base_string, $signing_key, true));
@@ -160,13 +160,13 @@ abstract class OAuth1 extends Connection
     /**
      * Get Authentication header.
      * 
-     * @param string $type    GET, POST or DELETE
+     * @param string $method  GET, POST or DELETE
      * @param string $url
-     * @param array  $params  POST parameters
+     * @param array  $params  Request parameters
      * @param array  $oauth   Additional/Alternative oAuth values
      * @return string
      */
-    protected function getAuthorizationHeader($type, $url, $params, array $oauth=array())
+    protected function getAuthorizationHeader($method, $url, $params, array $oauth=array())
     {
         $oauth += array(
           'oauth_consumer_key' => $this->consumerKey,
@@ -177,7 +177,7 @@ abstract class OAuth1 extends Connection
         );
         
         if (isset($this->accessToken) && !isset($oauth['oauth_token'])) $oauth['oauth_token'] = $this->accessToken;
-        $oauth['oauth_signature'] = $this->getOAuthSignature($type, $url, $params + $oauth);
+        $oauth['oauth_signature'] = $this->getOAuthSignature($method, $url, $params + $oauth);
         
         unset($oauth['oauth_token_secret']);
         ksort($oauth);
@@ -193,17 +193,17 @@ abstract class OAuth1 extends Connection
     /**
      * Do an HTTP request.
      * 
-     * @param string $type     GET, POST or DELETE
+     * @param string $method   GET, POST or DELETE
      * @param string $url
-     * @param array  $params   POST parameters
+     * @param array  $params   Request parameters
      * @param array  $headers  Additional HTTP headers
      * @param array  $oauth    Additional oAUth parameters
      */
-    protected function httpRequest($type, $url, $params=null, array $headers=array(), array $oauth=array())
+    protected function httpRequest($method, $url, $params=null, array $headers=array(), array $oauth=array())
     {
         $url = $this->getUrl($url);
-        $headers['Authorization'] = $this->getAuthorizationHeader($type, $url, $params, $oauth);
-        return parent::httpRequest($type, $url, $params, $headers);
+        $headers['Authorization'] = $this->getAuthorizationHeader($method, $url, $params, $oauth);
+        return parent::httpRequest($method, $url, $params, $headers);
     }
     
     

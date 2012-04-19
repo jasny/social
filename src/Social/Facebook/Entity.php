@@ -52,6 +52,7 @@ class Entity extends Base
         
         return $this->_metadata;
     }
+
     
     /**
      * Get subdata.
@@ -71,9 +72,11 @@ class Entity extends Base
     /**
      * Fetch new data from Facebook.
      * 
+     * @param array   $params
      * @param boolean $expand  Get all properties if this is a stub
+     * @return Entity  $this
      */
-    public function reload($expand=true)
+    public function reload(array $params=array(), $expand=true)
     {
         if (!isset($this->id)) throw new Exception("Unable to reload. The id is unknown.");
         
@@ -88,11 +91,13 @@ class Entity extends Base
         }
         
         // Fetch and set new properties
-        $params = !$this->_stub || !$expand ? array('fields'=>$fields) : array();
+        if ((!$this->_stub || !$expand) && !isset($params['fields'])) $params['fields'] = $fields;
         
         $data = $this->_connection->getData($id, $params);
-        $this->setProperties($data);
         
-        $this->_stub = false;
+        $this->setProperties($data);
+        if ($expand) $this->_stub = false;
+        
+        return $this;
     }
 }

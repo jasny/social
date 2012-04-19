@@ -12,7 +12,7 @@ namespace Social;
 /**
  * An autoexpanding collection.
  */
-abstract class Collection extends \ArrayObject
+class Collection extends \ArrayObject
 {
     /**
      * Social connection
@@ -21,10 +21,22 @@ abstract class Collection extends \ArrayObject
     protected $_connection;
     
     /**
+     * Type of entities in the collection
+     * @var string
+     */
+    protected $_type;
+    
+    /**
      * Next page
-     * @var object
+     * @var string
      */
     protected $_nextPage;
+    
+    /**
+     * Load more items if available
+     * @var boolean
+     */
+    protected $_autoload = true;
     
     /**
      * Added items
@@ -47,15 +59,21 @@ abstract class Collection extends \ArrayObject
      * @param array      $data
      * @param object     $nextPage    Next page
      */
-    public function __construct(Connection $connection, array $data=array(), $nextPage=null)
+    public function __construct(Connection $connection, $type=null, array $data=array(), $nextPage=null)
     {
         $this->_connection = $connection;
+        $this->_type = $type;
         $this->_nextPage = $nextPage;
         
         $data = $this->convertData(array_values($data));
         parent::__construct($data);
     }
     
+    /**
+     * Get iterator used for foreach loop.
+     * 
+     * @return CollectionIterator 
+     */
     public function getIterator()
     {
         return new CollectionIterator($this);
@@ -66,7 +84,7 @@ abstract class Collection extends \ArrayObject
      * 
      * @param array $data 
      */
-    protected function appendData(array $data)
+    public function appendData(array $data)
     {
         $data = $this->convertData(array_values($data));
         foreach ($data as &$value) {
@@ -82,7 +100,7 @@ abstract class Collection extends \ArrayObject
      */
     protected function convertData($data)
     {
-        return $this->_connection->convertData($data);
+        return $this->_connection->convertData($data, $this->_type);
     }
     
     
@@ -97,24 +115,62 @@ abstract class Collection extends \ArrayObject
     }
 
     /**
-     * Load next page.
+     * Get the type of items in the collection.
      * 
-     * @return boolean  True if any new data has been added
+     * @return string 
      */
-    abstract public function loadNext();
+    public function getType()
+    {
+        return $this->_type;
+    }
+    
     
     /**
-     * Load all items by getting next and previous pages.
+     * Load next page.
      * 
+     * @param int $count  The (max) number of items you want to load.
      * @return boolean  True if any new data has been added
      */
-    public function loadAll()
+    protected function loadNextPage($count=null)
     {
-        if (!isset($this->_nextPage)) return false;
+        if (!isset($this->_nextPage) || (isset($count) && $count == 0)) return false;
         
-        $ret = false;
-        while ($this->loadNext()) $ret = true;
-        return $ret;
+        $collection = $this->_connection->get($this->_nextPage);
+        if (!$collection instanceof self) throw new Exception("I expected a Collection, but instead got " . (is_object($collection) ? 'a ' . get_class($collection) : (is_scalar($collection) ? "'$collection'" : 'a ' . get_type($collection))));
+
+        if ($collection->count() == 0) {
+            if (!empty($collection->_nextPage) && $this->_nextPage != $collection->_nextPage) {
+                $this->_nextPage = $collection->_nextPage;
+                return $this->loadNextPage();
+            }
+            
+            $this->_nextPage = null;
+            return false;
+        }
+
+        $this->_nextPage = !empty($collection->_nextPage) && $this->_nextPage != $collection->_nextPage ? $collection->_nextPage : null;
+        
+        $data = $collection->getArrayCopy();
+        if (isset($count) && $collection->count(false) > $count) $data = array_splice($data, 0, $count);
+        $this->appendData($this);
+        
+        return true;
+    }
+    
+    /**
+     * Load items by fetching next pages.
+     * 
+     * @param int $count  The number of items you want in the collection.
+     * @return Collection  $this
+     */
+    public function load($count=null)
+    {
+        while (!isset($count) || $this->count(false) < $count) {
+            if (!$this->loadNextPage(isset($count) ? $this->count(false) - $count : null)) break;
+        }
+        
+        $this->_autoload = false;
+        return $this;
     }
 
     /**
@@ -124,7 +180,25 @@ abstract class Collection extends \ArrayObject
      */
     public function isLoaded()
     {
-        return isset($this->_nextPage);
+        return $this->_nextPage && $this->_autoload;
+    }
+    
+    
+    /**
+     * Expand all stubs.
+     * 
+     * { @internal Please overwrite this and do a multi request }}
+     * 
+     * @param array $params
+     * @return Collection  $this
+     */
+    public function expandAll(array $params = array())
+    {
+        foreach ($collection->getArrayCopy() as $item) {
+            if ($item instanceof Entity) $item->expand($params);
+        }
+        
+        return $this;
     }
     
     
@@ -166,7 +240,16 @@ abstract class Collection extends \ArrayObject
      * @param array $data
      * @return int  The key
      */
-    abstract protected function search($item, &$data=null);
+    protected function search($item, &$data=null)
+    {
+        if (!isset($data)) $data = $this->getArrayCopy();
+        if ($item instanceof Entity) $item = $item->id;
+        
+        $this->loadAll();
+        foreach ($data as $key => &$value) {
+            if (($value instanceof Entity ? $value->id : $value) == $item) return $key;
+        }
+    }
     
     /**
      * Search for item.
@@ -198,9 +281,9 @@ abstract class Collection extends \ArrayObject
      */
     public function append($item)
     {
+        if (isset($this->_type) && !$item instanceof Entity) $item = $this->_connection->stub($this->_type, $item);
         parent::append($item);
-        
-        
+        $this->_added[] = $item;
     }
     
     /**
@@ -286,7 +369,7 @@ abstract class Collection extends \ArrayObject
      */
     public function count($load=true)
     {
-        if ($load) $this->loadAll();
+        if ($load) $this->load();
         return parent::count();
     }    
 }

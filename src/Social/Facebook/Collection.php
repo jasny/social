@@ -1,6 +1,6 @@
 <?php
 /**
- * Social Entity
+ * Facebook Collection
  * 
  * @license MIT
  * @copyright 2012 Jasny
@@ -13,53 +13,43 @@ use Social\Collection as Base;
 use Social\Exception;
 
 /**
- * An autoexpanding facebook collection.
+ * Autoexpending Facebook Collection.
  */
 class Collection extends Base
 {
     /**
-     * Load next page.
+     * Expand all entities that are a stub.
      * 
-     * @return boolean  True if any new data has been added
+     * Expanding all stubs at once is way faster than letting each stub autoexpand.
+     * 
+     * @param array $params
+     * @return Collection  $this
      */
-    public function loadNext()
+    public function expandAll(array $params = array())
     {
-        if (!isset($this->_nextPage)) return false;
+        foreach ($collection->getArrayCopy() as $item) {
+            if (!$item instanceof Entity || !$item->isStub() || !isset($item->id)) continue;
+            
+            $entities[$item->id] = $item;
+            $requests[] = (object)array('method' => 'GET', 'url' => $item->id, 'params' => $params);
+        }
         
-        $collection = $this->_connection->get($this->_nextPage);
-        if (!$collection instanceof self) throw new Exception("I expected a Collection, but instead got " . (is_object($collection) ? 'a ' . get_class($collection) : (is_scalar($collection) ? "'$collection'" : 'a ' . get_type($collection))));
-
-        if ($collection->count() == 0) {
-            if (!empty($collection->_nextPage) && $this->_nextPage != $collection->_nextPage) {
-                $this->_nextPage = $collection->_nextPage;
-                return $this->loadNext();
+        if (empty($requests)) return $this; // Nothing to do
+        
+        $results[] = $this->_connection->multiRequest($requests, false);
+        
+        foreach ($results as $data) {
+            if ($data instanceof Exception) {
+                $exceptions[] = $data;
+                continue;
             }
             
-            $this->_nextPage = null;
-            return false;
+            if (isset($entities[$data->id])) $entities[$data->id]->setProperties($data, false);
         }
 
-        $this->_nextPage = !empty($collection->_nextPage) && $this->_nextPage != $collection->_nextPage ? $collection->_nextPage : null;
-        $this->appendData($collection->getArrayCopy());
+        // We ignore if only some requests failed
+        if (count($results) == count($exceptions)) throw new Exception("Failed to expand the entities.", null, $exceptions);
         
-        return true;
-    }
-    
-    /**
-     * Search data for item.
-     * 
-     * @param mixed $item  Value or id
-     * @param array $data
-     * @return int  The key
-     */
-    protected function search($item, &$data=null)
-    {
-        if (!isset($data)) $data = $this->getArrayCopy();
-        if ($item instanceof Entity) $item = $item->id;
-        
-        $this->loadAll();
-        foreach ($data as $key => &$value) {
-            if (($value instanceof Entity ? $value->id : $value) == $item) return $key;
-        }
+        return $this;
     }
 }

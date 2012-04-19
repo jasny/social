@@ -50,15 +50,18 @@ abstract class Entity
     }
 
     /**
-     * Set properties
+     * Set properties.
      * 
-     * @param Entity $data 
+     * @param array   $data 
+     * @param boolean $stub  Set to false to indicate the entity should no long be considered a stub
      */
-    protected function setProperties($data)
+    public function setProperties($data, $stub=null)
     {
         foreach ($data as $key=>&$value) {
             $this->$key = $this->convertData($value);
         }
+        
+        if (isset($stub)) $this->_stub &= $stub;
     }
     
     /**
@@ -69,7 +72,7 @@ abstract class Entity
      */
     protected function convertData($data)
     {
-        return $this->_connection->convertData($data);
+        return $this->getConnection()->convertData($data);
     }
     
     /**
@@ -79,6 +82,7 @@ abstract class Entity
      */
     public function getConnection()
     {
+        if (!isset($this->_connection)) throw new Exception('This entity is not connected to an API. Please use $object->reconnectTo($connection)');
         return $this->_connection;
     }
 
@@ -104,18 +108,23 @@ abstract class Entity
     
     /**
      * Expand stub by fetching new data.
+     * 
+     * @param array $params
      */
-    public function expand()
+    public function expand(array $params=array())
     {
-        if ($this->_stub) $this->reload(true);
+        if ($this->_stub) $this->reload(true, $params);
     }
     
     /**
      * Fetch new data.
      * 
+     * @param array   $params
      * @param boolean $expand  Get all properties if this is a stub
+     * @return Entity  $this
      */
-    abstract public function reload($expand=true);
+    abstract public function reload(array $params=array(), $expand=true);
+    
     
     /**
      * Fetch subdata.
@@ -140,5 +149,33 @@ abstract class Entity
         }
         
         return $this->get($name);
+    }
+    
+    
+    /**
+     * Serialization
+     * { @internal Don't serialze the connection }}
+     * 
+     * @return array
+     */
+    public function __sleep()
+    {
+        $props = get_object_vars($this);
+        unset($props['_connection']);
+        return array_keys($props);
+    }
+    
+    /**
+     * Reconnect an unserialized Entity.
+     * 
+     * @param Connection $connection
+     * @return Entity 
+     */
+    public function reconnectTo(Connection $connection)
+    {
+        if (isset($this->_connection)) throw new Exception("Unable to reconnect Entity: I'm already connected.");
+        $this->_connection = $connection;
+        
+        return $this;
     }
 }

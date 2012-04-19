@@ -11,6 +11,7 @@ namespace Social\Facebook;
 
 use Social\Connection as Base;
 use Social\Exception;
+use Social\Collection;
 
 /**
  * Facebook Graph API connection.
@@ -67,12 +68,15 @@ class Connection extends Base
     /**
      * Class constructor.
      * 
+     * Passing $user_id is not required to act as the user, you're only required to specify the access token.
+     * 
      * @param string        $appId          Application ID
      * @param string        $secret         Application secret
-     * @param string|object $access         User's access token or { 'token': string, 'expires': unixtime }
+     * @param string|object $access         User's access token or { 'token': string, 'expires': unixtime, [ 'user': facebook id ] }
      * @param int           $accessExpires  Timestamp for when token will expire (supply if $access is a string)
+     * @param int|Entity    $user           User's Facebook ID or user entity (optional)
      */
-    public function __construct($appId, $appSecret, $access=null, $accessExpires=null)
+    public function __construct($appId, $appSecret, $access=null, $accessExpires=null, $user=null)
     {
         $this->appId = $appId;
         $this->appSecret = $appSecret;
@@ -81,9 +85,16 @@ class Connection extends Base
         if (is_object($access)) {
             $this->accessToken = $access->token;
             if (isset($access->expires)) $this->accessExpires = $access->expires;
+            if (isset($access->user)) $user = $access->user;
         } else {
             $this->accessToken = $access;
             $this->accessExpires = $accessExpires;
+        }
+        
+        if (isset($user)) {
+            if ($user instanceof Entity) $this->me = $user->reconnectTo($this);
+              elseif (is_scalar($user)) $this->me = new Entity($this, 'user', array('id' => $user), true);
+              else throw new Exception("Was expecting an ID (int) or Entity for \$user, but got a " . (is_object($user) ? get_class($user) : get_type($user)));
         }
     }
     
@@ -92,10 +103,11 @@ class Connection extends Base
      * 
      * @param string|object $access         User's access token or { 'token': string, 'expires': unixtime }
      * @param int           $accessExpires  Timestamp for when token will expire (supply if $access is a string)
+     * @param int|Entity    $user           User's Facebook ID or user entity (optional)
      */
-    public function asUser($access, $accessExpires=null)
+    public function asUser($access, $accessExpires=null, $user=null)
     {
-        return new self($this->appId, $this->appSecret, $access, $accessExpires);
+        return new static($this->appId, $this->appSecret, $access, $accessExpires, $user);
     }
     
     
@@ -296,7 +308,7 @@ class Connection extends Base
     public function get($id, array $params=array())
     {
         $data = $this->getData($id, $params);
-        return $this->convertData($data, $params + $this->extractParams($id));
+        return $this->convertData($data, null, false, $params + $this->extractParams($id));
     }
     
     /**
@@ -314,26 +326,67 @@ class Connection extends Base
         return $this->me;
     }
     
+
+    /**
+     * Create a new entity.
+     * 
+     * @param string $type
+     * @param array  $data
+     * @return Entity
+     */
+    public function create($type, $data=array())
+    {
+        return new Entity($this, $type, (object)$data);
+    }
+    
+    /**
+     * Create a new collection.
+     * 
+     * @param string $type      Type of entities in the collection (may be omitted)
+     * @param array  $data
+     * @return Collection
+     */
+    public function collection($type, $data=array())
+    {
+        if (is_array($type)) {
+            $data = $type;
+            $type = null;
+        }
+        
+        return new Collection($this, $type, $data);
+    }
+    
     /**
      * Create a stub.
      * 
-     * @param array|string $data  Data or id
+     * For Facebook you may also do { @example $facebook->stub($id) }}, omitting $type.
+     * 
+     * @param string       $type  Entity type (may be omitted)
+     * @param array|string $data  Data or id (required)
+     * @return Entity
      */
-    public function stub($data)
+    public function stub($type, $data=null)
     {
+        if (!isset($data)) {
+            $data = $type;
+            $type = null;
+        }
+        
         if (is_scalar($data)) $data = array('id' => $data);
-        return new Entity($this, null, (object)$data);
+        return new Entity($this, $type, (object)$data, true);
     }
     
     
     /**
      * Convert data to Entity, Collection or DateTime.
      * 
-     * @param mixed $data
-     * @param array $params  Parameters used to get data
+     * @param mixed   $data
+     * @param string  $type    Entity type
+     * @param boolean $stub    If an Entity, asume it's a stub
+     * @param object  $source  { 'url': string, 'params': array }
      * @return Entity|Collection|DateTime|mixed
      */
-    public function convertData($data, array $params=array())
+    public function convertData($data, $type=null, $stub=true, $source=null)
     {
         // Don't convert
         if ($data instanceof Entity || $data instanceof Collection || $data instanceof \DateTime) {
@@ -343,22 +396,24 @@ class Connection extends Base
         // Scalar
         if (is_scalar($data) || is_null($data)) {
             if (preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$/', $data)) return new \DateTime($data);
+            if (isset($type)) return $this->stub($type, $data);
             return $data;
         }
 
         // Entity
-        if ($data instanceof \stdClass && isset($data->id)) return new Entity($this, null, $data, true);
+        if ($data instanceof \stdClass && isset($data->id)) return new Entity($this, $type, $data, $stub);
            
         // Collection
         if ($data instanceof \stdClass && isset($data->data) && is_array($data->data)) {
-            $nextPage = isset($data->paging->next) ? $data->paging->next = $this->buildUrl($data->paging->next, $params, false) : null; // Make sure the same parameters are used in the next query
-            return new Collection($this, $data->data, $nextPage);
+            if (is_string($source)) $source = $this->extractParams($source);
+            $nextPage = isset($data->paging->next) ? $data->paging->next = $this->buildUrl($data->paging->next, (array)$source, false) : null; // Make sure the same parameters are used in the next query
+            return new Collection($this, $type, $data->data, $nextPage);
         }
         
         // Array or value object
         if (is_array($data) || $data instanceof \stdClass) {
             foreach ($data as &$value) {
-                $value = $this->convertData($value);
+                $value = $this->convertData($value, $type);
             }
             return $data;
         }
