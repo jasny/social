@@ -14,13 +14,17 @@ use Social\Exception;
 /**
  * Autoexpending Twitter User entity.
  * 
- * @property Collection timeline               statuses/user_timeline
- * @property Collection retweeted_by_user      statuses/retweeted_by_user
- * @property Collection retweeted_to_user      statuses/retweeted_to_user
- * @property Collection followers              followers/ids
- * @property Collection friends                friends/ids
- * @property Collection incomming_friendships  friendships/incomming
- * @property Collection outgoing_friendships   friendships/outgoing
+ * @property string  $profile_image      users/profile_image
+ * @property Tweet[] $timeline           statuses/user_timeline
+ * @property Tweet[] $retweeted_by_user  statuses/retweeted_by_user
+ * @property Tweet[] $retweeted_to_user  statuses/retweeted_to_user
+ * @property User[]  $followers          followers/ids
+ * @property User[]  $friends            friends/ids
+ * @property User[]  $contributees       users/contributees
+ * @property User[]  $contributors       users/contributors
+ * @property List[]  $lists              lists
+ * @property List[]  $subscribed_lists   lists/subscriptions
+ * @property List[]  $all_lists          lists/all
  */
 class User extends Entity
 {
@@ -54,16 +58,23 @@ class User extends Entity
     public function prepareRequest($item, array $params=array())
     {
         $method = 'GET';
-        $params += $this->makeUserData(null, true);
+        $params = $this->asParams() + $params;
         
         switch ($item) {
+            case null:                     return (object)array('resource' => 'users/show');
+            case 'users/profile_image':    return (object)array('resource' => 'users/profile_image', 'params' => array('id' => null, 'screen_name' => $this->screen_name) + $params);
+            
             case 'timeline':               return (object)array('resource' => 'statuses/user_timeline', 'params' => $params, 'lazy' => true);
             case 'retweeted_by_user':      return (object)array('resource' => 'statuses/retweeted_by_user', 'params' => $params, 'lazy' => true);
             case 'retweeted_to_user':      return (object)array('resource' => 'statuses/retweeted_to_user', 'params' => $params, 'lazy' => true);
             case 'followers':              return (object)array('resource' => 'followers/ids', 'params' => $params);
             case 'friends':                return (object)array('resource' => 'friends/ids', 'params' => $params);
-            case 'incomming_friendships':  return (object)array('resource' => 'friendships/incomming', 'params' => $params);
-            case 'outgoing_friendships':   return (object)array('resource' => 'friendships/outgoing', 'params' => $params);
+            case 'contributees':           return (object)array('resource' => 'users/contributees', 'params' => $params);
+            case 'contributors':           return (object)array('resource' => 'users/contributors', 'params' => $params);
+            case 'lists':                  return (object)array('resource' => 'lists', 'params' => $params);
+            case 'subscribed_lists':       return (object)array('resource' => 'lists/subscriptions', 'params' => $params);
+            case 'all_lists':              return (object)array('resource' => 'lists/all', 'params' => $params);
+            
         }
         
         return parent::prepareRequest($item, $params);
@@ -71,7 +82,9 @@ class User extends Entity
     
     
     /**
-     * Get user id/screen_name in array
+     * Get user id/screen_name in array.
+     * 
+     * @return array
      */
     public function asParams()
     {

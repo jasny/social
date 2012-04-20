@@ -17,21 +17,21 @@ use Social\Exception;
  * 
  * @see https://dev.twitter.com/docs/api
  * 
- * @property Collection $timeline               statuses/home_timeline
- * @property Collection $mentions               statuses/mentions
- * @property Collection $retweeted_by_me        statuses/retweeted_by_me
- * @property Collection $retweeted_to_me        statuses/retweeted_to_me
- * @property Collection $retweets_of_me         statuses/retweets_of_me
- * @property Collection $direct_messages        direct_messages
- * @property Collection $send_direct_messages   direct_messages/send
- * @property Collection $incomming_friends      friendships/incoming
- * @property Collection $outgoing_friends       friendships/outgoing
- * @property Collection $no_retweet_friends     friendships/no_retweet_ids
- * @property Collection $favorites              favorites
- * @property object     $rate_limit_status      rate_limit_status
- * @property object     $totals                 totals
- * @property Settings   $settings               settings
- * @property Collection $saved_searches         saved_searches
+ * @property Tweet[]         $timeline               statuses/home_timeline
+ * @property Tweet[]         $mentions               statuses/mentions
+ * @property Tweet[]         $retweeted_by_me        statuses/retweeted_by_me
+ * @property Tweet[]         $retweeted_to_me        statuses/retweeted_to_me
+ * @property Tweet[]         $retweets_of_me         statuses/retweets_of_me
+ * @property DirectMessage[] $direct_messages        direct_messages
+ * @property DirectMessage[] $send_direct_messages   direct_messages/send
+ * @property User[]          $incomming_friends      friendships/incoming
+ * @property User[]          $outgoing_friends       friendships/outgoing
+ * @property User[]          $no_retweet_friends     friendships/no_retweet_ids
+ * @property Tweet[]         $favorites              favorites
+ * @property object          $rate_limit_status      rate_limit_status
+ * @property object          $totals                 totals
+ * @property Settings        $settings               settings
+ * @property Collection      $saved_searches         saved_searches
  */
 class Me extends User
 {
@@ -40,7 +40,7 @@ class Me extends User
      * 
      * @param Connection   $connection
      * @param string       $type
-     * @param object|mixed $data        Data or ID/username; Caution: We don't verify the id/username with the access token.
+     * @param object|mixed $data        Data or ID/username; Caution: We don't verify the id/username against the access token.
      * @param boolean      $stub
      */
     public function __construct(Connection $connection, $data=array(), $stub=false)
@@ -201,7 +201,7 @@ class Me extends User
      * @see https://dev.twitter.com/docs/api/1/post/statuses/update
      * @see https://dev.twitter.com/docs/api/1/post/statuses/update_with_media
      * 
-     * @param string $tweet  The status message
+     * @param string $tweet   The status message
      * @param array  $media   Images
      * @param array  $params  Additional parameters
      * @return Tweet
@@ -256,7 +256,7 @@ class Me extends User
      * 
      * @see https://dev.twitter.com/docs/api/1/post/friendships/destroy
      * 
-     * @param User|int|string $user    User entity, ID or username
+     * @param User|int|string $user  User entity, ID or username
      * @return User
      */
     public function unfollow($user)
@@ -291,16 +291,31 @@ class Me extends User
      * 
      * @see https://dev.twitter.com/docs/api/1/get/friendships/lookup
      * 
-     * @param User|int|string|array $user  User entity/ID/username or array with user entites/IDs/usernames
+     * @param User|int|string|array $userlist  User entity/ID/username or array with user entites/IDs/usernames
      * @return User|Collection
      */
-    public function lookupFriendship($users)
+    public function lookupFriendship($userlist)
     {
-        if (!is_array($users)) $users = array($users);
-        $entities = array();
+        if (!is_array($userlist)) {
+            $user = $userlist;
+            
+            if (is_object($user)) {
+                $params = $user->asParams();
+            } else {
+                $key = is_int($user) || ctype_digit($user) ? 'id' : 'screen_name';
+                $params = array($key => $user);
+            }
+            
+            $result = $this->getConnection()->get('friendships/lookup', $params);
+            $entity = $result[0];
+            
+            if (is_object($user)) $entity->setProperties($user, true);
+            return $entity;
+        }
         
-        foreach ($users as $user) {
+        foreach ($userlist as $user) {
             if (is_object($user)) $key = property_exists($user, 'id') ? 'id' : 'screen_name';
+              else $key = is_int($user) || ctype_digit($user) ? 'id' : 'screen_name';
             
             if ($key == 'id') {
                 if (is_object($user)) {
