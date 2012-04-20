@@ -22,7 +22,7 @@ abstract class Entity extends Base
      * 
      * @param Connection   $connection
      * @param string       $type
-     * @param object|mixed $data         Data or ID
+     * @param object|mixed $data        Data or ID
      * @param boolean      $stub
      */
     public function __construct(Connection $connection, $data=array(), $stub=false)
@@ -46,30 +46,7 @@ abstract class Entity extends Base
      */
     public function prepareRequest($item, array $params=array())
     {
-        throw new Exception("It's not possible to " . (isset($item) ? "fetch $item for" : "refresh") . " a " . $this->getType() . ".");
-    }
-    
-    /**
-     * Get subdata from Twitter.
-     * 
-     * @param string $item
-     * @param array  $params
-     * @return Collection|mixed
-     */
-    public function fetch($item, array $params=array())
-    {
-        $request = $this->prepareRequest($item, $params);
-
-        if (!isset($request)) throw new Exception("It's not possible to fetch $item for a " . $this->getType() . ".");
-        if (isset($request->method) && $request->method != 'GET') throw new Exception("Can't fetch $item for a " . $this->getType() . ": that's a {$request->method} request");
-        
-        if (!isset($request->load) || $request->load) {
-            $this->$item = $this->getConnection()->get($request->resource, $request->params);
-        } else {
-            $this->$item = $this->getConnection()->collection(null, array(), $request);
-        }
-            
-        return $this->$item;
+        return null;
     }
     
     

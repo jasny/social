@@ -13,6 +13,14 @@ use Social\Exception;
 
 /**
  * Autoexpending Twitter User entity.
+ * 
+ * @property Collection timeline               statuses/user_timeline
+ * @property Collection retweeted_by_user      statuses/retweeted_by_user
+ * @property Collection retweeted_to_user      statuses/retweeted_to_user
+ * @property Collection followers              followers/ids
+ * @property Collection friends                friends/ids
+ * @property Collection incomming_friendships  friendships/incomming
+ * @property Collection outgoing_friendships   friendships/outgoing
  */
 class User extends Entity
 {
@@ -49,9 +57,9 @@ class User extends Entity
         $params += $this->makeUserData(null, true);
         
         switch ($item) {
-            case 'timeline':               return (object)array('resource' => 'statuses/user_timeline', 'params' => $params, 'load' => false);
-            case 'retweeted_by_user':      return (object)array('resource' => 'statuses/retweeted_by_user', 'params' => $params, 'load' => false);
-            case 'retweeted_to_user':      return (object)array('resource' => 'statuses/retweeted_to_user', 'params' => $params, 'load' => false);
+            case 'timeline':               return (object)array('resource' => 'statuses/user_timeline', 'params' => $params, 'lazy' => true);
+            case 'retweeted_by_user':      return (object)array('resource' => 'statuses/retweeted_by_user', 'params' => $params, 'lazy' => true);
+            case 'retweeted_to_user':      return (object)array('resource' => 'statuses/retweeted_to_user', 'params' => $params, 'lazy' => true);
             case 'followers':              return (object)array('resource' => 'followers/ids', 'params' => $params);
             case 'friends':                return (object)array('resource' => 'friends/ids', 'params' => $params);
             case 'incomming_friendships':  return (object)array('resource' => 'friendships/incomming', 'params' => $params);

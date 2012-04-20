@@ -58,7 +58,7 @@ abstract class Entity
      */
     public function getConnection()
     {
-        if (!isset($this->_connection)) throw new Exception('This entity is not connected to an API. Please use $object->reconnectTo($connection)');
+        if (!isset($this->_connection)) throw new Exception('This entity is not connected to an API. Please use $entity->reconnectTo($connection)');
         return $this->_connection;
     }
 
@@ -156,6 +156,8 @@ abstract class Entity
     public function fetch($item=null, array $params=array())
     {
         $request = $this->prepareRequest($item, $params);
+
+        if (!isset($request)) throw new Exception("It's not possible to fetch $item for a " . $this->getType() . ".");
         if (isset($request->method) && $request->method != 'GET') throw new Exception("Can't fetch $item for a " . $this->getType() . ": that's a {$request->method} request");
         
         $data = $this->getConnection()->get($request->resource, $request->params);
@@ -165,7 +167,9 @@ abstract class Entity
             return $this;
         }
         
+        if ($data instanceof Collection) $data->load();
         $this->$item = $data;
+        
         return $this->$item;
     }
     
@@ -177,12 +181,24 @@ abstract class Entity
      */
     public function __get($name)
     {
-        if ($this->isStub()) {
-            $this->fetch();
-            if (property_exists($this, $name)) return $this->$name;
-        }
+        // Do we need to expand or get subdata
+        $request = $this->prepareRequest($name);
         
-        return $this->fetch($name);
+        if (isset($request)) {
+            // Prefer lazy load
+            if (!empty($request->lazy)) {
+                $type = $this->getConnection()->detectType($request->url);
+                $this->$name = Collection($this->getConnection(), $type, array(), $request);
+                
+                return $this->$name;
+            }
+            
+            return $this->fetch($name);
+        }
+
+        // Let's expand
+        if ($this->isStub()) $this->fetch();
+        return $this->$name;
     }
     
     

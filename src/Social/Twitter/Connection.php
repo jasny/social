@@ -36,7 +36,7 @@ class Connection extends OAuth1
      * @var array
      */
     private static final $resourceTypes = array(
-        'statuses' => 'status',
+        'statuses' => 'tweet',
         'statuses/*/retweeted_by' => 'user',
         'statuses/oembed' => null,
         'direct_messages~' => 'direct_message',
@@ -47,9 +47,9 @@ class Connection extends OAuth1
         'users' => 'user',
         'users/suggestions' => null,
         'users/profile_image' => null,
-        'favorites' => 'status',
+        'favorites' => 'tweet',
         'lists' => 'list',
-        'lists/statuses' => 'status',
+        'lists/statuses' => 'tweet',
         'lists/members' => 'user',
         'account' => 'me',
         'account/rate_limit_status' => null,
@@ -321,6 +321,37 @@ class Connection extends OAuth1
 
     
     /**
+     * Returns tweets that match a specified query.
+     * 
+     * https://dev.twitter.com/docs/api/1/get/search
+     * 
+     * @param type $query
+     * @param array $params 
+     * @return Collection  of Tweets
+     */
+    public function search($query, array $params=array())
+    {
+        $params['q'] = $query;
+        return $this->get('search', $params);
+    }
+
+    /**
+     * Search for Twitter users.
+     * 
+     * https://dev.twitter.com/docs/api/1/get/users/search
+     * 
+     * @param type $query
+     * @param array $params 
+     * @return Collection  of Users
+     */
+    public function searchUsers($query, array $params=array())
+    {
+        $params['q'] = $query;
+        return $this->get('users/search', $params);
+    }
+    
+    
+    /**
      * Get current user profile.
      * 
      * @return Me
@@ -346,7 +377,7 @@ class Connection extends OAuth1
      */
     protected function createEntity($type, $data, $stub=false)
     {
-        if ($type != 'me' && $type != 'user' && $type != 'status' && $type != 'direct_message' && $type != 'list' && $type != 'saved_search' && $type != 'place') {
+        if ($type != 'me' && $type != 'user' && $type != 'tweet' && $type != 'direct_message' && $type != 'list' && $type != 'saved_search' && $type != 'place') {
             throw new Exception("Unable to create a Twitter entity: unknown entity type '$type'");
         }
         

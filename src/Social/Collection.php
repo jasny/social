@@ -63,9 +63,19 @@ class Collection extends \ArrayObject
     {
         $this->_connection = $connection;
         $this->_type = $type;
-        if (isset($nextPage)) $this->_nextPage = is_string($nextPage) ? (object)array('url' => $nextPage) : (object)$nextPage;
         
-        $data = $this->getConnection()->convertData(array_values($data), $this->getType());
+        if (isset($nextPage)) {
+            $this->_nextPage = is_string($nextPage) ? (object)array('url' => $nextPage) : (object)$nextPage;
+            if (isset($this->_nextPage->count) && $this->_nextPage->count == 0) {
+                unset($this->_nextPage->count);
+                $this->_autoload = false;
+            }
+        }
+        
+        foreach ($data as &$entry){
+            $entry = $connection->convertData($entry, $type);
+        }
+        
         parent::__construct($data);
     }
     
@@ -116,13 +126,12 @@ class Collection extends \ArrayObject
     /**
      * Load next page.
      * 
-     * @param int $count  The (max) number of items you want to load.
-     * @param int $i      Prevents invinite loop
+     * @param int $i  Prevents invinite loop
      * @return boolean  True if any new data has been added
      */
-    protected function loadNextPage($count=null, $i=0)
+    protected function loadNextPage($i=0)
     {
-        if (!isset($this->_nextPage) || (isset($count) && $count == 0)) return false;
+        if (!isset($this->_nextPage)) return false;
         
         $result = $this->getConnection()->multiRequest(array($this->_nextPage));
         if (empty($result)) return false; // HTTP request failed has failed. To bad, I won't complain
@@ -173,11 +182,12 @@ class Collection extends \ArrayObject
     /**
      * Whether all items are loaded.
      * 
+     * @param boolean $available  Ignore count and return if a next page can be loaded.
      * @return boolean
      */
-    public function isLoaded()
+    public function isLoaded($available=false)
     {
-        return $this->_nextPage && $this->_autoload;
+        return $this->_nextPage && ($available || $this->_autoload);
     }
     
     
@@ -187,9 +197,10 @@ class Collection extends \ArrayObject
      * 
      * @param string $item
      * @param array  $params
+     * @param int    $maxPages   Maximum number of pages to load when fetching collections
      * @return Collection  $this
      */
-    public function fetchAll($item=null, array $params=array())
+    public function fetchAll($item=null, array $params=array(), $maxPages=5)
     {
         $this->load();
         
@@ -201,12 +212,34 @@ class Collection extends \ArrayObject
         }
         
         if (!empty($requests)) {
+            $new_requests = array();
             $results = $this->getConnection()->multiRequest($requests);
+            
             foreach ($results as $i=>$result) {
-                if ($result instanceof Collection) $result->load();
+                if (!isset($item)) {
+                    if ($entities[$i] instanceof Entity) $entities[$i]->setProperties($result);
+                      else $entities[$i] = $result;
+                } else {
+                    if (isset($entities[$i]->$item) && $entities[$i] instanceof Entity) $entities[$i]->$item->setProperties($result);
+                      else $entities[$i]->$item = $result;
+                }
                 
-                if (!isset($item)) $entities[$i]->setProperties($result);
-                  else $entities[$i]->$item = $result;
+                if ($result instanceof self && !$result->isLoaded()) $new_requests[$i] = $result->_nextPage;
+            }
+        }
+        
+        while (!empty($new_requests) && --$maxPages > 0) {
+            $requests = $new_requests;
+            $new_requests = array();
+            $results = $this->getConnection()->multiRequest($requests);
+            
+            foreach ($results as $i=>$result) {
+                if (!$result instanceof Collection) continue; // Unexpected behaviour
+                
+                if (!isset($item)) $entities[$i]->appendData($result);
+                  else $entities[$i]->$item->appendData($result);
+                
+                if ($result instanceof self && !$result->isLoaded()) $new_requests[$i] = $result->_nextPage;
             }
         }
         

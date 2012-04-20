@@ -36,11 +36,11 @@ use Social\Exception;
 class Me extends User
 {
     /**
-     * Class constructor
+     * Class constructor.
      * 
      * @param Connection   $connection
      * @param string       $type
-     * @param object|mixed $data        Data or ID/username
+     * @param object|mixed $data        Data or ID/username; Caution: We don't verify the id/username with the access token.
      * @param boolean      $stub
      */
     public function __construct(Connection $connection, $data=array(), $stub=false)
@@ -50,14 +50,17 @@ class Me extends User
         $this->_stub = $stub || is_null($data) || is_scalar($value);
         
         if (isset($data)) {
-            if (is_scalar($data)) $data = $this->makeUserData($data);
-            
-            // We might need a new connection with my token
-            $data = (object)$data;
-            if (isset($data->token) && $connection->getAccessToken() != $data->token) {
-                $this->_connection = $connection->asUser($data->token, $data->secret, $this);
+            if (is_scalar($data)) {
+                $data = $this->makeUserData($data);
+            } else {
+                // We might need a new connection with my token
+                $data = (object)$data;
+                
+                if (property_exists($data, 'token') && $connection->getAccessToken() != $data->token) {
+                    $this->_connection = $connection->asUser($data->token, $data->secret, $this);
+                }
             }
-
+            
             $this->setProperties($data);
         }
     }
@@ -75,17 +78,17 @@ class Me extends User
         switch ($item) {
             case null:                      return (object)array('resource' => 'account/verify_credentials');
             
-            case 'timeline':                return (object)array('resource' => 'statuses/home_timeline', 'load' => false);
-            case 'mentions':                return (object)array('resource' => 'statuses/mentions', 'load' => false);
-            case 'retweeted_by_me':         return (object)array('resource' => 'statuses/retweeted_by_me', 'load' => false);
-            case 'retweeted_to_me':         return (object)array('resource' => 'statuses/retweeted_to_me', 'load' => false);
-            case 'retweets_of_me':          return (object)array('resource' => 'statuses/retweets_of_me', 'load' => false);
-            case 'direct_messages':         return (object)array('resource' => 'direct_messages', 'load' => false);
-            case 'send_direct_messages':    return (object)array('resource' => 'direct_messages/send', 'load' => false);
+            case 'timeline':                return (object)array('resource' => 'statuses/home_timeline', 'lazy' => true);
+            case 'mentions':                return (object)array('resource' => 'statuses/mentions', 'lazy' => true);
+            case 'retweeted_by_me':         return (object)array('resource' => 'statuses/retweeted_by_me', 'lazy' => true);
+            case 'retweeted_to_me':         return (object)array('resource' => 'statuses/retweeted_to_me', 'lazy' => true);
+            case 'retweets_of_me':          return (object)array('resource' => 'statuses/retweets_of_me', 'lazy' => true);
+            case 'direct_messages':         return (object)array('resource' => 'direct_messages', 'lazy' => true);
+            case 'send_direct_messages':    return (object)array('resource' => 'direct_messages/send', 'lazy' => true);
             case 'incomming_friends':       return (object)array('resource' => 'friendships/incoming');
             case 'outgoing_friends':        return (object)array('resource' => 'friendships/outgoing');
             case 'no_retweet_friends':      return (object)array('resource' => 'friendships/no_retweet_ids');
-            case 'favorites':               return (object)array('resource' => 'favorites', 'load' => false);
+            case 'favorites':               return (object)array('resource' => 'favorites', 'lazy' => true);
             case 'rate_limit_status':       return (object)array('resource' => 'account/rate_limit_status');
             case 'totals':                  return (object)array('resource' => 'account/totals');
             case 'settings':                return (object)array('resource' => 'account/settings');
@@ -198,14 +201,14 @@ class Me extends User
      * @see https://dev.twitter.com/docs/api/1/post/statuses/update
      * @see https://dev.twitter.com/docs/api/1/post/statuses/update_with_media
      * 
-     * @param string $status  The status message
+     * @param string $tweet  The status message
      * @param array  $media   Images
      * @param array  $params  Additional parameters
-     * @return Status
+     * @return Tweet
      */
-    public function tweet($status, $media=array(), array $params=array())
+    public function tweet($tweet, $media=array(), array $params=array())
     {
-        $params['status'] = $status;
+        $params['status'] = $tweet;
         if (!empty($media)) $params['media'] = $media;
         
         return $this->getConnection()->post('statuses/update' . ($media ? '_with_media' : ''), $params);
@@ -282,19 +285,82 @@ class Me extends User
         return $this->getConnection->post('friendships/update', $this->makeUserData($user, true) + $params);
     }
     
+    /**
+     * Get the relationship with the user(s).
+     * Values for connections can be: following, following_requested, followed_by, none.
+     * 
+     * @see https://dev.twitter.com/docs/api/1/get/friendships/lookup
+     * 
+     * @param User|int|string|array $user  User entity/ID/username or array with user entites/IDs/usernames
+     * @return User|Collection
+     */
+    public function lookupFriendship($users)
+    {
+        if (!is_array($users)) $users = array($users);
+        $entities = array();
+        
+        foreach ($users as $user) {
+            if (is_object($user)) $key = property_exists($user, 'id') ? 'id' : 'screen_name';
+            
+            if ($key == 'id') {
+                if (is_object($user)) {
+                    $ids[] = $user->id;
+                    $entities[$user->id] = $user;
+                } else {
+                    $ids[] = $user;
+                }
 
+                if (count($ids) >= 100) {
+                    $requests[] = (object)array('method' => 'POST', 'url' => 'friendships/lookup', array('user_id' => $ids));
+                    $ids = array();
+                }
+
+            } else {
+                if (is_object($user)) {
+                    $names[] = $user->screen_name;
+                    $entities[$user->screen_name] = $user;
+                } else {
+                    $names[] = $user;
+                }
+
+                if (count($names) >= 100) {
+                    $requests[] = (object)array('method' => 'POST', 'url' => 'friendships/lookup', array('screen_name' => $names));
+                    $names = array();
+                }
+            }
+        }
+
+        if (!empty($ids)) $requests[] = (object)array('method' => 'POST', 'url' => 'friendships/lookup', array('user_id' => $ids) + $params);
+        if (!empty($names)) $requests[] = (object)array('method' => 'POST', 'url' => 'friendships/lookup', array('screen_name' => $names) + $params);
+        
+        $users = array();
+        $results = $this->_connection->multiRequest($requests);
+        
+        foreach ($results as $result) {
+            foreach ($result as $user) {
+                if (isset($entities[$user->id])) $user->setProperties($entities[$user->id], true);
+                  elseif (isset($entities[$user->screen_name])) $user->setProperties($entities[$user->screen_name], true);
+                
+                $users[] = $user;
+            }
+        }
+
+        return new Collection($this->getConnection(), 'user', $users);
+    }
+    
+    
     /**
      * Mark a tweet as favorite.
      * 
      * @see https://dev.twitter.com/docs/api/1/post/favorites/create/%3Aid
      * 
-     * @param Status|int $status  Status entity or ID
+     * @param Tweet|int  $tweet   Tweet entity or ID
      * @param array      $params  Additional parameters
-     * @return Status
+     * @return Tweet
      */
-    public function favorite($status, array $params=array())
+    public function favorite($tweet, array $params=array())
     {
-        $params['id'] = is_scalar($status) ? $status : $status->id;
+        $params['id'] = is_scalar($tweet) ? $tweet : $tweet->id;
         return $this->getConnection->post('favorites/create', $params);
     }
 
@@ -303,13 +369,13 @@ class Me extends User
      * 
      * @see https://dev.twitter.com/docs/api/1/post/favorites/create/%3Aid
      * 
-     * @param Status|int $status  Status entity or ID
+     * @param Tweet|int  $tweet   Tweet entity or ID
      * @param array      $params  Additional parameters
-     * @return Status
+     * @return Tweet
      */
-    public function unfavorite($status, array $params=array())
+    public function unfavorite($tweet, array $params=array())
     {
-        $params['id'] = is_scalar($status) ? $status : $status->id;
+        $params['id'] = is_scalar($tweet) ? $tweet : $tweet->id;
         return $this->getConnection->post('favorites/destroy', $params);
     }
 }
