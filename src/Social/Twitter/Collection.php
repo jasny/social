@@ -19,70 +19,38 @@ use Social\Exception;
 class Collection extends Base
 {
     /**
-     * Expand all entities that are a stub.
+     * Do a fetch for all entities.
+     * Implies loading all pages of this collection.
      * 
-     * Expanding all stubs at once is way faster than letting each stub autoexpand.
-     * 
-     * @param array $params
+     * @param string $item
+     * @param array  $params
      * @return Collection  $this
      */
-    public function expandAll(array $params = array())
+    public function fetchAll($item=null, array $params=array())
     {
-        $resource = null;
-        $param = 'id';
-        
-        switch ($this->_type) {
-            case 'user': return $this->expandUsers($params);
-            case 'status': $resource = 'statuses/show'; break;
-            case 'direct_message': $resource = 'direct_messages/show'; break;
-            case 'list': $resource = 'lists/show'; break;
-            case 'saved_searches': $resource = 'saved_searches/show'; break;
-            case 'place': $resource = 'geo/id'; $param = 'place_id'; break;
-            default: return parent::expandAll($params);
-        }
-
-        foreach ($collection->getArrayCopy() as $item) {
-            if (!$item instanceof Entity || !$item->isStub() || !isset($item->id)) continue;
-            
-            $entities[$item->id] = $item;
-            $requests[] = (object)array('method' => 'GET', 'url' => $resource, 'params' => array($param => $item->id) + $params);
-        }
-        
-        if (empty($requests)) return $this; // Nothing to do
-        
-        $results[] = $this->_connection->multiRequest($requests, false);
-        
-        foreach ($results as $data) {
-            if ($data instanceof Exception) {
-                $exceptions[] = $data;
-                continue;
-            }
-            
-            if (isset($entities[$data->id])) $entities[$data->id]->setProperties($data, false);
-        }
-
-        // We ignore if only some requests failed
-        if (count($results) == count($exceptions)) throw new Exception("Failed to expand the entities.", null, $exceptions);
-        
-        return $this;
+        if ($this->_type == 'user' && !isset($item)) return $this->fetchUsers($params);
+        return parent::fetchAll($item, $params);
     }
 
     /**
-     * Expand all user entities that are a stub.
-     * 
+     * Fetch all user entities.
      * We can get the info of up to 100 users per call.
      * 
      * @param array $params 
      * @return Collection  $this
      */
-    private function expandUsers(array $params = array())
+    private function fetchUsers(array $params=array())
     {
-        foreach ($collection->getArrayCopy() as $user) {
-            if (!$user->isStub()) continue;
+        $this->load();
+        
+        $entities = $collection->getArrayCopy();
+        
+        foreach ($entities as $i=>$entity) {
+            if (!$entity->isStub()) continue;
 
-            if ($user->has('id')) {
-                $ids[] = $user->id;
-                $entities[$user->id] = $user;
+            if (property_exists($entity, 'id')) {
+                $ids[] = $entity->id;
+                $entities[$entity->id] = $entity;
 
                 if (count($ids) >= 100) {
                     $requests[] = (object)array('method' => 'POST', 'url' => 'users/lookup', array('user_id' => $ids) + $params);
@@ -90,8 +58,8 @@ class Collection extends Base
                 }
 
             } else {
-                $names[] = $user->screen_name;
-                $entities[$user->screen_name] = $user;
+                $names[] = $entity->screen_name;
+                $entities[$entity->screen_name] = $entity;
 
                 if (count($names) >= 100) {
                     $requests[] = (object)array('method' => 'POST', 'url' => 'users/lookup', array('screen_name' => $names) + $params);
@@ -103,23 +71,15 @@ class Collection extends Base
         if (!empty($ids)) $requests[] = (object)array('method' => 'POST', 'url' => 'users/lookup', array('user_id' => $ids) + $params);
         if (!empty($names)) $requests[] = (object)array('method' => 'POST', 'url' => 'users/lookup', array('screen_name' => $names) + $params);
         
-        $results[] = $this->_connection->multiRequest($requests, false);
+        $results = $this->_connection->multiRequest($requests, false);
         
-        foreach ($results as $data) {
-            if ($data instanceof Exception) {
-                $exceptions[] = $data;
-                continue;
-            }
-            
-            foreach ($data as $props) {
-                $key = isset($users[$props->id]) ? 'id' : 'screen_name';
-                $users[$props->$key]->setProperties($props, false);
+        foreach ($results as $result) {
+            foreach ($result as $data) {
+                $key = isset($entitys[$data->id]) ? 'id' : 'screen_name';
+                $entitys[$data->$key]->setProperties($data, true);
             }
         }
 
-        // We ignore if only some requests failed
-        if (count($results) == count($exceptions)) throw new Exception("Failed to expand the entities.", null, $exceptions);
-        
         return $this;
     }
 }

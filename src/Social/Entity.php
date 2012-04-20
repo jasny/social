@@ -32,6 +32,7 @@ abstract class Entity
      */
     protected $_stub = false;
     
+    
     /**
      * Class constructor
      * 
@@ -48,33 +49,8 @@ abstract class Entity
         
         $this->setProperties($data);
     }
+    
 
-    /**
-     * Set properties.
-     * 
-     * @param array   $data 
-     * @param boolean $stub  Set to false to indicate the entity should no long be considered a stub
-     */
-    public function setProperties($data, $stub=null)
-    {
-        foreach ($data as $key=>&$value) {
-            $this->$key = $this->convertData($value);
-        }
-        
-        if (isset($stub)) $this->_stub &= $stub;
-    }
-    
-    /**
-     * Convert value to object.
-     * 
-     * @param mixed $data
-     * @return mixed 
-     */
-    protected function convertData($data)
-    {
-        return $this->getConnection()->convertData($data);
-    }
-    
     /**
      * Get API connection.
      * 
@@ -105,35 +81,93 @@ abstract class Entity
     {
         return $this->_stub;
     }
+
     
     /**
-     * Expand stub by fetching new data.
+     * Set properties.
      * 
-     * @param array $params
+     * @param array   $data 
+     * @param boolean $expanded  Entity is no longer a stub
      */
-    public function expand(array $params=array())
+    public function setProperties($data, $expanded=false)
     {
-        if ($this->_stub) $this->reload(true, $params);
+        // Data is already converted
+        if ($data instanceof self) {
+            foreach ($data as $key=>$value) {
+                $this->$key = $value;
+            }
+            
+            if (!$data->_stub) $this->_stub = false;
+            return;
+        }
+        
+        // Raw data
+        foreach ($data as $key=>&$value) {
+            $this->$key = $this->getConnection()->convertData($value);
+        }
+        
+        if ($expanded) $this->_stub = false;
     }
     
     /**
-     * Fetch new data.
+     * Get properties (for POST).
      * 
-     * @param array   $params
-     * @param boolean $expand  Get all properties if this is a stub
-     * @return Entity  $this
+     * @param array  $fields
+     * @param string $prefix  Prefix in entity properties
+     * @return array
      */
-    abstract public function reload(array $params=array(), $expand=true);
+    protected function getProperties($fields=null, $prefix=null)
+    {
+        if (isset($prefix)) {
+            $values = (array)$this;
+            if (isset($fields)) $values = array_intersect_key($values, array_fill_keys($fields, null));
+        
+            $data = array();
+            foreach ($values as $key=>$value) {
+                $key = substr($key, strlen($prefix) + 1);
+                $data[$key] = $value;
+            }
+        } else {            
+            $data = array_intersect_key((array)$this, array_fill_keys($fields, null));
+        }
+        
+        return $data;
+    }
     
     
     /**
-     * Fetch subdata.
+     * Get resource object for fetching subdata.
+     * Preparation for a multi request.
      * 
      * @param string $item
      * @param array  $params
-     * @return mixed
+     * @return array
      */
-    abstract public function get($item, array $params=array());
+    abstract public function prepareRequest($item, array $params=array());
+    
+    /**
+     * Fetch new data from web service.
+     * Expands the entity if it's a stub.
+     * 
+     * @param string $item    Sub item or null to refresh entity
+     * @param array  $params
+     * @return Collection|mixed
+     */
+    public function fetch($item=null, array $params=array())
+    {
+        $request = $this->prepareRequest($item, $params);
+        if (isset($request->method) && $request->method != 'GET') throw new Exception("Can't fetch $item for a " . $this->getType() . ": that's a {$request->method} request");
+        
+        $data = $this->getConnection()->get($request->resource, $request->params);
+        
+        if (!isset($item)) {
+            $this->setProperties($data, true);
+            return $this;
+        }
+        
+        $this->$item = $data;
+        return $this->$item;
+    }
     
     /**
      * Expand a stub when trying to get a non existing property.
@@ -143,12 +177,12 @@ abstract class Entity
      */
     public function __get($name)
     {
-        if ($this->_stub) {
-            $this->expand();
+        if ($this->isStub()) {
+            $this->fetch();
             if (property_exists($this, $name)) return $this->$name;
         }
         
-        return $this->get($name);
+        return $this->fetch($name);
     }
     
     
@@ -169,7 +203,7 @@ abstract class Entity
      * Reconnect an unserialized Entity.
      * 
      * @param Connection $connection
-     * @return Entity 
+     * @return Entity  $this
      */
     public function reconnectTo(Connection $connection)
     {

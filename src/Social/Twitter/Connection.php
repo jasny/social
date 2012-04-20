@@ -27,10 +27,15 @@ class Connection extends OAuth1
     const baseURL = "https://api.twitter.com/1/";
 
     /**
+     * Twitter API URL
+     */
+    const uploadURL = "https://upload.twitter.com/1/";
+    
+    /**
      * Entity type per resource
      * @var array
      */
-    public static final $resourceTypes = array(
+    private static final $resourceTypes = array(
         'statuses' => 'status',
         'statuses/*/retweeted_by' => 'user',
         'statuses/oembed' => null,
@@ -59,10 +64,20 @@ class Connection extends OAuth1
     );
     
     /**
+     * Resource that require a multipart POST
+     * @var array
+     */
+    public static final $resourcesMultipart = array(
+        'account/update_profile_background_image' => true,
+        'account/update_profile_image' => true,
+        'statuses/update_with_media' => true,
+    );
+    
+    /**
      * Default paramaters per resource.
      * @var array
      */
-    public static final $defaultParams = array(
+    private static final $defaultParams = array(
         'statuses/home_timeline'     => array('count' => 200, 'include_entities' => true),
         'statuses/mentions'          => array('count' => 200, 'include_entities' => true),
         'statuses/retweeted_by_me'   => array('count' => 100, 'include_entities' => true),
@@ -130,6 +145,7 @@ class Connection extends OAuth1
         return self::baseURL;
     }    
 
+    
     /**
      * Get authentication url.
      * Temporary accesss information is automatically stored to a session.
@@ -152,7 +168,7 @@ class Connection extends OAuth1
      * @param array  $params
      * @return string
      */
-    static public function getCurrentUrl($page=null, array $params=array())
+    public static function getCurrentUrl($page=null, array $params=array())
     {
         if (!isset($params['twitter_auth'])) $params['twitter_auth'] = null;
         $params['oauth_token'] = null;
@@ -161,28 +177,39 @@ class Connection extends OAuth1
         return parent::getCurrentUrl($page, $params);
     }
     
+    
+    /**
+     * Get normalized resource from URL
+     * 
+     * @param string $url
+     * @return string
+     */
+    public static function normalizeResource($url)
+    {
+        return preg_replace(array('~/\d+(?=/|$)~', '~.\w+$~'), array('/*', ''), parse_url($resource, PHP_URL_PATH)); // Replace id's by '*' and normalize
+    }
+    
     /**
      * Get default parameters for resource.
      * 
      * @param string $resource
      * @return array
      */
-    protected function getDefaultParams($resource)
+    public static function getDefaultParams($resource)
     {
-        $resource = parse_url($resource, PHP_URL_PATH);
+        $resource = self::normalizeResource($resource);
         return isset(self::$defaultParams[$resource]) ? self::$defaultParams[$resource] : array();
     }
 
     /**
      * Get entity type for resource.
      * 
-     * @param type $resource 
+     * @param string $resource 
      * @return string
      */
-    protected function detectType($resource)
+    public static function detectType($resource)
     {
-        $resource = parse_url($resource, PHP_URL_PATH);
-        $resource = preg_replace('~/\d+(?=/|$)~', '/*', $resource); // Replace id's by '*'
+        $resource = self::normalizeResource($resource);
         
         do {
             if (isset(self::$resourceTypes[$resource])) return self::$resourceTypes[$resource];
@@ -192,81 +219,119 @@ class Connection extends OAuth1
         return null;
     }
     
-    
     /**
-     * Get raw data from Twitter.
+     * Check if resource requires a multipart POST.
      * 
      * @param string $resource
-     * @param array  $params    GET parameters
-     * @return mixed
+     * @return boolean 
      */
-    public function getData($resource, array $params=array())
+    protected static function detectMultipart($resource)
     {
-        $params += $this->getDefaultParams($resource);
+        $resource = self::normalizeResource($resource);
+        return !empty(self::$resourcesMultipart[$resource]);
+    }
+    
+    
+    /**
+     * Do an HTTP request.
+     * 
+     * @param string $method   GET, POST or DELETE
+     * @param string $url
+     * @param array  $params   Request parameters
+     * @param array  $headers  Additional HTTP headers
+     * @param array  $oauth    Additional oAUth parameters
+     */
+    protected function httpRequest($method, $url, $params=null, array $headers=array(), array $oauth=array())
+    {
+        $params += $this->getDefaultParams($url);
+        if ($this->detectMultipart($url)) $headers['Content-Type'] = 'multipart/form-data';
         
-        $response = $this->httpRequest('GET', $resource . (pathinfo($id, PATHINFO_EXTENSION) ? "" : ".json"), $params);
-        $data = json_decode($response);
-        return $data ?: $response;
+        return parent::httpRequest($method, $url, $params, $headers, $oauths);
+    }
+    
+    /**
+     * Run multiple HTTP requests in parallel.
+     * 
+     * @param array   $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
+     * @param boolean $convert   Convert to entity/collection, false returns raw data
+     * @return array
+     */
+    public function multiRequest(array $requests, $convert=true)
+    {
+        foreach ($requests as $request) {
+            $request->params = (isset($request->params) ? array() : $request->params) + $this->getDefaultParams($request->url);
+            if ($this->detectMultipart($request->url)) $request->headers['Content-Type'] = 'multipart/form-data';
+        }
+        
+        $results = parent::multiRequest($requests);
+        
+        if ($convert) {
+            foreach ($results as $i=>&$data) {
+                $type = $this->detectType($requests[$i]->url);
+                $data = $this->convertData($data, $type, false, $requests[$i]);
+            }
+        }
     }
 
     /**
-     * Fetch an entity (or other data) from Twitter.
+     * Fetch from Twitter.
      * 
-     * @param string $resource
-     * @param array  $params
-     * @return Entity
+     * @param string  $resource
+     * @param array   $params
+     * @param boolean $convert   Convert to entity/collection, false returns raw data
+     * @return Entity|Collection|mixed
      */
-    public function get($resource, array $params=array())
+    public function get($resource, array $params=array(), $convert=true)
     {
-        $type = $this->detectType($resource);
-        
-        $data = $this->getData($resource . ".json", $params);
-        return $this->convertData($data, $type, false, $this->buildUrl($id, $params));
-    }
-    
-    /**
-     * Post to Twitter and return raw data.
-     * 
-     * @param string $resource
-     * @param array  $params    POST parameters
-     * @return mixed
-     */
-    public function postData($resource, array $params)
-    {
-        $params += $this->getDefaultParams($resource);
-        
-        $response = $this->httpRequest('POST', $resource . (pathinfo($id, PATHINFO_EXTENSION) ? "" : ".json"), $params);
+        $response = $this->httpRequest('GET', $resource . (pathinfo($resource, PATHINFO_EXTENSION) ? "" : ".json"), $params);
         $data = json_decode($response);
-        return $data ?: $response;
+        
+        if (!isset($data)) return $response;
+        
+        if ($convert) {
+            $type = $this->detectType($resource);
+            $data = $this->convertData($data, $type, false, (object)array('method' => 'GET', 'url' => $resource, 'params' => $params));
+        }
+        
+        return $data;
     }
     
     /**
-     * Post to Twitter and return entity.
+     * Post to Twitter.
      * 
-     * @param string $resource
-     * @param array  $params    POST parameters
-     * @return mixed
+     * @param string  $resource
+     * @param array   $params    POST parameters
+     * @param boolean $convert   Convert to entity/collection, false returns raw data
+     * @return Entity|Collection|mixed
      */
-    public function post($resource, array $params)
+    public function post($resource, array $params, $convert=true)
     {
-        $type = $this->detectType($resource);
+        $response = $this->httpRequest('GET', $resource . (pathinfo($resource, PATHINFO_EXTENSION) ? "" : ".json"), $params);
+        $data = json_decode($response);
         
-        $data = $this->getData($resource . ".json", $params);
-        return $this->convertData($data, $type, false, $this->buildUrl($id, $params));
+        if (!isset($data)) return $response;
+        
+        if ($convert) {
+            $type = $this->detectType($resource);
+            $data = $this->convertData($data, $type, false, (object)array('method' => 'POST', 'url' => $resource, 'params' => $params));
+        }
+        
+        return $data;
     }
 
     
     /**
      * Get current user profile.
      * 
-     * @return Entity
+     * @return Me
      */
     public function me()
     {
-        if (isset($this->me)) return $this->me;
-        if (!$this->isAuth()) throw new Exception("There is no current user. Please set the access token.");
+        if (!isset($this->me)) {
+            if (!$this->isAuth()) throw new Exception("There is no current user. Please set the access token.");
+            $this->me = new Me($this, null, true);
+        }
         
-        $this->me = new Me($this, null, true);
         return $this->me;
     }
     
@@ -281,7 +346,7 @@ class Connection extends OAuth1
      */
     protected function createEntity($type, $data, $stub=false)
     {
-        if ($type != 'user' && $type != 'status' && $type != 'direct_message' && $type != 'list' && $type != 'saved_search' && $type != 'place') {
+        if ($type != 'me' && $type != 'user' && $type != 'status' && $type != 'direct_message' && $type != 'list' && $type != 'saved_search' && $type != 'place') {
             throw new Exception("Unable to create a Twitter entity: unknown entity type '$type'");
         }
         
@@ -336,12 +401,12 @@ class Connection extends OAuth1
      * Convert data to Entity, Collection or DateTime.
      * 
      * @param mixed    $data
-     * @param string   $type    Entity type
-     * @param boolean  $stub    If an Entity, asume it's a stub
-     * @param string   $source  URL used to get data
+     * @param string   $type     Entity type
+     * @param boolean  $stub     If an Entity, asume it's a stub
+     * @param object   $request  Request used to get data
      * @return Entity|Collection|DateTime|mixed
      */
-    public function convertData($data, $type=null, $stub=false, $source=null)
+    public function convertData($data, $type=null, $stub=false, $request=null)
     {
         // Don't convert
         if ($data instanceof Entity || $data instanceof Collection || $data instanceof \DateTime) {
@@ -360,12 +425,12 @@ class Connection extends OAuth1
         
         // Collection
         if ($data instanceof \stdClass && isset($data->next_cursor)) {
-            
+            // TODO: calc next page
             return new Collection($this, $type, $data->data, $nextPage);
         }
 
         if (is_array($data) && is_object(reset($data))) {
-            
+            // TODO: calc next page
             return new Collection($this, $type, $data, $nextPage);
         }
         

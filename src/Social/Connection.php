@@ -30,6 +30,14 @@ abstract class Connection
         CURLOPT_TIMEOUT             => 10,
     );
     
+    
+    /**
+     * Errors from doing a multirequest
+     * @var array
+     */
+    private $multiRequestErrors = null;
+
+    
     /**
      * Get API base URL.
      * {{ @internal Should end with a slash }
@@ -41,14 +49,31 @@ abstract class Connection
     /**
      * Get full URL.
      * 
-     * @param string $path 
+     * @param string $url     Relative or absolute URL or a request object
      * @param array  $params  Parameters
      */
-    public function getUrl($path=null, array $params=array())
+    public function getUrl($url=null, array $params=array())
     {
-        $url = strpos($path, '://') === false ? $this->getBaseUrl() . ltrim($path, '/') : $path;
-        return self::buildUrl($url, $params);
+        if (is_object($url)) {
+            if (isset($url->params)) $params = $url->params + $params;
+            $url = $url->url;
+        }
+        
+        $url = strpos($url, '://') === false ? $this->getBaseUrl() . ltrim($path, '/') : $url;
+        return $this->buildUrl($url, $params);
     }
+    
+    
+    /**
+     * Get errors from the last muli request call.
+     * 
+     * @return array
+     */
+    public function getMultiRequestErrors()
+    {
+        return $this->multiRequestErrors;
+    }
+    
     
     /**
      * Do an HTTP request.
@@ -76,18 +101,23 @@ abstract class Connection
     /**
      * Run multiple HTTP requests in parallel.
      * 
+     * Note this function will not throw an exception if requests, instead you can retrieve errors using `getMultiRequestErrors()`.
+     * 
      * @param array $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array }
      * @return array
      */
     public function multiRequest(array $requests)
     {
+        $results = array();
+        $this->multiRequestErrors = array();
+        
         $handles = array();
         $mh = curl_multi_init();
         
-        foreach ($requests as $request) {
-            $ch = $this->curlInit($request->method, $result->url, isset($request->params) ? $request->params : array(), isset($request->headers) ? $request->headers : array());
+        foreach ($requests as $key=>$request) {
+            $ch = $this->curlInit(isset($request->method) ? $request->method : 'GET', $result->url, isset($request->params) ? $request->params : array(), isset($request->headers) ? $request->headers : array());
             curl_multi_add_handle($mh, $ch);
-            $handles[] = $ch;
+            $handles[$key] = $ch;
         }
         
         $active = null; 
@@ -98,7 +128,7 @@ abstract class Connection
             }
         } while ($status === CURLM_CALL_MULTI_PERFORM || $active);
         
-        foreach ($handles as $ch) {
+        foreach ($handles as $key=>$ch) {
             $result = curl_multi_getcontent($ch);
             $error = curl_error($ch);
             $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -107,9 +137,9 @@ abstract class Connection
             curl_multi_remove_handle($mh, $ch);
 
             if ($result === false || $httpcode >= 300) {
-                $results[] = new Exception("HTTP $method request for '" . $this->getUrl($url) . "' failed: " . ($result === false ? $error : $this->httpError($httpcode, $result)));
+                $this->multiRequestErrors[$key] = "HTTP $method request for '" . $this->getUrl($url) . "' failed: " . ($result === false ? $error : $this->httpError($httpcode, $result));
             } else {
-                $results[] = $result;
+                $results[$key] = $result;
             }
         }
         
@@ -133,7 +163,11 @@ abstract class Connection
         $ch = curl_init($url);
         curl_setopt_array($ch, static::$CURL_OPTS);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-        if ($method == 'POST') curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
+        
+        if ($method == 'POST') {
+            if (!isset($headers['Content-Type']) || $headers['Content-Type'] != 'multipart/form-data') $params = $this->buildHttpQuery($params);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
+        }
 
         if ($headers) {
             foreach ($headers as $key=>$value) {
@@ -141,7 +175,8 @@ abstract class Connection
                 unset($headers[$key]);
                 $headers[] = "$key: $value";
             }
-            if (isset(static::$CURL_OPTS[CURLOPT_HTTPHEADER])) $headers = array_merge($headers, static::$CURL_OPTS[CURLOPT_HTTPHEADER]);
+            
+            if (isset(static::$CURL_OPTS[CURLOPT_HTTPHEADER])) $headers = array_merge(static::$CURL_OPTS[CURLOPT_HTTPHEADER], $headers);
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         }
     }
@@ -215,15 +250,27 @@ abstract class Connection
              else $params = $query_params + $params;
         }
 
-        foreach ($params as $key=>&$value) {
-            if (!isset($value)) unset($params[$key]);
-            if (is_array($value)) $value = join(',', $value);
-        }
-        $query = !empty($params) ? '?' . http_build_query($params, null, '&') : '';
+        $query = self::buildHttpQuery($params);
 
-        return $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '') . $parts['path'] . $query;
+        return $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '') . $parts['path'] . ($query ? '?' . $query : '');
     }
     
+    /**
+     * Build a HTTP query, converting arrays to a comma seperated list and removing null parameters.
+     * 
+     * @param type $params
+     * @return string
+     */
+    static protected function buildHttpQuery($params)
+    {
+        foreach ($params as $key=>&$value) {
+            if (!isset($value)) unset($params[$key]);
+            if (!is_array($value)) $value = join(',', $value);
+        }
+        
+        return http_build_query($params, null, '&');
+    }
+
     /**
      * Parse URL and return parameters
      * 
@@ -242,22 +289,24 @@ abstract class Connection
     
 
     /**
-     * Fetch raw data from API.
+     * Fetch from web service.
      * 
-     * @param string $resource
-     * @param array  $params  Get parameters
-     * @return array
+     * @param string  $resource
+     * @param array   $params
+     * @param boolean $convert   Convert to entity/collection, false returns raw data
+     * @return Entity|Collection|mixed
      */
-    abstract public function getData($resource, array $params=array());
+    abstract public function get($resource, array $params=array(), $convert=true);
     
     /**
-     * Fetch an entity (or other data) from API.
+     * Post to web service.
      * 
-     * @param string $resource
-     * @param array  $params
-     * @return Entity
+     * @param string  $resource
+     * @param array   $params    POST parameters
+     * @param boolean $convert   Convert to entity/collection, false returns raw data
+     * @return Entity|Collection|mixed
      */
-    abstract public function get($resource, array $params=array());
+    abstract public function post($resource, array $params, $convert=true);
     
     
     /**

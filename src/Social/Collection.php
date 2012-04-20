@@ -27,8 +27,8 @@ class Collection extends \ArrayObject
     protected $_type;
     
     /**
-     * Next page
-     * @var string
+     * Request object to fetch next page
+     * @var object
      */
     protected $_nextPage;
     
@@ -57,15 +57,15 @@ class Collection extends \ArrayObject
      * @param Connection $connection
      * @param string     $type
      * @param array      $data
-     * @param object     $nextPage    Next page
+     * @param object     $nextPage    Request object to fetch next page
      */
     public function __construct(Connection $connection, $type=null, array $data=array(), $nextPage=null)
     {
         $this->_connection = $connection;
         $this->_type = $type;
-        $this->_nextPage = $nextPage;
+        if (isset($nextPage)) $this->_nextPage = is_string($nextPage) ? (object)array('url' => $nextPage) : (object)$nextPage;
         
-        $data = $this->convertData(array_values($data));
+        $data = $this->getConnection()->convertData(array_values($data), $this->getType());
         parent::__construct($data);
     }
     
@@ -82,25 +82,13 @@ class Collection extends \ArrayObject
     /**
      * Append new data to the collection.
      * 
-     * @param array $data 
+     * @param array $data
      */
-    public function appendData(array $data)
+    protected function appendData(array $data)
     {
-        $data = $this->convertData(array_values($data));
         foreach ($data as &$value) {
-            $this->append($value);
+            parent::append($value);
         }
-    }
-    
-    /**
-     * Convert value to object.
-     * 
-     * @param mixed $data
-     * @return mixed 
-     */
-    protected function convertData($data)
-    {
-        return $this->_connection->convertData($data, $this->_type);
     }
     
     
@@ -129,31 +117,38 @@ class Collection extends \ArrayObject
      * Load next page.
      * 
      * @param int $count  The (max) number of items you want to load.
+     * @param int $i      Prevents invinite loop
      * @return boolean  True if any new data has been added
      */
-    protected function loadNextPage($count=null)
+    protected function loadNextPage($count=null, $i=0)
     {
         if (!isset($this->_nextPage) || (isset($count) && $count == 0)) return false;
         
-        $collection = $this->_connection->get($this->_nextPage);
+        $result = $this->getConnection()->multiRequest(array($this->_nextPage));
+        if (empty($result)) return false; // HTTP request failed has failed. To bad, I won't complain
+        
+        $collection = reset($result);
         if (!$collection instanceof self) throw new Exception("I expected a Collection, but instead got " . (is_object($collection) ? 'a ' . get_class($collection) : (is_scalar($collection) ? "'$collection'" : 'a ' . get_type($collection))));
 
+        $next_is_same = !empty($collection->_nextPage) && $this->getConnection()->getUrl($this->_nextPage) != $this->getConnection()->getUrl($collection->_nextPage);
+        
         if ($collection->count() == 0) {
-            if (!empty($collection->_nextPage) && $this->_nextPage != $collection->_nextPage) {
+            // Hmm got nothing, perhaps if I try again, but only once
+            if (!$next_is_same && $i < 1) {
                 $this->_nextPage = $collection->_nextPage;
-                return $this->loadNextPage();
+                return $this->loadNextPage($count, $i + 1);
             }
             
             $this->_nextPage = null;
             return false;
         }
 
-        $this->_nextPage = !empty($collection->_nextPage) && $this->_nextPage != $collection->_nextPage ? $collection->_nextPage : null;
+        $this->_nextPage = $next_is_same ? $collection->_nextPage : null;
         
         $data = $collection->getArrayCopy();
-        if (isset($count) && $collection->count(false) > $count) $data = array_splice($data, 0, $count);
-        $this->appendData($this);
-        
+        if (isset($count) && count($data) > $count) $data = array_splice($data, 0, $count);
+
+        $this->appendData($data);
         return true;
     }
     
@@ -165,6 +160,8 @@ class Collection extends \ArrayObject
      */
     public function load($count=null)
     {
+        if (!isset($this->_nextPage) || (!isset($count) && !$this->_autoload)) return $this;
+        
         while (!isset($count) || $this->count(false) < $count) {
             if (!$this->loadNextPage(isset($count) ? $this->count(false) - $count : null)) break;
         }
@@ -185,17 +182,32 @@ class Collection extends \ArrayObject
     
     
     /**
-     * Expand all stubs.
+     * Do a fetch for all entities.
+     * Implies loading all pages of this collection.
      * 
-     * { @internal Please overwrite this and do a multi request }}
-     * 
-     * @param array $params
+     * @param string $item
+     * @param array  $params
      * @return Collection  $this
      */
-    public function expandAll(array $params = array())
+    public function fetchAll($item=null, array $params=array())
     {
-        foreach ($collection->getArrayCopy() as $item) {
-            if ($item instanceof Entity) $item->expand($params);
+        $this->load();
+        
+        $requests = array();
+        $entities = $this->getArrayCopy();
+        
+        foreach ($entities as $i=>$entity) {
+            if ($entity instanceof Entity) $requests[$i] = $entity->prepareRequest($item, $params);
+        }
+        
+        if (!empty($requests)) {
+            $results = $this->getConnection()->multiRequest($requests);
+            foreach ($results as $i=>$result) {
+                if ($result instanceof Collection) $result->load();
+                
+                if (!isset($item)) $entities[$i]->setProperties($result);
+                  else $entities[$i]->$item = $result;
+            }
         }
         
         return $this;
@@ -236,72 +248,72 @@ class Collection extends \ArrayObject
     /**
      * Search data for item.
      * 
-     * @param mixed $item  Value or id
+     * @param mixed $entity  Value or id
      * @param array $data
      * @return int  The key
      */
-    protected function search($item, &$data=null)
+    protected function search($entity, &$data=null)
     {
         if (!isset($data)) $data = $this->getArrayCopy();
-        if ($item instanceof Entity) $item = $item->id;
+        if ($entity instanceof Entity) $entity = $entity->id;
         
         $this->loadAll();
         foreach ($data as $key => &$value) {
-            if (($value instanceof Entity ? $value->id : $value) == $item) return $key;
+            if (($value instanceof Entity ? $value->id : $value) == $entity) return $key;
         }
     }
     
     /**
      * Search for item.
      * 
-     * @param mixed $item  Value or id
+     * @param mixed $entity  Value or id
      * @return boolean
      */
-    public function has($item)
+    public function has($entity)
     {
-        return $this->search($item) !== null;
+        return $this->search($entity) !== null;
     }
 
     /**
      * Retrieve item.
      * 
-     * @param mixed $item  Value or id
+     * @param mixed $entity  Value or id
      * @return Entity|mixed
      */
-    public function get($item)
+    public function get($entity)
     {
-        $key = $this->search($item);
+        $key = $this->search($entity);
         return isset($key) ? $this::offsetGet($key) : null;
     }
 
     /**
      * Add item.
      * 
-     * @param Entity|mixed $item
+     * @param Entity|mixed $entity
      */
-    public function append($item)
+    public function append($entity)
     {
-        if (isset($this->_type) && !$item instanceof Entity) $item = $this->_connection->stub($this->_type, $item);
-        parent::append($item);
-        $this->_added[] = $item;
+        if (isset($this->_type) && !$entity instanceof Entity) $entity = $this->getConnection()->stub($this->_type, $entity);
+        parent::append($entity);
+        $this->_added[] = $entity;
     }
     
     /**
      * Remove item.
      * 
-     * @param mixed $item  Value or id
+     * @param mixed $entity  Value or id
      * @return Entity|mixed  Removed item
      */
-    public function remove($item)
+    public function remove($entity)
     {
-        $key = $this->search($item, $this->_data);
+        $key = $this->search($entity, $this->_data);
         if (!isset($key)) return null;
         
-        $item =& $this->_data[$key];
+        $entity =& $this->_data[$key];
         unset($this->_data[$key]);
-        $this->_removed[$key] = $item;
+        $this->_removed[$key] = $entity;
         
-        return $item;
+        return $entity;
     }
     
     
@@ -349,11 +361,11 @@ class Collection extends \ArrayObject
      */
     public function offsetUnset($offset)
     {
-        $item = parent::offsetGet($offset);
+        $entity = parent::offsetGet($offset);
         
-        if ($item) {
-            $this->_removed[] = $item;
-            $key = $this->search($item, $this->_added);
+        if ($entity) {
+            $this->_removed[] = $entity;
+            $key = $this->search($entity, $this->_added);
             if ($key !== null) unset($this->_added[$key]);
         }
         
