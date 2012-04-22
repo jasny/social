@@ -22,45 +22,69 @@ use Social\Exception;
 class Connection extends OAuth1
 {
     /**
-     * Twitter API URL
+     * Twitter REST API URL
      */
-    const baseURL = "https://api.twitter.com/1/";
+    const restURL = "https://api.twitter.com/1/";
 
     /**
-     * Twitter API URL
+     * Twitter upload API URL
      */
     const uploadURL = "https://upload.twitter.com/1/";
+    
+    /**
+     * Twitter search API URL
+     */
+    const searchURL = "https://search.twitter.com/1/";
+    
+    /**
+     * Twitter streaming API URL
+     */
+    const streamingURL = "https://stream.twitter.com/1/";
+    
     
     /**
      * Entity type per resource
      * @var array
      */
     private static final $resourceTypes = array(
-        'statuses' => 'tweet',
-        'statuses/*/retweeted_by' => 'user',
-        'statuses/oembed' => null,
-        'direct_messages~' => 'direct_message',
-        'followers' => 'user',
-        'friends' => 'user',
-        'friendships' => 'user',
-        'friendships/exists' => null,
-        'users' => 'user',
-        'users/suggestions' => null,
-        'users/profile_image' => null,
-        'favorites' => 'tweet',
-        'lists' => 'list',
-        'lists/statuses' => 'tweet',
-        'lists/members' => 'user',
-        'account' => 'me',
+        'statuses'                  => 'tweet',
+        'statuses/*/retweeted_by'   => 'user',
+        'statuses/oembed'           => null,
+        'direct_messages'           => 'direct_message',
+        'followers'                 => 'user',
+        'friends'                   => 'user',
+        'friendships'               => 'user',
+        'friendships/exists'        => null,
+        'users'                     => 'user',
+        'users/suggestions'         => null,
+        'users/profile_image'       => null,
+        'favorites'                 => 'tweet',
+        'lists'                     => 'list',
+        'lists/statuses'            => 'tweet',
+        'lists/members'             => 'user',
+        'account'                   => 'me',
         'account/rate_limit_status' => null,
-        'account/totals' => null,
-        'account/settings' => null,
-        'notifications' => 'user',
-        'saved_searches' => 'saved_search',
-        'geo' => 'place',
-        'geo/reverse_geocode' => null,
-        'blocks' => 'user',
-        'report_spam' => 'user',
+        'account/totals'            => null,
+        'account/settings'          => null,
+        'notifications'             => 'user',
+        'saved_searches'            => 'saved_search',
+        'geo'                       => 'place',
+        'geo/reverse_geocode'       => null,
+        'blocks'                    => 'user',
+        'report_spam'               => 'user',
+    );
+
+    /**
+     * API per resource
+     * @var array
+     */
+    public static final $resourceApi = array(
+        'statuses/update_with_media' => self::uploadURL,
+        'search'                     => self::searchURL,
+        'statuses/filter'            => self::streamingURL,
+        'statuses/firehose'          => self::streamingURL,
+        'statuses/retweet'           => self::streamingURL,
+        'statuses/sample'            => self::streamingURL,
     );
     
     /**
@@ -69,8 +93,8 @@ class Connection extends OAuth1
      */
     public static final $resourcesMultipart = array(
         'account/update_profile_background_image' => true,
-        'account/update_profile_image' => true,
-        'statuses/update_with_media' => true,
+        'account/update_profile_image'            => true,
+        'statuses/update_with_media'              => true,
     );
     
     /**
@@ -136,15 +160,16 @@ class Connection extends OAuth1
     
     
     /**
-     * Get Twitter API URL.
+     * Get Twitter API URL based on de resource.
      * 
+     * @param string $url
      * @return string
      */
-    protected function getBaseUrl()
+    protected function getBaseUrl($url=null)
     {
-        return self::baseURL;
-    }    
-
+        $resource = self::normalizeResource($url);
+        return isset(self::$resourceApi[$resource]) ? self::$resourceApi[$resource] : self::restURL;
+    }
     
     /**
      * Get authentication url.
@@ -365,17 +390,16 @@ class Connection extends OAuth1
         
         return $this->me;
     }
-    
-    
+
     /**
-     * Factory method for new entities.
+     * Factory method for an entity.
      * 
-     * @param string  $type
-     * @param object  $data
-     * @param boolean $stub
+     * @param string    $type  'me', 'user', 'tweet', 'direct_message', 'list', 'saved_search' or 'place'
+     * @param array|int $data  Properties or ID
+     * @param boolean   $stub  True means that $data only contains some of the entity's properties
      * @return Entity
      */
-    protected function createEntity($type, $data, $stub=false)
+    public function entity($type, $data=array(), $stub=true)
     {
         if ($type != 'me' && $type != 'user' && $type != 'tweet' && $type != 'direct_message' && $type != 'list' && $type != 'saved_search' && $type != 'place') {
             throw new Exception("Unable to create a Twitter entity: unknown entity type '$type'");
@@ -386,19 +410,7 @@ class Connection extends OAuth1
     }
     
     /**
-     * Create a new entity
-     * 
-     * @param string $type
-     * @param array  $data
-     * @return Entity
-     */
-    public function create($type, $data=array())
-    {
-        return $this->createEntity($type, (object)$data);
-    }
-    
-    /**
-     * Create a new collection.
+     * Factory method a collection.
      * 
      * @param string $type      Type of entities in the collection (may be omitted)
      * @param array  $data
@@ -413,18 +425,17 @@ class Connection extends OAuth1
         
         return new Collection($this, $type, $data, $nextPage);
     }
-    
+
     /**
-     * Create a stub.
+     * Short notation for $twitter->entity('user', $data, $stub);
      * 
-     * @param string       $type  Entity type
-     * @param array|string $data  Data or id
-     * @return Entity
+     * @param array|int $data  Properties or ID
+     * @param boolean   $stub  True means that $data only contains some of the entity's properties
+     * @return 
      */
-    public function stub($type, $data)
+    public function user($data=array(), $stub=true)
     {
-        if (is_array($data)) $data = (object)$data;
-        return $this->createEntity($type, $data, true);
+        return $twitter->entity('user', $data, $stub);
     }
     
     
@@ -452,7 +463,7 @@ class Connection extends OAuth1
         }
 
         // Entity
-        if ($data instanceof \stdClass && isset($data->id)) return $this->create($this, $type, $data, $stub);
+        if ($data instanceof \stdClass && isset($data->id)) return $this->entity($type, $data, $stub);
         
         // Collection
         if ($data instanceof \stdClass && isset($data->next_cursor)) {
@@ -468,7 +479,8 @@ class Connection extends OAuth1
         // Value object
         if ($data instanceof \stdClass) {
             foreach ($data as $key=>&$value) {
-                $value = $this->convertData($value, $key == 'user' ? 'user' : null);
+                $type = $key == 'user' ? 'user' : ($key == 'status' ? 'tweet' : null);
+                $value = $this->convertData($value, $type);
             }
             return $data;
         }

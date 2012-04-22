@@ -42,9 +42,10 @@ abstract class Connection
      * Get API base URL.
      * {{ @internal Should end with a slash }
      * 
+     * @param string $url  Relative URL
      * @return string
      */
-    abstract protected function getBaseUrl();
+    abstract protected function getBaseUrl($url=null);
 
     /**
      * Get full URL.
@@ -59,7 +60,7 @@ abstract class Connection
             $url = $url->url;
         }
         
-        $url = strpos($url, '://') === false ? $this->getBaseUrl() . ltrim($path, '/') : $url;
+        if (strpos($url, '://') === false) $url = $this->getBaseUrl($url) . ltrim($url, '/');
         return $this->buildUrl($url, $params);
     }
     

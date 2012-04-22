@@ -105,6 +105,9 @@ class Me extends User
             case 'update_friendship':       return (object)array('method' => 'POST', 'resource' => 'friendships/update', 'params' => $params);
             case 'favorite':                return (object)array('method' => 'POST', 'resource' => 'favorites/create', 'params' => is_array($params) ? $params : array('id' => is_object($params) ? $params->id : $params));
             case 'unfavorite':              return (object)array('method' => 'POST', 'resource' => 'favorites/destroy', 'params' => is_array($params) ? $params : array('id' => is_object($params) ? $params->id : $params));
+            case 'create_list':             return (object)array('method' => 'POST', 'resource' => 'lists/create', 'params' => is_array($params) ? $params : array('name' => $params));
+            case 'subscribe':               return (object)array('method' => 'POST', 'resource' => 'lists/subscribers/create', 'params' => is_array($params) ? $params : array('list_id' => is_object($params) ? $params->id : $params));
+            case 'unsubscribe':             return (object)array('method' => 'POST', 'resource' => 'lists/subscribers/destroy', 'params' => is_array($params) ? $params : array('list_id' => is_object($params) ? $params->id : $params));
         }
         
         return parent::prepareRequest($item, $params);
@@ -232,62 +235,113 @@ class Me extends User
     
     
     /**
-     * Follow a user.
+     * Follow a user / users.
      * 
      * @see https://dev.twitter.com/docs/api/1/post/friendships/create
      * 
-     * @param User|int|string $user  User entity, ID or username
-     * @return User
+     * @param User|int|string|array $userlist  User entity/ID/username or array with user entites/IDs/usernames
+     * @return User|Collection
      */
-    public function follow($user)
+    public function follow($userlist)
     {
-        $response = $this->getConnection->post('friendships/create', $this->makeUserData($user, true));
+        // Single user
+        if (!is_array($userlist) && !$userlist instanceof \ArrayObject) {
+            $user = $userlist;
+            $response = $this->getConnection->post('friendships/create', $this->makeUserData($user, true));
         
-        if ($user instanceof User) {
+            if (!$user instanceof User) return $response;
+            
             $user->setProperties($response, true);
             return $user;
         }
         
-        return $response;
+        // Multiple users
+        $entities = array();
+        foreach ($userlist as $i=>$user) {
+            if (is_object($user)) $entities[$i] = $user;
+            $requests[$i] = (object)array('method' => 'POST', 'url' => 'friendships/create', $this->makeUserData($user, true));
+        }
+        
+        $results = $this->_connection->multiRequest($requests);
+        
+        foreach ($entities as $i=>$user) {
+            if (!isset($results[$i])) continue;
+            
+            $user->setProperties($results[$i], true);
+            $results[$i] = $user;
+        }
+        
+        return $results;
     }
     
     /**
-     * Unfollow a user.
+     * Unfollow a user / users.
      * 
      * @see https://dev.twitter.com/docs/api/1/post/friendships/destroy
      * 
-     * @param User|int|string $user  User entity, ID or username
-     * @return User
+     * @param User|int|string|array $userlist  User entity/ID/username or array with user entites/IDs/usernames
+     * @return User|Collection
      */
-    public function unfollow($user)
+    public function unfollow($userlist)
     {
-        $response = $this->getConnection->post('friendships/destroy', $this->makeUserData($user, true));
-        
-        if ($user instanceof User) {
+        // Single user
+        if (!is_array($userlist) && !$userlist instanceof \ArrayObject) {
+            $user = $userlist;
+            $response = $this->getConnection->post('friendships/destroy', $this->makeUserData($user, true));
+
+            if (!$user instanceof User) return $response;
+            
             $user->setProperties($response, true);
             return $user;
         }
         
-        return $response;
+        // Multiple users
+        $entities = array();
+        foreach ($userlist as $i=>$user) {
+            if (is_object($user)) $entities[$i] = $user;
+            $requests[$i] = (object)array('method' => 'POST', 'url' => 'friendships/destroy', $this->makeUserData($user, true));
+        }
+        
+        $results = $this->_connection->multiRequest($requests);
+        
+        foreach ($entities as $i=>$user) {
+            if (!isset($results[$i])) continue;
+            
+            $user->setProperties($results[$i], true);
+            $results[$i] = $user;
+        }
+        
+        return $results;
     }
 
     /**
-     * Enable or disable retweets and device notifications from the specified user.
+     * Enable or disable retweets and device notifications from the specified user(s).
      * 
      * @see https://dev.twitter.com/docs/api/1/post/friendships/update
      * 
-     * @param User|int|string $user    User entity, ID or username
+     * @param User|int|string|array $userlist  User entity/ID/username or array with user entites/IDs/usernames
      * @param array           $params
-     * @return object
+     * @return object|Collection
      */
-    public function updateFriendship($user, array $params)
+    public function updateFriendship($userlist, array $params)
     {
-        return $this->getConnection->post('friendships/update', $this->makeUserData($user, true) + $params);
+        // Single user
+        if (!is_array($userlist) && !$userlist instanceof \ArrayObject) {
+            $user = $userlist;
+            return $this->getConnection->post('friendships/update', $this->makeUserData($user, true) + $params);
+        }
+        
+        // Multiple users
+        foreach ($userlist as $user) {
+            $requests[] = (object)array('method' => 'POST', 'url' => 'friendships/update', $this->makeUserData($user, true) + $params);
+        }
+        
+        return $this->_connection->multiRequest($requests);
     }
     
     /**
      * Get the relationship with the user(s).
-     * Values for connections can be: following, following_requested, followed_by, none.
+     * Values for connections can be: 'following', 'following_requested', 'followed_by', 'none'.
      * 
      * @see https://dev.twitter.com/docs/api/1/get/friendships/lookup
      * 
@@ -296,7 +350,8 @@ class Me extends User
      */
     public function lookupFriendship($userlist)
     {
-        if (!is_array($userlist)) {
+        // Single user
+        if (!is_array($userlist) && !$userlist instanceof \ArrayObject) {
             $user = $userlist;
             
             if (is_object($user)) {
@@ -313,6 +368,7 @@ class Me extends User
             return $entity;
         }
         
+        // Multiple users (1 request per 100 users)
         foreach ($userlist as $user) {
             if (is_object($user)) $key = property_exists($user, 'id') ? 'id' : 'screen_name';
               else $key = is_int($user) || ctype_digit($user) ? 'id' : 'screen_name';
@@ -375,7 +431,7 @@ class Me extends User
      */
     public function favorite($tweet, array $params=array())
     {
-        $params['id'] = is_scalar($tweet) ? $tweet : $tweet->id;
+        $params['id'] = is_object($tweet) ? $tweet->id : $tweet;
         return $this->getConnection->post('favorites/create', $params);
     }
 
@@ -390,7 +446,50 @@ class Me extends User
      */
     public function unfavorite($tweet, array $params=array())
     {
-        $params['id'] = is_scalar($tweet) ? $tweet : $tweet->id;
+        $params['id'] = is_object($tweet) ? $tweet->id : $tweet;
         return $this->getConnection->post('favorites/destroy', $params);
+    }
+    
+    
+    /**
+     * Create a new list.
+     * 
+     * @see https://dev.twitter.com/docs/api/1/post/lists/create
+     * 
+     * @param array|string $params  Parameters or name
+     * @return List
+     */
+    public function createList($params=array())
+    {
+        if (!is_array($params)) $params = array('name' => $params);
+        return $this->getConnection->post('lists/create', $params);
+    }
+    
+    /**
+     * Subscribe to a list.
+     * 
+     * https://dev.twitter.com/docs/api/1/post/lists/subscribers/create
+     * 
+     * @param List|int|array $list  List entity/id or params
+     * @return List
+     */
+    public function subscribe($list)
+    {
+        $params = is_array($list) ? $list : array('list_id' => is_object($list) ? $list->id : $list);
+        return $this->getConnection()->post('lists/subscribers/create', $params);
+    }
+
+    /**
+     * Unsubscribe from a list.
+     * 
+     * https://dev.twitter.com/docs/api/1/post/lists/subscribers/create
+     * 
+     * @param List|int|array $list  List entity/id or params
+     * @return List
+     */
+    public function unsubscribe($list)
+    {
+        $params = is_array($list) ? $list : array('list_id' => is_object($list) ? $list->id : $list);
+        return $this->getConnection()->post('lists/subscribers/destroy', $params);
     }
 }

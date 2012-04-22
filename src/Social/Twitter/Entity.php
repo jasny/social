@@ -35,6 +35,29 @@ abstract class Entity extends Base
         $this->setProperties($data);
     }
 
+    /**
+     * Set properties.
+     * 
+     * @param array   $data 
+     * @param boolean $expanded  Entity is no longer a stub
+     */
+    public function setProperties($data, $expanded=false)
+    {
+        // Data is already converted
+        if ($data instanceof self) {
+            parent::setProperties($data, $expanded);
+            return;
+        }
+        
+        // Raw data
+        foreach ($data as $key=>&$value) {
+            $type = $key == 'user' ? 'user' : ($key == 'status' ? 'tweet' : null);
+            $this->$key = $this->getConnection()->convertData($value, $type);
+        }
+        
+        if ($expanded) $this->_stub = false;
+    }
+    
     
     /**
      * Get resource object for fetching subdata.

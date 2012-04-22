@@ -55,7 +55,7 @@ class User extends Entity
      * @param array  $params
      * @return object
      */
-    public function prepareRequest($item, array $params=array())
+    public function prepareRequest($method, $item, array $params=array())
     {
         $method = 'GET';
         $params = $this->asParams() + $params;
