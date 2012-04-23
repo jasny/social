@@ -30,13 +30,9 @@ if (!$twitter->isAuth()) {
     exit();
 }
 
-$me = $twitter->get('account/verify_credentials');
-$followers = $twitter->get('followers/ids', array('user_id' => $me->id));
+$me = $twitter->me();
 ?>
 
 <div><a href="?logout=1">Logout</a></div>
 
-<h1>Logged in</h1>
-
-<?php var_dump($me) ?>
-<?php var_dump($followers) ?>
+<h1>Hi, <?= $me->name ?></h1>

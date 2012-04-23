@@ -93,55 +93,23 @@ class Connection extends OAuth1
      * 
      * @param string $id
      * @param array  $params
-     * @return Entity
+     * @return object
      */
     public function get($id, array $params=array())
     {
         $data = $this->getData($id, $params);
-	return $data;
-//        return $this->convertData($data, $params + $this->extractParams($id));
-    }
-    
-    
-    /**
-     * Convert data to Entity, Collection or DateTime.
-     * 
-     * @param mixed $data
-     * @param array $params  Parameters used to fetch data
-     * @return Entity|Collection|DateTime|mixed
-     */
-    public function convertData($data, array $params=array())
-    {
-        // Don't convert
-        if ($data instanceof Entity || $data instanceof Collection || $data instanceof \DateTime) {
-            return $data;
-        }
-        
-        // Scalar
-        if (is_scalar($data) || is_null($data)) {
-            if (preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$/', $data)) return new \DateTime($data);
-            return $data;
-        }
-
-        // Entity
-        if ($data instanceof \stdClass && isset($data->id)) return new Entity($this, null, $data, true);
-           
-        // Collection
-        /*if ($data instanceof \stdClass && isset($data->data) && is_array($data->data)) {
-            $nextPage = isset($data->paging->next) ? $data->paging->next = $this->buildUrl($data->paging->next, $params, false) : null; // Make sure the same parameters are used in the next query
-            return new Collection($this, $data->data, $nextPage);
-        }*/
-        
-        // Array or value object
-        if (is_array($data) || $data instanceof \stdClass) {
-            foreach ($data as &$value) {
-                $value = $this->convertData($value);
-            }
-            return $data;
-        }
-        
-        // Probably some other kind of object
         return $data;
+    }
+
+    /**
+     * Get the current user info
+     * 
+     * @return object
+     */
+    public function me()
+    {
+        if (!isset($this->me)) $this->me = $twitter->get('account/verify_credentials');
+        return $this->me;
     }
     
     
@@ -154,4 +122,5 @@ class Connection extends OAuth1
     public function __sleep()
     {
         return array('appId', 'appSecret', 'accessToken', 'accessExpires', 'accessTimestamp');
-    }}
+    }
+}
