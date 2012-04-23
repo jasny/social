@@ -60,20 +60,6 @@ abstract class Entity extends Base
     
     
     /**
-     * Get resource object for fetching subdata.
-     * Preparation for a multi request.
-     * 
-     * @param string $item
-     * @param array  $params
-     * @return object
-     */
-    public function prepareRequest($item, array $params=array())
-    {
-        return null;
-    }
-    
-    
-    /**
      * Reconnect an unserialized Entity.
      * 
      * { @internal Making sure it's a Twitter connection }}

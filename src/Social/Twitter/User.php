@@ -14,17 +14,17 @@ use Social\Exception;
 /**
  * Autoexpending Twitter User entity.
  * 
- * @property string  $profile_image      users/profile_image
- * @property Tweet[] $timeline           statuses/user_timeline
- * @property Tweet[] $retweeted_by_user  statuses/retweeted_by_user
- * @property Tweet[] $retweeted_to_user  statuses/retweeted_to_user
- * @property User[]  $followers          followers/ids
- * @property User[]  $friends            friends/ids
- * @property User[]  $contributees       users/contributees
- * @property User[]  $contributors       users/contributors
- * @property List[]  $lists              lists
- * @property List[]  $subscribed_lists   lists/subscriptions
- * @property List[]  $all_lists          lists/all
+ * @property string     $profile_image      users/profile_image
+ * @property Tweet[]    $timeline           statuses/user_timeline
+ * @property Tweet[]    $retweeted_by_user  statuses/retweeted_by_user
+ * @property Tweet[]    $retweeted_to_user  statuses/retweeted_to_user
+ * @property User[]     $followers          followers/ids
+ * @property User[]     $friends            friends/ids
+ * @property User[]     $contributees       users/contributees
+ * @property User[]     $contributors       users/contributors
+ * @property UserList[] $lists              lists
+ * @property UserList[] $subscribed_lists   lists/subscriptions
+ * @property UserList[] $all_lists          lists/all
  */
 class User extends Entity
 {
@@ -40,7 +40,7 @@ class User extends Entity
     {
         $this->_connection = $connection;
         $this->_type = 'user';
-        $this->_stub = $stub || is_null($data) || is_scalar($value);
+        $this->_stub = $stub || is_scalar($data);
         
         if (is_scalar($data)) $data = $this->makeUserData($data);
         $this->setProperties($data);
@@ -51,16 +51,16 @@ class User extends Entity
      * Get resource object for fetching subdata.
      * Preparation for a multi request.
      * 
-     * @param string $item
+     * @param string $action  Action or fetch item
+     * @param mixed  $target  Entity/id
      * @param array  $params
      * @return object
      */
-    public function prepareRequest($method, $item, array $params=array())
+    public function prepareRequest($action, $target=null, array $params=array())
     {
-        $method = 'GET';
         $params = $this->asParams() + $params;
         
-        switch ($item) {
+        switch ($action) {
             case null:                     return (object)array('resource' => 'users/show');
             case 'users/profile_image':    return (object)array('resource' => 'users/profile_image', 'params' => array('id' => null, 'screen_name' => $this->screen_name) + $params);
             
@@ -77,7 +77,7 @@ class User extends Entity
             
         }
         
-        return parent::prepareRequest($item, $params);
+        return null;
     }
     
     
@@ -94,11 +94,13 @@ class User extends Entity
     /**
      * Convert scalar data to value object.
      * 
+     * @ignore Internal use only.
+     * 
      * @param mixed   $data
      * @param boolean $asParams  This is inteded as parameters
      * @return object|array
      */
-    protected static function makeUserData($data, $asParams=false)
+    public static function makeUserData($data, $asParams=false)
     {
         if (is_scalar($data)) {
             $key = is_int($data) || ctype_digit($data) ? 'user_id' : 'screen_name';

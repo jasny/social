@@ -139,11 +139,12 @@ abstract class Entity
      * Get resource object for fetching subdata.
      * Preparation for a multi request.
      * 
-     * @param string $item
+     * @param string $action  Action or fetch item
+     * @param mixed  $target  Entity/id
      * @param array  $params
-     * @return array
+     * @return object
      */
-    abstract public function prepareRequest($item, array $params=array());
+    abstract public function prepareRequest($action, $target=null, array $params=array());
     
     /**
      * Fetch new data from web service.
@@ -200,7 +201,6 @@ abstract class Entity
         if ($this->isStub()) $this->fetch();
         return $this->$name;
     }
-    
     
     /**
      * Serialization

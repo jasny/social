@@ -208,24 +208,27 @@ class Collection extends \ArrayObject
         $entities = $this->getArrayCopy();
         
         foreach ($entities as $i=>$entity) {
-            if ($entity instanceof Entity) $requests[$i] = $entity->prepareRequest($item, $params);
-        }
-        
-        if (!empty($requests)) {
-            $new_requests = array();
-            $results = $this->getConnection()->multiRequest($requests);
+            if (!$entity instanceof Entity) continue;
             
-            foreach ($results as $i=>$result) {
-                if (!isset($item)) {
-                    if ($entities[$i] instanceof Entity) $entities[$i]->setProperties($result);
-                      else $entities[$i] = $result;
-                } else {
-                    if (isset($entities[$i]->$item) && $entities[$i] instanceof Entity) $entities[$i]->$item->setProperties($result);
-                      else $entities[$i]->$item = $result;
-                }
-                
-                if ($result instanceof self && !$result->isLoaded()) $new_requests[$i] = $result->_nextPage;
+            $request = $entity->prepareRequest($item, $params);
+            if (isset($request) && (!isset($request->method) || $request->method == 'GET')) $requests[$i] = $request;
+        }
+
+        if (empty($requests)) throw new Exception("It's not possible to fetch $item for the entities in this collection.");
+        
+        $new_requests = array();
+        $results = $this->getConnection()->multiRequest($requests);
+
+        foreach ($results as $i=>$result) {
+            if (!isset($item)) {
+                if ($entities[$i] instanceof Entity) $entities[$i]->setProperties($result);
+                  else $entities[$i] = $result;
+            } else {
+                if (isset($entities[$i]->$item) && $entities[$i] instanceof Entity) $entities[$i]->$item->setProperties($result);
+                  else $entities[$i]->$item = $result;
             }
+
+            if ($result instanceof self && !$result->isLoaded()) $new_requests[$i] = $result->_nextPage;
         }
         
         while (!empty($new_requests) && --$maxPages > 0) {
@@ -244,6 +247,34 @@ class Collection extends \ArrayObject
         }
         
         return $this;
+    }
+    
+    /**
+     * Perform an action on all entities in the collection.
+     * Implies loading all pages of this collection.
+     * 
+     * @param string $action
+     * @param mixed  $target  Entity/id or array with entities/ids
+     * @param array  $params
+     */
+    public function forAll($action, $target=null, array $params=array())
+    {
+        $this->load();
+        
+        $requests = array();
+        $entities = $this->getArrayCopy();
+        
+        foreach ($entities as $i=>$entity) {
+            if (!$entity instanceof Entity) continue;
+            
+            $request = $entity->prepareRequest($item, $params);
+            if (isset($request) || !isset($request->method) || $request->method != 'GET') $requests[$i] = $request;
+        }
+
+        if (empty($requests)) throw new Exception("It's not possible to perform $action for the entities in this collection.");
+        
+        $new_requests = array();
+        return $this->getConnection()->multiRequest($requests);
     }
     
     
