@@ -108,7 +108,7 @@ class Connection extends OAuth1
      */
     public function me()
     {
-        if (!isset($this->me)) $this->me = $twitter->get('account/verify_credentials');
+        if (!isset($this->me)) $this->me = $this->get('account/verify_credentials');
         return $this->me;
     }
     
