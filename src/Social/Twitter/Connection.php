@@ -51,9 +51,9 @@ class Connection extends OAuth1
      * @param object $access       Will be filled with the temporary access information.
      * @return string
      */
-    public function getAuthUrl($level='authorize', $callbackUrl=null, &$tmp_access=null)
+    public function getAuthUrl($level='authenticate', $callbackUrl=null, &$tmp_access=null)
     {
-        $callbackUrl = $this->getCurrentUrl($callbackUrl, array('twitter_auth' => 'auth'));
+        $callbackUrl = $this->getCurrentUrl($callbackUrl, array('twitter_auth' => $level));
         return parent::getAuthUrl($level, $callbackUrl, $tmp_access);
     }
     
@@ -108,7 +108,7 @@ class Connection extends OAuth1
      */
     public function me()
     {
-        if (!isset($this->me)) $this->me = $twitter->get('account/verify_credentials');
+        if (!isset($this->me)) $this->me = $this->get('account/verify_credentials');
         return $this->me;
     }
     

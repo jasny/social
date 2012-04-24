@@ -223,11 +223,11 @@ abstract class OAuth1 extends Connection
             if (!isset($callbackUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         }
 
-        $response = $this->httpRequest('POST', 'oauth/request_token', array(), array(), array('oauth_callback' => $callbackUrl));
+        $response = $this->httpRequest('POST', preg_replace('~/\d+/~', '/', $this->getBaseUrl()) . "oauth/request_token", array(), array(), array('oauth_callback' => $callbackUrl));
         parse_str($response, $tmp_access);
         
         $_SESSION[str_replace('\\', '/', get_class($this)) . ':tmp_access'] = $tmp_access;
-        return $this->getUrl($this->getBaseUrl() . "/oauth/authorize", array('oauth_token' => $tmp_access['oauth_token']));
+        return $this->getUrl(preg_replace('~/\d+/~', '/', $this->getBaseUrl()) . "oauth/$level", array('oauth_token' => $tmp_access['oauth_token']));
     }
     
     /**
@@ -241,7 +241,7 @@ abstract class OAuth1 extends Connection
     public function handleAuthResponse($oauth_verifier=null, $tmp_access=null)
     {
         if (!isset($oauth_verifier)) {
-            if (!isset($_GET['oauth_verifier'])) throw new Exception("Unable to handle authentication response: oauth_verifier wasn't returned by Twitter.");
+            if (!isset($_GET['oauth_verifier'])) throw new Exception("Unable to handle authentication response: " . (!empty($_GET['denied']) ? "access was denied" : "oauth_verifier wasn't returned"));
             $oauth_verifier = $_GET['oauth_verifier'];
         }
         
@@ -250,7 +250,7 @@ abstract class OAuth1 extends Connection
         if (!isset($tmp_access['oauth_token'])) throw new Exception("Unable to handle authentication response: the temporary access token is unknown.");
         unset($tmp_access['oauth_callback_confirmed']);
         
-        $response = $this->httpRequest('GET', "oauth/access_token", array(), array(), array('oauth_verifier' => $oauth_verifier) + $tmp_access);
+        $response = $this->httpRequest('GET', preg_replace('~/\d+/~', '/', $this->getBaseUrl()) . "oauth/access_token", array(), array(), array('oauth_verifier' => $oauth_verifier) + $tmp_access);
         parse_str($response, $data);
 
         $this->accessToken = $data['oauth_token'];

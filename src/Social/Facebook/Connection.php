@@ -189,7 +189,7 @@ class Connection extends Base
     public function handleAuthResponse($code=null, $state=null)
     {
         if (!isset($code)) {
-            if (!isset($_GET['code'])) throw new Exception("Unable to handle authentication response: Facebook didn't return a code.");
+            if (!isset($_GET['code'])) throw new Exception("Unable to handle authentication response: " . (isset($_GET['error_msg']) ? "Facebook responded with " . $_GET['error_msg'] : "Facebook didn't return a code"));
             $code = $_GET['code'];
             if (isset($_GET['state'])) $state = $_GET['state'];
         }
