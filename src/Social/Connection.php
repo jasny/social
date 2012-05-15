@@ -64,7 +64,11 @@ abstract class Connection
         $ch = curl_init($url);
         curl_setopt_array($ch, static::$CURL_OPTS);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $type);
-        if ($type == 'POST') curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
+        
+        if ($method == 'POST') {
+            if (!isset($headers['Content-Type']) || $headers['Content-Type'] != 'multipart/form-data') $params = $this->buildHttpQuery($params);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
+        }
 
         if ($headers) {
             foreach ($headers as $key=>$value) {
@@ -91,6 +95,22 @@ abstract class Connection
         return $result;
     }
     
+    /**
+     * Build a HTTP query, converting arrays to a comma seperated list and removing null parameters.
+     * 
+     * @param type $params
+     * @return string
+     */
+    static protected function buildHttpQuery($params)
+    {
+        foreach ($params as $key=>&$value) {
+            if (!isset($value)) unset($params[$key]);
+            if (!is_array($value)) $value = join(',', $value);
+        }
+        
+        return http_build_query($params, null, '&');
+    }
+
     
     /**
      * Get the URL of the current script.
