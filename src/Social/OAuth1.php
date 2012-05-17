@@ -195,20 +195,22 @@ abstract class OAuth1 extends Connection
     /**
      * Do an HTTP request.
      * 
-     * @param string $type     GET, POST or DELETE
-     * @param string $url
-     * @param array  $params   POST parameters
-     * @param array  $headers  Additional HTTP headers
-     * @param array  $oauth    Additional oAUth parameters
+     * @param string   $type           GET, POST or DELETE
+     * @param string   $url
+     * @param array    $params         Request parameters
+     * @param array    $headers        Additional HTTP headers
+     * @param array    $oauth          Additional oAUth parameters
+     * @param callback $writefunction  Stream content to this function, instead of returning it as result
+     * @return string
      */
-    protected function httpRequest($type, $url, $params=null, array $headers=array(), array $oauth=array())
+    protected function httpRequest($type, $url, $params=null, array $headers=array(), array $oauth=array(), $writefunction=null)
     {
         $multipart = $type == 'POST' && isset($headers['Content-Type']) && $headers['Content-Type'] == 'multipart/form-data';
 
         $url = $this->getUrl($url);
         $headers['Authorization'] = $this->getAuthorizationHeader($type, $url, $multipart ? array() : $params, $oauth);
 
-        return parent::httpRequest($type, $url, $params, $headers);
+        return parent::httpRequest($type, $url, $params, $headers, $writefunction);
     }
     
     

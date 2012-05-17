@@ -23,7 +23,6 @@ abstract class Connection
      */
     protected static $CURL_OPTS = array(
         CURLOPT_CONNECTTIMEOUT      => 10,
-        CURLOPT_RETURNTRANSFER      => true,
         CURLOPT_TIMEOUT             => 60,
         CURLOPT_USERAGENT           => 'jasny-social-1.0',
         CURLOPT_HTTPHEADER          => array('Expect:'),
@@ -54,12 +53,14 @@ abstract class Connection
     /**
      * Do an HTTP request.
      * 
-     * @param string $type     GET, POST or DELETE
-     * @param string $url
-     * @param array  $params   REQUEST parameters
-     * @param array  $headers  Additional HTTP headers
+     * @param string   $type           GET, POST or DELETE
+     * @param string   $url
+     * @param array    $params         Request parameters
+     * @param array    $headers        Additional HTTP headers
+     * @param callback $writefunction  Stream content to this function, instead of returning it as result
+     * @return string
      */
-    protected function httpRequest($type, $url, $params=null, array $headers=array())
+    protected function httpRequest($type, $url, $params=null, array $headers=array(), $writefunction=null)
     {
         $url = $this->getUrl($url, $type != 'POST' ? $params : array());        
 
@@ -82,13 +83,19 @@ abstract class Connection
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         }
         
+        if (isset($writefunction)) {
+            curl_setopt($ch, CURLOPT_WRITEFUNCTION, $writefunction);
+        } else {
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        }
+        
         $result = curl_exec($ch);
 
         if ($result === false) throw new Exception("HTTP $type request for '" . preg_replace('/\?.*/', '', $url) . "' failed: " . curl_error($ch));
         if (curl_getinfo($ch, CURLINFO_HTTP_CODE) >= 300) {
             $data = json_decode($result);
             if (isset($data->error)) $result = is_scalar($data->error) ? $data->error : $data->error->message;
-              elseif (isset($data->errors)) $result = $data->errors[0]->message;
+              elseif (isset($data->errors)) $result = is_scalar($data->errors[0]) ? $data->errors[0] : $data->errors[0]->message;
               elseif (isset($data->error_msg)) $result = $data->error_msg;
 
             throw new Exception("HTTP $type request for '" . preg_replace('/\?.*/', '', $url) . "' failed: $result");

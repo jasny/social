@@ -95,7 +95,7 @@ class Connection extends OAuth1
      * Fetch an entity (or other data) from Twitter.
      * 
      * @param string $id
-     * @param array  $params
+     * @param array  $params  GET parameters
      * @return object
      */
     public function get($id, array $params=array())
@@ -116,6 +116,28 @@ class Connection extends OAuth1
         $response = $this->httpRequest('POST', "$id.json", $params);
         $data = json_decode($response);
         return $data ?: $response;
+    }
+    
+    /**
+     * Stream content from Twitter.
+     * 
+     * @param string   $id
+     * @param callback $writefunction  Stream content to this function
+     * @param array    $params         Request parameters
+     * @return boolean
+     */
+    public function stream($id, $writefunction, array $params=array())
+    {
+        $method = $id == 'statuses/filter' ? 'POST' : 'GET';
+        
+        switch ($id) {
+            case 'user': $url = "https://userstream.twitter.com/2/user.json"; break;
+            case 'site': $url = "https://sitestream.twitter.com/2b/site.json"; break;
+            default:     $url = "https://stream.twitter.com/1/$id.json"; break;
+        }
+        
+        $response = $this->httpRequest($method, $url, $params, array(), array(), $writefunction);
+        return $response;
     }
     
     /**
