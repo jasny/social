@@ -18,7 +18,8 @@ if (!empty($_GET['twitter_auth'])) {
             $url = $twitter->getAuthUrl();
             header("Location: $url");
             exit();
-        case 'auth':
+        case 'authenticate':
+        case 'authorize':
             $_SESSION['twitter'] = $twitter->handleAuthResponse();
             header("Location: " . $twitter->getCurrentUrl());
             exit();

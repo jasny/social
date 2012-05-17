@@ -121,12 +121,12 @@ class Connection extends OAuth1
     /**
      * Stream content from Twitter.
      * 
-     * @param string   $id
      * @param callback $writefunction  Stream content to this function
+     * @param string   $id
      * @param array    $params         Request parameters
      * @return boolean
      */
-    public function stream($id, $writefunction, array $params=array())
+    public function stream($writefunction, $id, array $params=array())
     {
         $method = $id == 'statuses/filter' ? 'POST' : 'GET';
         

@@ -84,6 +84,7 @@ abstract class Connection
         }
         
         if (isset($writefunction)) {
+            curl_setopt($ch, CURLOPT_TIMEOUT, 0); // Don't timeout
             curl_setopt($ch, CURLOPT_WRITEFUNCTION, $writefunction);
         } else {
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
