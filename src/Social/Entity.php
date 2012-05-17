@@ -11,6 +11,8 @@ namespace Social;
 
 /**
  * An autoexpanding Entity.
+ * 
+ * @package Social
  */
 abstract class Entity
 {
@@ -139,6 +141,7 @@ abstract class Entity
             if (property_exists($this, $name)) return $this->$name;
         }
         
-        return $this->get($name);
+        //return $this->get($name);
+        return null;
     }
 }

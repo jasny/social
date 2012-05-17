@@ -11,6 +11,8 @@ namespace Social;
 
 /**
  * An autoexpanding collection.
+ * 
+ * @package Social
  */
 class CollectionIterator extends \ArrayIterator
 {
@@ -38,9 +40,10 @@ class CollectionIterator extends \ArrayIterator
     public function next()
     {
         parent::next();
-	if (!$this->valid()) {
+        
+        if (!$this->valid()) {
             $cnt = $this->collection->count(false);
             if ($this->collection->loadNext()) $this->seek($cnt);
-	}
+        }
     }
 }

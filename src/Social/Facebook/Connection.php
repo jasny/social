@@ -17,6 +17,9 @@ use Social\Exception;
  * @see http://developers.facebook.com/docs/reference/api/
  * 
  * Before you start register your application at https://developers.facebook.com/apps and retrieve an App ID and App Secret
+ * 
+ * @package Social
+ * @subpackage Facebook
  */
 class Connection extends Base
 {
@@ -189,7 +192,7 @@ class Connection extends Base
     public function handleAuthResponse($code=null, $state=null)
     {
         if (!isset($code)) {
-            if (!isset($_GET['code'])) throw new Exception("Unable to handle authentication response: Facebook didn't return a code.");
+            if (!isset($_GET['code'])) throw new Exception("Unable to handle authentication response: " . (isset($_GET['error_msg']) ? "Facebook responded with " . $_GET['error_msg'] : "Facebook didn't return a code"));
             $code = $_GET['code'];
             if (isset($_GET['state'])) $state = $_GET['state'];
         }
@@ -310,7 +313,7 @@ class Connection extends Base
         if (!$this->isAuth()) throw new Exception("There is no current user. Please set the access token.");
         
         $data = $this->getData('me');
-        $this->me = new Entity($this, 'user', $data);
+        $this->me = new Entity($this, 'user', $data, false);
         return $this->me;
     }
     

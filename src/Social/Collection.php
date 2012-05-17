@@ -11,6 +11,8 @@ namespace Social;
 
 /**
  * An autoexpanding collection.
+ * 
+ * @package Social
  */
 abstract class Collection extends \ArrayObject
 {

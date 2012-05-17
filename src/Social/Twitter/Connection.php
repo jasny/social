@@ -17,6 +17,9 @@ use Social\Exception;
  * @see https://dev.twitter.com/docs
  * 
  * Before you start, register your application at https://dev.twitter.com/apps and retrieve a custumor key and consumer secret.
+ * 
+ * @package Social
+ * @subpackage Twitter
  */
 class Connection extends OAuth1
 {
@@ -51,10 +54,10 @@ class Connection extends OAuth1
      * @param object $access       Will be filled with the temporary access information.
      * @return string
      */
-    public function getAuthUrl($level='authorize', $callbackUrl=null, &$tmp_access=null)
+    public function getAuthUrl($level='authenticate', $callbackUrl=null, &$access=null, $accessSecret=null)
     {
-        $callbackUrl = $this->getCurrentUrl($callbackUrl, array('twitter_auth' => 'auth'));
-        return parent::getAuthUrl($level, $callbackUrl, $tmp_access);
+        $callbackUrl = $this->getCurrentUrl($callbackUrl, array('twitter_auth' => $level));
+        return parent::getAuthUrl($level, $callbackUrl, $access, $accessSecret);
     }
     
     /**
@@ -78,7 +81,7 @@ class Connection extends OAuth1
      * Fetch raw data from Twitter.
      * 
      * @param string $id
-     * @param array  $params  Get parameters
+     * @param array  $params  GET parameters
      * @return array
      */
     public function getData($id, array $params=array())
@@ -92,7 +95,7 @@ class Connection extends OAuth1
      * Fetch an entity (or other data) from Twitter.
      * 
      * @param string $id
-     * @param array  $params
+     * @param array  $params  GET parameters
      * @return object
      */
     public function get($id, array $params=array())
@@ -101,6 +104,42 @@ class Connection extends OAuth1
         return $data;
     }
 
+    /**
+     * POST to Twitter.
+     * 
+     * @param string $id
+     * @param array  $params  POST parameters
+     * @return array
+     */
+    public function post($id, array $params=array())
+    {
+        $response = $this->httpRequest('POST', "$id.json", $params);
+        $data = json_decode($response);
+        return $data ?: $response;
+    }
+    
+    /**
+     * Stream content from Twitter.
+     * 
+     * @param string   $id
+     * @param callback $writefunction  Stream content to this function
+     * @param array    $params         Request parameters
+     * @return boolean
+     */
+    public function stream($id, $writefunction, array $params=array())
+    {
+        $method = $id == 'statuses/filter' ? 'POST' : 'GET';
+        
+        switch ($id) {
+            case 'user': $url = "https://userstream.twitter.com/2/user.json"; break;
+            case 'site': $url = "https://sitestream.twitter.com/2b/site.json"; break;
+            default:     $url = "https://stream.twitter.com/1/$id.json"; break;
+        }
+        
+        $response = $this->httpRequest($method, $url, $params, array(), array(), $writefunction);
+        return $response;
+    }
+    
     /**
      * Get the current user info
      * 
