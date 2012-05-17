@@ -14,6 +14,9 @@ use Social\Exception;
 
 /**
  * An autoexpanding facebook collection.
+ * 
+ * @package Social
+ * @subpackage Facebook
  */
 class Collection extends Base
 {

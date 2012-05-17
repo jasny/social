@@ -14,6 +14,9 @@ use Social\Exception;
 
 /**
  * Autoexpending Facebook Entity.
+ * 
+ * @package Social
+ * @subpackage Facebook
  */
 class Entity extends Base
 {

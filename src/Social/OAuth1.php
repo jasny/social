@@ -11,6 +11,8 @@ namespace Social;
 
 /**
  * OAUth1 connection.
+ * 
+ * @package Social
  */
 abstract class OAuth1 extends Connection
 {
@@ -64,7 +66,7 @@ abstract class OAuth1 extends Connection
     }
     
     /**
-     * Create a new Facebook connection using the specified access token.
+     * Create a new connection using the specified access token.
      * 
      * @param string|object $access        User's access token or { 'token': string, 'secret': string }
      * @param int           $accessSecret  User's access token secret (supply if $access is a string)
@@ -150,8 +152,8 @@ abstract class OAuth1 extends Connection
         unset($params['oauth_token_secret']);
 
         ksort($params);
-        
-        $base_string = strtoupper($type) . '&' . rawurlencode($url) . '&' . rawurlencode(http_build_query($params, null, '&'));
+
+        $base_string = strtoupper($type) . '&' . rawurlencode($url) . '&' . rawurlencode($this->buildHttpQuery($params));
         $signing_key = rawurlencode($this->consumerSecret) . '&' . rawurlencode($user_secret);
 
         return base64_encode(hash_hmac('sha1', $base_string, $signing_key, true));
@@ -186,7 +188,7 @@ abstract class OAuth1 extends Connection
         foreach ($oauth as $key=>$value) {
             $parts[] = $key . '="' . rawurlencode($value) . '"';
         }
-        
+
         return 'OAuth ' . join(', ', $parts);
     }
     
@@ -201,8 +203,11 @@ abstract class OAuth1 extends Connection
      */
     protected function httpRequest($type, $url, $params=null, array $headers=array(), array $oauth=array())
     {
+        $multipart = $type == 'POST' && isset($headers['Content-Type']) && $headers['Content-Type'] == 'multipart/form-data';
+
         $url = $this->getUrl($url);
-        $headers['Authorization'] = $this->getAuthorizationHeader($type, $url, $params, $oauth);
+        $headers['Authorization'] = $this->getAuthorizationHeader($type, $url, $multipart ? array() : $params, $oauth);
+
         return parent::httpRequest($type, $url, $params, $headers);
     }
     

@@ -11,6 +11,8 @@ namespace Social;
 
 /**
  * Base connection.
+ * 
+ * @package Social
  */
 abstract class Connection
 {
@@ -24,7 +26,7 @@ abstract class Connection
         CURLOPT_RETURNTRANSFER      => true,
         CURLOPT_TIMEOUT             => 60,
         CURLOPT_USERAGENT           => 'jasny-social-1.0',
-        CURLOPT_HTTPHEADER          => array('Content-Type:', 'Content-Length:', 'Expect:'),
+        CURLOPT_HTTPHEADER          => array('Expect:'),
         CURLOPT_FOLLOWLOCATION      => true,
         CURLOPT_MAXREDIRS           => 3,
     );
@@ -64,8 +66,8 @@ abstract class Connection
         $ch = curl_init($url);
         curl_setopt_array($ch, static::$CURL_OPTS);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $type);
-        
-        if ($method == 'POST') {
+
+        if ($type == 'POST') {
             if (!isset($headers['Content-Type']) || $headers['Content-Type'] != 'multipart/form-data') $params = $this->buildHttpQuery($params);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
         }
@@ -85,7 +87,7 @@ abstract class Connection
         if ($result === false) throw new Exception("HTTP $type request for '" . preg_replace('/\?.*/', '', $url) . "' failed: " . curl_error($ch));
         if (curl_getinfo($ch, CURLINFO_HTTP_CODE) >= 300) {
             $data = json_decode($result);
-            if (isset($data->error)) $result = $data->error->message;
+            if (isset($data->error)) $result = is_scalar($data->error) ? $data->error : $data->error->message;
               elseif (isset($data->errors)) $result = $data->errors[0]->message;
               elseif (isset($data->error_msg)) $result = $data->error_msg;
 
@@ -104,13 +106,18 @@ abstract class Connection
     static protected function buildHttpQuery($params)
     {
         foreach ($params as $key=>&$value) {
-            if (!isset($value)) unset($params[$key]);
-            if (!is_array($value)) $value = join(',', $value);
-        }
-        
-        return http_build_query($params, null, '&');
-    }
+            if (!isset($value)) {
+                unset($params[$key]);
+                continue;
+            }
 
+            if (is_array($value)) $value = join(',', $value);
+            $value = rawurlencode($key) . '=' . rawurlencode($value);
+        }
+       
+        return join('&', $params);
+    }
+    
     
     /**
      * Get the URL of the current script.
@@ -155,11 +162,7 @@ abstract class Connection
              else $params = $query_params + $params;
         }
 
-        foreach ($params as $key=>&$value) {
-            if (!isset($value)) unset($params[$key]);
-            if (is_array($value)) $value = join(',', $value);
-        }
-        $query = !empty($params) ? '?' . http_build_query($params, null, '&') : '';
+        $query = !empty($params) ? '?' . self::buildHttpQuery($params) : '';
 
         return $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '') . $parts['path'] . $query;
     }
