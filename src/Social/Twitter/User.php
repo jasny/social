@@ -58,22 +58,20 @@ class User extends Entity
      */
     public function prepareRequest($action, $target=null, array $params=array())
     {
-        $params = $this->asParams() + $params;
-        
         switch ($action) {
-            case null:                     return (object)array('resource' => 'users/show');
+            case null:                     return (object)array('resource' => 'users/show', 'params' => $this->asParams() + $params);
             case 'users/profile_image':    return (object)array('resource' => 'users/profile_image', 'params' => array('id' => null, 'screen_name' => $this->screen_name) + $params);
             
-            case 'timeline':               return (object)array('resource' => 'statuses/user_timeline', 'params' => $params, 'lazy' => true);
-            case 'retweeted_by_user':      return (object)array('resource' => 'statuses/retweeted_by_user', 'params' => $params, 'lazy' => true);
-            case 'retweeted_to_user':      return (object)array('resource' => 'statuses/retweeted_to_user', 'params' => $params, 'lazy' => true);
-            case 'followers':              return (object)array('resource' => 'followers/ids', 'params' => $params);
-            case 'friends':                return (object)array('resource' => 'friends/ids', 'params' => $params);
-            case 'contributees':           return (object)array('resource' => 'users/contributees', 'params' => $params);
-            case 'contributors':           return (object)array('resource' => 'users/contributors', 'params' => $params);
-            case 'lists':                  return (object)array('resource' => 'lists', 'params' => $params);
-            case 'subscribed_lists':       return (object)array('resource' => 'lists/subscriptions', 'params' => $params);
-            case 'all_lists':              return (object)array('resource' => 'lists/all', 'params' => $params);
+            case 'timeline':               return (object)array('resource' => 'statuses/user_timeline', 'params' => $this->asParams() + $params, 'lazy' => true);
+            case 'retweeted_by_user':      return (object)array('resource' => 'statuses/retweeted_by_user', 'params' => $this->asParams() + $params, 'lazy' => true);
+            case 'retweeted_to_user':      return (object)array('resource' => 'statuses/retweeted_to_user', 'params' => $this->asParams() + $params, 'lazy' => true);
+            case 'followers':              return (object)array('resource' => 'followers/ids', 'params' => $this->asParams() + $params);
+            case 'friends':                return (object)array('resource' => 'friends/ids', 'params' => $this->asParams() + $params);
+            case 'contributees':           return (object)array('resource' => 'users/contributees', 'params' => $this->asParams() + $params);
+            case 'contributors':           return (object)array('resource' => 'users/contributors', 'params' => $this->asParams() + $params);
+            case 'lists':                  return (object)array('resource' => 'lists', 'params' => $this->asParams() + $params);
+            case 'subscribed_lists':       return (object)array('resource' => 'lists/subscriptions', 'params' => $this->asParams() + $params);
+            case 'all_lists':              return (object)array('resource' => 'lists/all', 'params' => $this->asParams() + $params);
             
         }
         
@@ -110,7 +108,7 @@ class User extends Entity
         
         $data = (object)$data;
         
-        if ($asParams) return property_exists($data, 'id') ? array('user_id' => $data->id) : array('screen_name' => $data->screen_name);
+        if ($asParams) return property_exists($data, 'id') || !property_exists($data, 'sreen_name')  ? array('user_id' => $data->id) : array('screen_name' => $data->screen_name);
         return $data;
     }
 }

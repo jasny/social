@@ -331,7 +331,7 @@ class Connection extends OAuth1
      */
     public function post($resource, array $params=array(), $convert=true)
     {
-        $response = $this->httpRequest('GET', $resource . (pathinfo($resource, PATHINFO_EXTENSION) ? "" : ".json"), $params);
+        $response = $this->httpRequest('POST', $resource . (pathinfo($resource, PATHINFO_EXTENSION) ? "" : ".json"), $params);
         $data = json_decode($response);
         
         if (!isset($data)) return $response;
@@ -450,7 +450,10 @@ class Connection extends OAuth1
             throw new Exception("Unable to create a Twitter entity: unknown entity type '$type'");
         }
         
-        $type = preg_replace('/\W|_/', '', $type);
+        $type = strtolower(preg_replace('/\W/', '', $type));          // Normalize
+        $type = join('', array_map('ucfirst', explode('_', $type)));  // Camel case
+        $type = __NAMESPACE__ . '\\' . $type;
+
         return new $type($this, $data, $stub);
     }
     
@@ -503,7 +506,7 @@ class Connection extends OAuth1
         // Scalar
         if (is_scalar($data) || is_null($data)) {
             if (preg_match('/^\w{3}\s\w{3}\s\d+\s\d+:\d+:\d+\s\+\d{4}\s\d{4}$/', $data)) return new \DateTime($data);
-            if (isset($type)) return $this->stub($type, $data);
+            if (isset($type)) return $this->entity($type, $data, true);
             return $data;
         }
 
@@ -512,8 +515,10 @@ class Connection extends OAuth1
         
         // Collection
         if ($data instanceof \stdClass && isset($data->next_cursor)) {
+            $key = reset(array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str')));
+
             $nextPage = null; // TODO: calc next page
-            return new Collection($this, $type, $data->data, $nextPage);
+            return new Collection($this, $type, $data->$key, $nextPage);
         }
 
         if (is_array($data) && is_object(reset($data))) {

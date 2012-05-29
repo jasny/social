@@ -10,7 +10,6 @@
 namespace Social\Twitter;
 
 use Social\Collection as Base;
-use Social\Entity;
 use Social\Exception;
 
 /**

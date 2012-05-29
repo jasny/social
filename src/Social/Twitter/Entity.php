@@ -28,8 +28,8 @@ abstract class Entity extends Base
     public function __construct(Connection $connection, $data=array(), $stub=false)
     {
         $this->_connection = $connection;
-        $this->_type = strtolower(preg_replace(array('/^.*\\\\/', '([a-z])([A-Z])'), array('', '$1_$2')), get_class($this));
-        $this->_stub = $stub || is_null($data) || is_scalar($value);
+        $this->_type = strtolower(preg_replace(array('/^.*\\\\/', '/([a-z])([A-Z])/'), array('', '$1_$2'), get_class($this)));
+        $this->_stub = $stub || is_null($data) || is_scalar($data);
         
         if (is_scalar($data)) $data = array('id' => $data);
         $this->setProperties($data);

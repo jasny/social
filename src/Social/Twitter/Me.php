@@ -74,7 +74,7 @@ class Me extends User
      * @param array  $params
      * @return object  { 'method': string, 'url': string, 'params': array }
      */
-    public function prepareRequest($action, $target, array $params=array())
+    public function prepareRequest($action, $target=null, array $params=array())
     {
         switch ($action) {
             case null:                      return (object)array('resource' => 'account/verify_credentials');
