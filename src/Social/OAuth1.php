@@ -182,7 +182,12 @@ abstract class OAuth1 extends Connection
         unset($oauth['oauth_token_secret']);
         ksort($oauth);
         
-        return 'OAuth ' . self::buildHttpQuery($oauth);
+        $parts = array();
+        foreach ($oauth as $key=>$value) {
+            $parts[] = $key . '="' . rawurlencode($value) . '"';
+        }
+
+        return 'OAuth ' . join(', ', $parts);
     }
     
     /**
@@ -243,7 +248,7 @@ abstract class OAuth1 extends Connection
         
         $_SESSION[str_replace('\\', '/', get_class($this)) . ':tmp_access'] = $tmpAccess;
         
-        return $this->getUrl($this->getBaseUrl() . "/oauth/authorize", array('oauth_token' => $tmpAccess['oauth_token']));
+        return $this->getUrl('oauth/authorize', array('oauth_token' => $tmpAccess['oauth_token']));
     }
     
     /**

@@ -35,6 +35,11 @@ class Connection extends OAuth1
      * Twitter search API URL
      */
     const searchURL = "https://search.twitter.com/1/";
+
+    /**
+     * Twitter OAuth API URL
+     */
+    const oauthURL = "https://api.twitter.com/";
     
     /**
      * Twitter streaming API URL
@@ -90,6 +95,7 @@ class Connection extends OAuth1
      */
     public static $resourceApi = array(
         '*'                          => self::restURL,
+        'oauth'                      => self::oauthURL,
         'statuses/update_with_media' => self::uploadURL,
         'search'                     => self::searchURL,
         'statuses/filter'            => self::streamUrl,
@@ -152,7 +158,7 @@ class Connection extends OAuth1
         if (isset($user)) {
             if ($user instanceof User) $this->me = $user->reconnectTo($this);
               elseif (is_scalar($user)) $this->me = new Me($this, $user, true);
-              else throw new Exception("Was expecting an ID (int) or Twitter\\Me entity for \$user, but got a " . (is_object($user) ? get_class($user) : get_type($user)));
+              else throw new Exception("Was expecting an ID (int), username (string) or Twitter\\Me entity for \$user, but got a " . (is_object($user) ? get_class($user) : get_type($user)));
         }
     }
     
@@ -180,7 +186,13 @@ class Connection extends OAuth1
     protected function getBaseUrl($resource=null)
     {
         $resource = self::normalizeResource($resource);
-        return isset(self::$resourceApi[$resource]) ? self::$resourceApi[$resource] : self::$resourceApi['*'];
+        
+        if ($resource) do {
+            if (isset(self::$resourceApi[$resource])) return self::$resourceApi[$resource];
+            $resource = dirname($resource);
+        } while ($resource != '.');
+
+        return self::$resourceApi['*'];
     }
     
     /**
@@ -218,12 +230,12 @@ class Connection extends OAuth1
     /**
      * Get normalized resource from URL
      * 
-     * @param string $url
+     * @param string $resource
      * @return string
      */
-    public static function normalizeResource($url)
+    public static function normalizeResource($resource)
     {
-        return preg_replace(array('~/\d+(?=/|$)~', '~.\w+$~'), array('/*', ''), parse_url($resource, PHP_URL_PATH)); // Replace id's by '*' and normalize
+        return preg_replace(array('~/\d+(?=/|$)~', '~\.\w+$~'), array('/*', ''), $resource); // Replace id's by '*' and normalize
     }
     
     /**

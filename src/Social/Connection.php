@@ -86,7 +86,7 @@ abstract class Connection
      * @param callback $writefunction  Stream content to this function, instead of returning it as result
      * @return string
      */
-    protected function httpRequest($type, $url, $params=null, array $headers=array(), $writefunction=null)
+    protected function httpRequest($method, $url, $params=null, array $headers=array(), $writefunction=null)
     {
         $ch = $this->curlInit($method, $url, $params, $headers);
         
