@@ -215,7 +215,7 @@ class Me extends User
     public function tweet($tweet, $media=array(), array $params=array())
     {
         $params['status'] = $tweet;
-        if (!empty($media)) $params['media'] = $media;
+        if (!empty($media)) $params['media'] = (array)$media;
         
         return $this->getConnection()->post('statuses/update' . ($media ? '_with_media' : ''), $params);
     }

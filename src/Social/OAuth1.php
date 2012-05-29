@@ -201,8 +201,8 @@ abstract class OAuth1 extends Connection
      */
     protected function httpRequest($method, $url, $params=null, array $headers=array(), array $oauth=array())
     {
-        $multipart = isset($headers['Content-Type']) && $headers['Content-Type'] == 'multipart/form-data';
-        if ($multipart) $url = preg_replace('/?.*$/', '', $url);
+        $multipart = $method == 'POST' && isset($headers['Content-Type']) && $headers['Content-Type'] == 'multipart/form-data';
+        if ($multipart) $url = preg_replace('/\?.*$/', '', $url);
         
         $headers['Authorization'] = $this->getAuthorizationHeader($method, $this->getUrl($url), !$multipart ? $params : array(), $oauth);
         return parent::httpRequest($method, $url, $params, $headers);
@@ -217,8 +217,8 @@ abstract class OAuth1 extends Connection
     public function multiRequest(array $requests)
     {
         foreach ($requests as $request) {
-            $multipart = isset($headers['Content-Type']) && $headers['Content-Type'] == 'multipart/form-data';
-            $url = $multipart ? preg_replace('/?.*$/', '', $request->url) : $request->url;
+            $multipart = $request->method == 'POST' && isset($request->headers['Content-Type']) && $request->headers['Content-Type'] == 'multipart/form-data';
+            $url = $multipart ? preg_replace('/\?.*$/', '', $request->url) : $request->url;
             
             $request->headers['Authorization'] = $this->getAuthorizationHeader(isset($request->method) ? $request->method : 'GET', $url, isset($request->params) && !$multipart ? $request->params : array(), isset($request->oauth) ? $request->oauth : array());
         }

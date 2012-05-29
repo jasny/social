@@ -34,7 +34,7 @@ if (!$twitter->isAuth()) {
 $me = $twitter->me();
 $followers = $twitter->get('followers/ids', array('user_id' => $me->id));
 
-$me->tweet('Hello world!');
+$me->tweet("Hello World!");
 
 //if (!$me->isFollowing('ArnoldDaniels')) $me->follow('ArnoldDaniels'); // Everybody who runs this example will follow me.. ghne ghne
 ?>

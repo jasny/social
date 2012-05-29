@@ -173,11 +173,6 @@ abstract class Connection
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-        if ($method == 'POST') {
-            if (!isset($headers['Content-Type']) || $headers['Content-Type'] != 'multipart/form-data') $params = self::buildHttpQuery($params);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
-        }
-
         if ($headers) {
             foreach ($headers as $key=>$value) {
                 if (is_int($key)) continue;
@@ -189,6 +184,11 @@ abstract class Connection
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         }
         
+        if ($method == 'POST') {
+            if (!isset($headers['Content-Type']) || $headers['Content-Type'] != 'multipart/form-data') $params = self::buildHttpQuery($params);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
+        }
+
         return $ch;
     }
     
@@ -205,7 +205,7 @@ abstract class Connection
         
         // Not JSON
         if (!isset($data)) {
-            if (preg_match('/<html/i', $result) || $result == '') return $httpcode;
+            if (preg_match('~Content-Type:\s*text/html~i', $result) || $result == '') return $httpcode;
             return $result;
         }
         
