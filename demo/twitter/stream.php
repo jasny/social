@@ -13,6 +13,6 @@ function write($ch, $data)
     return strlen($data);
 }
 
-$twitter->stream('write', 'statuses/filter', array('track' => 'vodafone'));
+$twitter->stream('write', 'statuses/filter', array('track' => 'nederland'));
 
 echo "Done";
