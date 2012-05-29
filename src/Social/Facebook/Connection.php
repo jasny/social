@@ -96,6 +96,8 @@ class Connection extends Base
               elseif (is_scalar($user)) $this->me = new Entity($this, 'user', array('id' => $user), true);
               else throw new Exception("Was expecting an ID (int) or Entity for \$user, but got a " . (is_object($user) ? get_class($user) : get_type($user)));
         }
+        
+        $this->curl_opts[CURLOPT_HTTPHEADER] = array('Expect:', 'Content-Type:', 'Content-Length:');
     }
     
     /**

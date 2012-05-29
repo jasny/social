@@ -19,12 +19,12 @@ abstract class Connection
      * 
      * @var array
      */
-    protected static $CURL_OPTS = array(
+    protected $curl_opts = array(
         CURLOPT_CONNECTTIMEOUT      => 10,
         CURLOPT_RETURNTRANSFER      => true,
         CURLOPT_TIMEOUT             => 60,
-        CURLOPT_USERAGENT           => 'jasny-social-1.0',
-        CURLOPT_HTTPHEADER          => array('Content-Type:', 'Content-Length:', 'Expect:'),
+        CURLOPT_USERAGENT           => 'JasnySocial/1.0',
+        CURLOPT_HTTPHEADER          => array('Expect:'),
         CURLOPT_FOLLOWLOCATION      => true,
         CURLOPT_MAXREDIRS           => 3,
         CURLOPT_TIMEOUT             => 10,
@@ -79,15 +79,22 @@ abstract class Connection
     /**
      * Do an HTTP request.
      * 
-     * @param string $method   GET, POST or DELETE
-     * @param string $url
-     * @param array  $params   REQUEST parameters
-     * @param array  $headers  Additional HTTP headers
+     * @param string   $method         GET, POST or DELETE
+     * @param string   $url
+     * @param array    $params         REQUEST parameters
+     * @param array    $headers        Additional HTTP headers
+     * @param callback $writefunction  Stream content to this function, instead of returning it as result
      * @return string
      */
-    protected function httpRequest($method, $url, $params=null, array $headers=array())
+    protected function httpRequest($type, $url, $params=null, array $headers=array(), $writefunction=null)
     {
-        $ch = $this->curlInit($method, $url);
+        $ch = $this->curlInit($method, $url, $params, $headers);
+        
+        if (isset($writefunction)) {
+            curl_setopt($ch, CURLOPT_TIMEOUT, 0); // Don't timeout
+            curl_setopt($ch, CURLOPT_WRITEFUNCTION, $writefunction);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+        }
         
         $result = curl_exec($ch);
         $error = curl_error($ch);
@@ -124,7 +131,7 @@ abstract class Connection
         $active = null; 
         do { 
             $status = curl_multi_exec($mh, $active);
-            if (curl_multi_select($mh, self::$CURL_OPTS[CURLOPT_TIMEOUT]) < 0) { // pause the loop until somethings happens
+            if (curl_multi_select($mh, $this->curl_opts[CURLOPT_TIMEOUT]) < 0) { // pause the loop until somethings happens
                 break; // timeout
             }
         } while ($status === CURLM_CALL_MULTI_PERFORM || $active);
@@ -162,11 +169,12 @@ abstract class Connection
         $url = $this->getUrl($url, $method != 'POST' ? $params : array());
 
         $ch = curl_init($url);
-        curl_setopt_array($ch, static::$CURL_OPTS);
+        curl_setopt_array($ch, $this->curl_opts);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-        
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
         if ($method == 'POST') {
-            if (!isset($headers['Content-Type']) || $headers['Content-Type'] != 'multipart/form-data') $params = $this->buildHttpQuery($params);
+            if (!isset($headers['Content-Type']) || $headers['Content-Type'] != 'multipart/form-data') $params = self::buildHttpQuery($params);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
         }
 
@@ -177,9 +185,11 @@ abstract class Connection
                 $headers[] = "$key: $value";
             }
             
-            if (isset(static::$CURL_OPTS[CURLOPT_HTTPHEADER])) $headers = array_merge(static::$CURL_OPTS[CURLOPT_HTTPHEADER], $headers);
+            if (isset($this->curl_opts[CURLOPT_HTTPHEADER])) $headers = array_merge($this->curl_opts[CURLOPT_HTTPHEADER], $headers);
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         }
+        
+        return $ch;
     }
     
     /**
@@ -195,15 +205,15 @@ abstract class Connection
         
         // Not JSON
         if (!isset($data)) {
-            if (preg_match('/<html/i', $result)) return $httpcode;
+            if (preg_match('/<html/i', $result) || $result == '') return $httpcode;
             return $result;
         }
         
         // JSON
-        if (isset($data->error)) return $data->error->message;
-          elseif (isset($data->errors)) return $data->errors[0]->message;
+        if (isset($data->error)) return is_scalar($data->error) ? $data->error : $data->error->message;
+          elseif (isset($data->errors)) return is_scalar($data->errors[0]) ? $data->errors[0] : $data->errors[0]->message;
           elseif (isset($data->error_msg)) return $data->error_msg;
-          
+        
         return $result; // Return the JSON as string (this shouldn't happen)
     }
     
@@ -265,11 +275,16 @@ abstract class Connection
     static protected function buildHttpQuery($params)
     {
         foreach ($params as $key=>&$value) {
-            if (!isset($value)) unset($params[$key]);
-            if (!is_array($value)) $value = join(',', $value);
+            if (!isset($value)) {
+                unset($params[$key]);
+                continue;
+            }
+
+            if (is_array($value)) $value = join(',', $value);
+            $value = rawurlencode($key) . '=' . rawurlencode($value);
         }
-        
-        return http_build_query($params, null, '&');
+       
+        return join('&', $params);
     }
 
     /**
@@ -307,37 +322,8 @@ abstract class Connection
      * @param boolean $convert   Convert to entity/collection, false returns raw data
      * @return Entity|Collection|mixed
      */
-    abstract public function post($resource, array $params, $convert=true);
+    abstract public function post($resource, array $params=array(), $convert=true);
     
-    
-    /**
-     * Create a new entity
-     * 
-     * @param string $type
-     * @param array  $data
-     * @return Entity
-     */
-    abstract public function create($type, $data=array());
-    
-    /**
-     * Create a new collection.
-     * 
-     * @param string $type       Type of entities in the collection
-     * @param array  $data
-     * @param string $nextPage
-     * @return Collection
-     */
-    abstract public function collection($type, $data=array(), $nextPage=null);
-    
-    /**
-     * Create a stub.
-     * 
-     * @param string       $type
-     * @param array|string $data  Data or id
-     * @return Entity
-     */
-    abstract public function stub($type, $data);
-
     
     /**
      * Convert data to Entity, Collection or DateTime.

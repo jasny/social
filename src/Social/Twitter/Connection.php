@@ -39,14 +39,24 @@ class Connection extends OAuth1
     /**
      * Twitter streaming API URL
      */
-    const streamingURL = "https://stream.twitter.com/1/";
+    const streamUrl = "https://stream.twitter.com/1/";
+
+    /**
+     * Twitter streaming API URL for user stream
+     */
+    const userstreamUrl = "https://userstream.twitter.com/2/";
+
+    /**
+     * Twitter streaming API URL for site stream
+     */
+    const sitestreamUrl = "https://sitestream.twitter.com/2b/";
     
     
     /**
      * Entity type per resource
      * @var array
      */
-    private static final $resourceTypes = array(
+    private static $resourceTypes = array(
         'statuses'                  => 'tweet',
         'statuses/*/retweeted_by'   => 'user',
         'statuses/oembed'           => null,
@@ -75,23 +85,25 @@ class Connection extends OAuth1
     );
 
     /**
-     * API per resource
+     * API url per resource
      * @var array
      */
-    public static final $resourceApi = array(
+    public static $resourceApi = array(
+        '*'                          => self::restURL,
         'statuses/update_with_media' => self::uploadURL,
         'search'                     => self::searchURL,
-        'statuses/filter'            => self::streamingURL,
-        'statuses/firehose'          => self::streamingURL,
-        'statuses/retweet'           => self::streamingURL,
-        'statuses/sample'            => self::streamingURL,
+        'statuses/filter'            => self::streamUrl,
+        'statuses/sample'            => self::streamUrl,
+        'statuses/firehose'          => self::streamUrl,
+        'user'                       => self::userstreamUrl,
+        'site'                       => self::sitestreamUrl,
     );
     
     /**
      * Resource that require a multipart POST
      * @var array
      */
-    public static final $resourcesMultipart = array(
+    public static $resourcesMultipart = array(
         'account/update_profile_background_image' => true,
         'account/update_profile_image'            => true,
         'statuses/update_with_media'              => true,
@@ -101,7 +113,7 @@ class Connection extends OAuth1
      * Default paramaters per resource.
      * @var array
      */
-    private static final $defaultParams = array(
+    private static $defaultParams = array(
         'statuses/home_timeline'     => array('count' => 200, 'include_entities' => true),
         'statuses/mentions'          => array('count' => 200, 'include_entities' => true),
         'statuses/retweeted_by_me'   => array('count' => 100, 'include_entities' => true),
@@ -162,13 +174,13 @@ class Connection extends OAuth1
     /**
      * Get Twitter API URL based on de resource.
      * 
-     * @param string $url
+     * @param string $resource
      * @return string
      */
-    protected function getBaseUrl($url=null)
+    protected function getBaseUrl($resource=null)
     {
-        $resource = self::normalizeResource($url);
-        return isset(self::$resourceApi[$resource]) ? self::$resourceApi[$resource] : self::restURL;
+        $resource = self::normalizeResource($resource);
+        return isset(self::$resourceApi[$resource]) ? self::$resourceApi[$resource] : self::$resourceApi['*'];
     }
     
     /**
@@ -182,7 +194,7 @@ class Connection extends OAuth1
      */
     public function getAuthUrl($level='authorize', $callbackUrl=null, &$tmpAccess=null)
     {
-        $callbackUrl = $this->getCurrentUrl($callbackUrl, array('twitter_auth' => 'auth'));
+        $callbackUrl = $this->getCurrentUrl($callbackUrl, array('twitter_auth' => $level));
         return parent::getAuthUrl($level, $callbackUrl, $tmpAccess);
     }
     
@@ -271,33 +283,9 @@ class Connection extends OAuth1
         $params += $this->getDefaultParams($url);
         if ($this->detectMultipart($url)) $headers['Content-Type'] = 'multipart/form-data';
         
-        return parent::httpRequest($method, $url, $params, $headers, $oauths);
+        return parent::httpRequest($method, $url, $params, $headers, $oauth);
     }
     
-    /**
-     * Run multiple HTTP requests in parallel.
-     * 
-     * @param array   $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
-     * @param boolean $convert   Convert to entity/collection, false returns raw data
-     * @return array
-     */
-    public function multiRequest(array $requests, $convert=true)
-    {
-        foreach ($requests as $request) {
-            $request->params = (isset($request->params) ? array() : $request->params) + $this->getDefaultParams($request->url);
-            if ($this->detectMultipart($request->url)) $request->headers['Content-Type'] = 'multipart/form-data';
-        }
-        
-        $results = parent::multiRequest($requests);
-        
-        if ($convert) {
-            foreach ($results as $i=>&$data) {
-                $type = $this->detectType($requests[$i]->url);
-                $data = $this->convertData($data, $type, false, $requests[$i]);
-            }
-        }
-    }
-
     /**
      * Fetch from Twitter.
      * 
@@ -329,7 +317,7 @@ class Connection extends OAuth1
      * @param boolean $convert   Convert to entity/collection, false returns raw data
      * @return Entity|Collection|mixed
      */
-    public function post($resource, array $params, $convert=true)
+    public function post($resource, array $params=array(), $convert=true)
     {
         $response = $this->httpRequest('GET', $resource . (pathinfo($resource, PATHINFO_EXTENSION) ? "" : ".json"), $params);
         $data = json_decode($response);
@@ -342,6 +330,51 @@ class Connection extends OAuth1
         }
         
         return $data;
+    }
+
+    /**
+     * Stream content from Twitter.
+     * 
+     * @param callback $writefunction  Stream content to this function
+     * @param string   $resource
+     * @param array    $params         Request parameters
+     * @return boolean
+     */
+    public function stream($writefunction, $resource, array $params=array())
+    {
+        $method = $id == 'statuses/filter' ? 'POST' : 'GET';
+        
+        $response = $this->httpRequest($method, $resource . (pathinfo($resource, PATHINFO_EXTENSION) ? "" : ".json"), $params, array(), array(), $writefunction);
+        return $response;
+    }
+    
+    /**
+     * Run multiple HTTP requests in parallel.
+     * 
+     * @param array   $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
+     * @param boolean $convert   Convert to entity/collection, false returns raw data
+     * @return array
+     */
+    public function multiRequest(array $requests, $convert=true)
+    {
+        foreach ($requests as $request) {
+            $request->params = (isset($request->params) ? array() : $request->params) + $this->getDefaultParams($request->url);
+            if ($this->detectMultipart($request->url)) $request->headers['Content-Type'] = 'multipart/form-data';
+        }
+        
+        $results = parent::multiRequest($requests);
+        
+        foreach ($results as $i=>&$response) {
+            $data = json_decode($response);
+            if (!isset($data)) continue;
+            
+            if ($convert) {
+                $type = $this->detectType($requests[$i]->url);
+                $data = $this->convertData($data, $type, false, $requests[$i]);
+            }
+            
+            $response = $data;
+        }
     }
 
     
@@ -412,7 +445,7 @@ class Connection extends OAuth1
     /**
      * Factory method a collection.
      * 
-     * @param string $type      Type of entities in the collection (may be omitted)
+     * @param string $type  Type of entities in the collection (may be omitted)
      * @param array  $data
      * @return Collection
      */
@@ -423,7 +456,7 @@ class Connection extends OAuth1
             $type = null;
         }
         
-        return new Collection($this, $type, $data, $nextPage);
+        return new Collection($this, $type, $data);
     }
 
     /**
@@ -431,7 +464,7 @@ class Connection extends OAuth1
      * 
      * @param array|int $data  Properties or ID
      * @param boolean   $stub  True means that $data only contains some of the entity's properties
-     * @return 
+     * @return User
      */
     public function user($data=array(), $stub=true)
     {

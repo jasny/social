@@ -151,7 +151,7 @@ abstract class OAuth1 extends Connection
 
         ksort($params);
         
-        $base_string = strtoupper($method) . '&' . rawurlencode($url) . '&' . rawurlencode(http_build_query($params, null, '&'));
+        $base_string = strtoupper($method) . '&' . rawurlencode($url) . '&' . rawurlencode(self::buildHttpQuery($params));
         $signing_key = rawurlencode($this->consumerSecret) . '&' . rawurlencode($user_secret);
 
         return base64_encode(hash_hmac('sha1', $base_string, $signing_key, true));
@@ -182,12 +182,7 @@ abstract class OAuth1 extends Connection
         unset($oauth['oauth_token_secret']);
         ksort($oauth);
         
-        $parts = array();
-        foreach ($oauth as $key=>$value) {
-            $parts[] = $key . '="' . rawurlencode($value) . '"';
-        }
-        
-        return 'OAuth ' . join(', ', $parts);
+        return 'OAuth ' . self::buildHttpQuery($oauth);
     }
     
     /**
