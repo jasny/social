@@ -1,6 +1,6 @@
 <?php
 /**
- * Twitter User entity
+ * Twitter user list entity
  * 
  * @license MIT
  * @copyright 2012 Jasny
@@ -12,7 +12,7 @@ namespace Social\Twitter;
 use Social\Exception;
 
 /**
- * Autoexpending Twitter UserList entity.
+ * Autoexpending Twitter user list entity.
  * 
  */
 class UserList extends Entity

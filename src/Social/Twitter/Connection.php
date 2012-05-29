@@ -427,18 +427,18 @@ class Connection extends OAuth1
     /**
      * Factory method for an entity.
      * 
-     * @param string    $type  'me', 'user', 'tweet', 'direct_message', 'list', 'saved_search' or 'place'
+     * @param string    $type  'me', 'user', 'tweet', 'direct_message', 'user_list', 'saved_search' or 'place'
      * @param array|int $data  Properties or ID
-     * @param boolean   $stub  True means that $data only contains some of the entity's properties
+     * @param boolean   $stub  True means that $data doesn't contain all of the entity's properties
      * @return Entity
      */
     public function entity($type, $data=array(), $stub=true)
     {
-        if ($type != 'me' && $type != 'user' && $type != 'tweet' && $type != 'direct_message' && $type != 'list' && $type != 'saved_search' && $type != 'place') {
+        if ($type != 'me' && $type != 'user' && $type != 'tweet' && $type != 'direct_message' && $type != 'user_list' && $type != 'saved_search' && $type != 'place') {
             throw new Exception("Unable to create a Twitter entity: unknown entity type '$type'");
         }
         
-        $type = str_replace('_', '', $type);
+        $type = preg_replace('/\W|_/', '', $type);
         return new $type($this, $data, $stub);
     }
     
@@ -500,12 +500,12 @@ class Connection extends OAuth1
         
         // Collection
         if ($data instanceof \stdClass && isset($data->next_cursor)) {
-            // TODO: calc next page
+            $nextPage = null; // TODO: calc next page
             return new Collection($this, $type, $data->data, $nextPage);
         }
 
         if (is_array($data) && is_object(reset($data))) {
-            // TODO: calc next page
+            $nextPage = null; // TODO: calc next page
             return new Collection($this, $type, $data, $nextPage);
         }
         

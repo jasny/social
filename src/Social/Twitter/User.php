@@ -1,6 +1,6 @@
 <?php
 /**
- * Twitter User entity
+ * Twitter user entity
  * 
  * @license MIT
  * @copyright 2012 Jasny
@@ -12,7 +12,7 @@ namespace Social\Twitter;
 use Social\Exception;
 
 /**
- * Autoexpending Twitter User entity.
+ * Autoexpending Twitter user entity.
  * 
  * @property string     $profile_image      users/profile_image
  * @property Tweet[]    $timeline           statuses/user_timeline
