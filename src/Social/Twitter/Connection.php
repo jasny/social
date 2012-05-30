@@ -529,7 +529,9 @@ class Connection extends OAuth1
         // Value object
         if ($data instanceof \stdClass) {
             foreach ($data as $key=>&$value) {
-                $type = $key == 'user' ? 'user' : ($key == 'status' ? 'tweet' : null);
+                if ($key == 'user') $type = 'user';
+                 elseif ($key == 'status') $key = 'tweet';
+                
                 $value = $this->convertData($value, $type);
             }
             return $data;

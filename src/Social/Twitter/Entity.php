@@ -43,6 +43,8 @@ abstract class Entity extends Base
      */
     public function setProperties($data, $expanded=false)
     {
+        if ($expanded) $this->_stub = false;
+
         // Data is already converted
         if ($data instanceof self) {
             parent::setProperties($data, $expanded);
@@ -50,12 +52,14 @@ abstract class Entity extends Base
         }
         
         // Raw data
+        $conn = $this->getConnection();
+        
+        if (isset($data->id_str)) $data->id = $data->id_str;
+        
         foreach ($data as $key=>&$value) {
             $type = $key == 'user' ? 'user' : ($key == 'status' ? 'tweet' : null);
-            $this->$key = $this->getConnection()->convertData($value, $type);
+            $this->$key = $conn->convertData($value, $type);
         }
-        
-        if ($expanded) $this->_stub = false;
     }
     
     

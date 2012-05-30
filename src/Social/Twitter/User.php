@@ -42,7 +42,7 @@ class User extends Entity
         $this->_type = 'user';
         $this->_stub = $stub || is_scalar($data);
         
-        if (is_scalar($data)) $data = $this->makeUserData($data);
+        if (is_scalar($data)) $data = self::makeUserData($data);
         $this->setProperties($data);
     }
     
@@ -72,10 +72,80 @@ class User extends Entity
             case 'lists':                  return (object)array('resource' => 'lists', 'params' => $this->asParams() + $params);
             case 'subscribed_lists':       return (object)array('resource' => 'lists/subscriptions', 'params' => $this->asParams() + $params);
             case 'all_lists':              return (object)array('resource' => 'lists/all', 'params' => $this->asParams() + $params);
-            
         }
         
         return null;
+    }
+    
+    
+    /**
+     * Get the relationship between users.
+     * 
+     * The resulting user entity/entities will have following extra properties: 'following', 'followed_by', 'notifications_enabled', 'can_dm', 'want_retweets', 'marked_spam', 'all_replies', 'blocking'.
+     * 
+     * @see https://dev.twitter.com/docs/api/1/get/friendships/show
+     * 
+     * @param mixed $user  User entity/ID/username or array with users
+     * @return User|Collection
+     */
+    public function friendship($user)
+    {
+        // Single user
+        if (!is_array($user) && !$user instanceof \ArrayObject) {
+            $result = $this->getConnection()->get('friendships/show', self::makeUserData($this, true, 'source_') + self::makeUserData($user, true, 'target_'), false);
+            $result = $result[0];
+
+            $data =& $result->source;
+            $data->id = $data->id_str = $result->target->id_str;
+            $data->screen_name = $result->target->screen_name;
+            
+            $entity = new User($this->getConnection(), $data);
+            if (is_object($user)) $entity->setProperties($user, true);
+            
+            return $entity;
+        }
+        
+        // Multiple users
+        $source = self::makeUserData($this, true, 'source_');
+        foreach ($user as $u) {
+            $requests[] = (object)array('method' => 'GET', 'url' => 'friendships/show', $source + self::makeUserData($u, true, 'target_'));
+        }
+        
+        $entities = array();
+        $results = $this->_connection->multiRequest($requests);
+        
+        foreach ($results as $result) {
+            $data =& $result->source;
+            $data->id = $data->id_str = $result->target->id_str;
+            $data->screen_name = $result->target->screen_name;
+            
+            $entity = new User($this->getConnection(), $data);
+            if (is_object($user)) $entity->setProperties($user, true);
+        }
+
+        return new Collection($this->getConnection(), 'user', $entities);
+    }
+    
+    /**
+     * Check if this user is following the specified user.
+     * 
+     * @param mixed $user  User entity/ID/username
+     * @return boolean
+     */
+    public function isFollowing($user)
+    {
+        return $this->getConnection()->get('friendships/exists', self::makeUserData($this, true, '', '_a') + self::makeUserData($user, true, '', '_b'));
+    }    
+    
+    /**
+     * Check if this user is followed by the specified user.
+     * 
+     * @param mixed $user  User entity/ID/username
+     * @return boolean
+     */
+    public function isFollowedBy($user)
+    {
+        return $this->getConnection()->get('friendships/exists', self::makeUserData($this, true, '', '_b') + self::makeUserData($user, true, '', '_a'));
     }
     
     
@@ -96,19 +166,21 @@ class User extends Entity
      * 
      * @param mixed   $data
      * @param boolean $asParams  This is inteded as parameters
+     * @param string  $prefix    Parameter key prefix
+     * @param string  $suffix    Parameter key suffix
      * @return object|array
      */
-    public static function makeUserData($data, $asParams=false)
+    public static function makeUserData($data, $asParams=false, $prefix='', $suffix='')
     {
         if (is_scalar($data)) {
             $key = is_int($data) || ctype_digit($data) ? 'user_id' : 'screen_name';
-            $data = array($key => $data);
+            $data = array($prefix . $key . $suffix => $data);
             return $asParams ? $data : (object)$data;
         }
         
         $data = (object)$data;
         
-        if ($asParams) return property_exists($data, 'id') || !property_exists($data, 'sreen_name')  ? array('user_id' => $data->id) : array('screen_name' => $data->screen_name);
-        return $data;
+        if (!$asParams) return $data;
+        return property_exists($data, 'id') || !property_exists($data, 'sreen_name') ? array($prefix . 'user_id' . $suffix => $data->id) : array($prefix . 'screen_name' . $suffix => $data->screen_name);
     }
 }

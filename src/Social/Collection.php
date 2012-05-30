@@ -321,7 +321,7 @@ class Collection extends \ArrayObject
         if (!isset($data)) $data = $this->getArrayCopy();
         if ($entity instanceof Entity) $entity = $entity->id;
         
-        $this->loadAll();
+        $this->fetchAll();
         foreach ($data as $key => &$value) {
             if (($value instanceof Entity ? $value->id : $value) == $entity) return $key;
         }
