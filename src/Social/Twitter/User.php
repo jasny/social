@@ -88,7 +88,7 @@ class User extends Entity
      * @param mixed $user  User entity/ID/username or array with users
      * @return User|Collection
      */
-    public function friendship($user)
+    public function getFriendship($user)
     {
         // Single user
         if (!is_array($user) && !$user instanceof \ArrayObject) {
@@ -179,8 +179,7 @@ class User extends Entity
         }
         
         $data = (object)$data;
-        
         if (!$asParams) return $data;
-        return property_exists($data, 'id') || !property_exists($data, 'sreen_name') ? array($prefix . 'user_id' . $suffix => $data->id) : array($prefix . 'screen_name' . $suffix => $data->screen_name);
+        return property_exists($data, 'id') || !property_exists($data, 'screen_name') ? array($prefix . 'user_id' . $suffix => $data->id) : array($prefix . 'screen_name' . $suffix => $data->screen_name);
     }
 }

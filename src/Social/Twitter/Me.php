@@ -250,7 +250,7 @@ class Me extends User
         // Single user
         if (!is_array($user) && !$user instanceof \ArrayObject) {
             $user = $user;
-            $response = $this->getConnection->post('friendships/create', self::makeUserData($user, true));
+            $response = $this->getConnection()->post('friendships/create', self::makeUserData($user, true));
         
             if (!$user instanceof User) return $response;
             
@@ -265,7 +265,7 @@ class Me extends User
             $requests[$i] = (object)array('method' => 'POST', 'url' => 'friendships/create', self::makeUserData($user, true));
         }
         
-        $results = $this->_connection->multiRequest($requests);
+        $results = $this->getConnection()->multiRequest($requests);
         
         foreach ($entities as $i=>$user) {
             if (!isset($results[$i])) continue;
@@ -400,7 +400,7 @@ class Me extends User
      * @param boolean $extended  Include additional info
      * @return User|Collection
      */
-    public function friendship($user, $extended=false)
+    public function getFriendship($user, $extended=false)
     {
         if ($extended) return parent::friendship($user);
         
@@ -412,6 +412,7 @@ class Me extends User
             $entity->following = in_array('following', $entity->connections);
             $entity->following_requested = in_array('following_requested', $entity->connections);
             $entity->followed_by = in_array('followed_by', $entity->connections);
+            unset($entity->connections);
             
             if (is_object($user)) $entity->setProperties($user, true);
             return $entity;
@@ -478,7 +479,7 @@ class Me extends User
      * 
      * @see https://dev.twitter.com/docs/api/1/post/favorites/create/%3Aid
      * 
-     * @param Tweet|int  $tweet   Tweet entity or ID
+     * @param Tweet|int  $tweet   Tweet entity/ID
      * @param array      $params  Additional parameters
      * @return Tweet
      */
@@ -493,7 +494,7 @@ class Me extends User
      * 
      * @see https://dev.twitter.com/docs/api/1/post/favorites/create/%3Aid
      * 
-     * @param Tweet|int  $tweet   Tweet entity or ID
+     * @param Tweet|int  $tweet   Tweet entity/ID
      * @param array      $params  Additional parameters
      * @return Tweet
      */
@@ -509,10 +510,10 @@ class Me extends User
      * 
      * @see https://dev.twitter.com/docs/api/1/post/lists/create
      * 
-     * @param array|string $params  Parameters or name
+     * @param array|string $params  Parameters or list name
      * @return UserList
      */
-    public function createUserList($params=array())
+    public function createList($params=array())
     {
         if (!is_array($params)) $params = array('name' => $params);
         return $this->getConnection->post('lists/create', $params);
@@ -523,21 +524,21 @@ class Me extends User
      * 
      * https://dev.twitter.com/docs/api/1/post/lists/subscribers/create
      * 
-     * @param UserList|int $list  UserList entity/id or array with lists
+     * @param UserList|int $list  UserList entity/ID or array with lists or params
      * @return UserList
      */
     public function subscribe($list)
     {
         // Single list
-        if (!is_array($list) && !$list instanceof \ArrayObject) {
-            $params = $list instanceof UserUserList ? $list->asParams() : array('list_id' => $list);
+        if ((!is_array($list) || is_string(key($list))) && !$list instanceof \ArrayObject) {
+            $params = is_array($list) ? $list : ($list instanceof UserList ? $list->asParams() : array('list_id' => $list));
             return $this->getConnection()->post('lists/subscribers/create', $params);
         }
         
         // Multiple lists
         foreach ($list as $l) {
-            $params = $list instanceof UserUserList ? $list->asParams() : array('list_id' => $list);
-            $requests[] = (object)array('method' => 'POST', 'url' => 'lists/subscribers/destroy', $params);
+            $params = $list instanceof UserList ? $list->asParams() : array('list_id' => $list);
+            $requests[] = (object)array('method' => 'POST', 'url' => 'lists/subscribers/create', $params);
         }
         
         return $this->_connection->multiRequest($requests);
@@ -548,20 +549,20 @@ class Me extends User
      * 
      * https://dev.twitter.com/docs/api/1/post/lists/subscribers/create
      * 
-     * @param UserList|int|array $list  UserList entity/id or params
+     * @param UserList|int|array $list  UserList entity/ID or array with lists or params
      * @return UserList
      */
     public function unsubscribe($list)
     {
         // Single list
-        if (!is_array($list) && !$list instanceof \ArrayObject) {
-            $params = $list instanceof UserUserList ? $list->asParams() : array('list_id' => $list);
-            return $this->getConnection()->post('lists/subscribers/create', $params);
+        if ((!is_array($list) || is_string(key($list))) && !$list instanceof \ArrayObject) {
+            $params = is_array($list) ? $list : ($list instanceof UserList ? $list->asParams() : array('list_id' => $list));
+            return $this->getConnection()->post('lists/subscribers/destroy', $params);
         }
         
         // Multiple lists
         foreach ($list as $l) {
-            $params = $list instanceof UserUserList ? $list->asParams() : array('list_id' => $list);
+            $params = $list instanceof UserList ? $list->asParams() : array('list_id' => $list);
             $requests[] = (object)array('method' => 'POST', 'url' => 'lists/subscribers/destroy', $params);
         }
         

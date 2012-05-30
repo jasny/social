@@ -231,12 +231,12 @@ abstract class OAuth1 extends Connection
      * Get authentication url.
      * Temporary accesss information is automatically stored to a session.
      *
-     * @param int    $level        'authorize' = read/write on users behalf, 'authenticate' = login + user info only
+     * @param int    $level        'authorize', 'authenticate'
      * @param string $callbackUrl  The URL to return to after successfully authenticating.
      * @param object $access       Will be filled with the temporary access information.
      * @return string
      */
-    public function getAuthUrl($level='authorize', $callbackUrl=null, &$tmpAccess=null)
+    public function getAuthUrl($level='authenticate', $callbackUrl=null, &$tmpAccess=null)
     {
         if (!isset($callbackUrl)) {
             $callbackUrl = $this->getCurrentUrl($callbackUrl, array('twitter_auth' => 'auth'));
@@ -248,7 +248,7 @@ abstract class OAuth1 extends Connection
         
         $_SESSION[str_replace('\\', '/', get_class($this)) . ':tmp_access'] = $tmpAccess;
         
-        return $this->getUrl('oauth/authorize', array('oauth_token' => $tmpAccess['oauth_token']));
+        return $this->getUrl('oauth/' . $level, array('oauth_token' => $tmpAccess['oauth_token']));
     }
     
     /**

@@ -42,7 +42,7 @@ class Collection extends Base
     {
         $this->load();
         
-        $entities = $collection->getArrayCopy();
+        $entities = $this->getArrayCopy();
         
         foreach ($entities as $i=>$entity) {
             if (!$entity->isStub()) continue;

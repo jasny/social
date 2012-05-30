@@ -321,7 +321,7 @@ class Collection extends \ArrayObject
         if (!isset($data)) $data = $this->getArrayCopy();
         if ($entity instanceof Entity) $entity = $entity->id;
         
-        $this->fetchAll();
+        $this->load();
         foreach ($data as $key => &$value) {
             if (($value instanceof Entity ? $value->id : $value) == $entity) return $key;
         }
@@ -389,7 +389,7 @@ class Collection extends \ArrayObject
      */
     public function offsetExists($offset)
     {
-        $this->loadAll();
+        $this->load();
         return parent::offsetExists($offset);
     }
 
@@ -401,7 +401,7 @@ class Collection extends \ArrayObject
      */
     public function offsetGet($offset)
     {
-        $this->loadAll();
+        $this->load();
         return parent::offsetGet($offset);
     }
 

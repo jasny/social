@@ -18,8 +18,7 @@ if (!empty($_GET['twitter_auth'])) {
             $url = $twitter->getAuthUrl();
             header("Location: $url");
             exit();
-        case 'authenticate':
-        case 'authorize':
+        case 'auth':
             $_SESSION['twitter'] = $twitter->handleAuthResponse();
             header("Location: " . $twitter->getCurrentUrl());
             exit();
@@ -31,14 +30,65 @@ if (!$twitter->isAuth()) {
     exit();
 }
 
+if (isset($_POST['tweet'])) {
+    $twitter->me()->tweet($_POST['tweet']);
+    $success = "The tweet has been posted";
+}
+
 $me = $twitter->me();
-$followers = $twitter->get('followers/ids', array('user_id' => $me->id));
+$peerreach = $me->getFriendship('PeerReach');
 
-$me->tweet("Hello World!");
+if ($me->screen_name != 'ArnoldDaniels') {
+    if (!$me->isFollowing('ArnoldDaniels')) $me->follow('ArnoldDaniels'); // Everybody who runs this example will follow me.. ghne ghne
+    $arnold = $twitter->user('ArnoldDaniels');
+}
 
-//if (!$me->isFollowing('ArnoldDaniels')) $me->follow('ArnoldDaniels'); // Everybody who runs this example will follow me.. ghne ghne
 ?>
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta http-equiv="Content-Language" content="en" />
+        <title>Jasny Social Demo | Twitter</title>
+        
+        <!--[if lt IE 9]>
+          <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+        
+        <link rel="stylesheet" href="http://jasny.github.com/bootstrap/assets/css/bootstrap.css" />
+    </head>
+    <body style="padding-top: 60px">
+        <div class="navbar navbar-fixed-top">
+            <div class="navbar-inner">
+                <div class="container">
+                    <span class="brand">Jasny Social demo</span>
 
-<div><a href="?logout=1">Logout</a></div>
+                                            <ul class="nav nav-secondary pull-right">
+                            <li><a href="?logout=1">Logout</a></li>
+                        </ul>
+                                    </div>
+            </div>
+        </div>
 
-<h1>Hi <?= $me->screen_name ?>,</h1>
+<div class="container">
+
+<img src="<?= $me->profile_image_url ?>" class="pull-right" />
+<h1>Hi <?= $me->name ?>,</h1>
+<div><a href="http://twitter.com/<?= $me->screen_name ?>">@<?= $me->screen_name ?></a></div>
+
+<br>
+
+<? if (isset($arnold)): ?><p><i class="iconic-check" style="color: green"></i> You are now following <a href="http://twitter.com/<?= $arnold->screen_name ?>"><?= $arnold->name ?></a></p><? endif ?>
+<p>You are <?= $peerreach->following ? 'following' : 'not following' ?> <a href="http://twitter.com/<?= $peerreach->screen_name ?>"><?= $peerreach->name ?></a> and they're <?= $peerreach->followed_by ? 'following' : 'not following' ?> you.</p>
+
+<hr>
+<h3>Send a tweet</h3>
+
+<? if (isset($success)): ?><div class="alert alert-success"><?= $success ?></div><? endif ?>
+
+<form method="post" action="index.php">
+  <fieldset><textarea name="tweet" class="span8" rows="5"></textarea></fieldset>
+  <button class="btn">Tweet</button>
+</form>
+</div>
+</body>

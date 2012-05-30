@@ -68,7 +68,7 @@ class Connection extends OAuth1
         'direct_messages'           => 'direct_message',
         'followers'                 => 'user',
         'friends'                   => 'user',
-        'friendships'               => 'user',
+        'friendships'               => '@user',
         'friendships/exists'        => null,
         'users'                     => 'user',
         'users/suggestions'         => null,
@@ -199,14 +199,16 @@ class Connection extends OAuth1
      * Get authentication url.
      * Temporary accesss information is automatically stored to a session.
      *
-     * @param int    $level        'authorize' = read/write on users behalf, 'authenticate' = login + user info only
+     * @see https://dev.twitter.com/docs/api/1/get/oauth/authenticate
+     *
+     * @param int    $level        'authorize' or 'authenticate'
      * @param string $callbackUrl  The URL to return to after successfully authenticating.
      * @param object $tmpAccess    Will be filled with the temporary access information.
      * @return string
      */
-    public function getAuthUrl($level='authorize', $callbackUrl=null, &$tmpAccess=null)
+    public function getAuthUrl($level='authenticate', $callbackUrl=null, &$tmpAccess=null)
     {
-        $callbackUrl = $this->getCurrentUrl($callbackUrl, array('twitter_auth' => $level));
+        $callbackUrl = $this->getCurrentUrl($callbackUrl, array('twitter_auth' => 'auth'));
         return parent::getAuthUrl($level, $callbackUrl, $tmpAccess);
     }
     
@@ -261,7 +263,7 @@ class Connection extends OAuth1
         $resource = self::normalizeResource($resource);
         
         do {
-            if (isset(self::$resourceTypes[$resource])) return self::$resourceTypes[$resource];
+            if (array_key_exists($resource, self::$resourceTypes)) return self::$resourceTypes[$resource];
             $resource = dirname($resource);
         } while ($resource != '.');
         
@@ -317,7 +319,7 @@ class Connection extends OAuth1
             $type = $this->detectType($resource);
             $data = $this->convertData($data, $type, false, (object)array('method' => 'GET', 'url' => $resource, 'params' => $params));
         }
-        
+
         return $data;
     }
     
@@ -446,6 +448,11 @@ class Connection extends OAuth1
      */
     public function entity($type, $data=array(), $stub=true)
     {
+        if (isset($type) && $type[0] == '@') {
+            $type = substr($type, 1);
+            $stub = true;
+        }
+        
         if ($type != 'me' && $type != 'user' && $type != 'tweet' && $type != 'direct_message' && $type != 'user_list' && $type != 'saved_search' && $type != 'place') {
             throw new Exception("Unable to create a Twitter entity: unknown entity type '$type'");
         }
@@ -483,7 +490,7 @@ class Connection extends OAuth1
      */
     public function user($data=array(), $stub=true)
     {
-        return $twitter->entity('user', $data, $stub);
+        return $this->entity('user', $data, $stub);
     }
     
     
@@ -511,8 +518,10 @@ class Connection extends OAuth1
         }
 
         // Entity
-        if ($data instanceof \stdClass && isset($data->id)) return $this->entity($type, $data, $stub);
-        
+        if ($data instanceof \stdClass && isset($data->id)) {
+            return $this->entity($type, $data, $stub);
+        }
+
         // Collection
         if ($data instanceof \stdClass && isset($data->next_cursor)) {
             $key = reset(array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str')));
@@ -529,9 +538,7 @@ class Connection extends OAuth1
         // Value object
         if ($data instanceof \stdClass) {
             foreach ($data as $key=>&$value) {
-                if ($key == 'user') $type = 'user';
-                 elseif ($key == 'status') $key = 'tweet';
-                
+                $type = $key == 'user' ? 'user' : ($key == 'status' ? 'tweet' : null);
                 $value = $this->convertData($value, $type);
             }
             return $data;
