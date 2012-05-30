@@ -25,22 +25,16 @@ if (!empty($_GET['twitter_auth'])) {
     }
 }
 
-if (!$twitter->isAuth()) {
-    echo "<a href='?twitter_auth=login'>Login with Twitter</a>";
-    exit();
-}
+if ($twitter->isAuth()) {
+    if (isset($_POST['tweet'])) {
+        $twitter->me()->tweet($_POST['tweet']);
+        $success = "The tweet has been posted";
+    }
 
-if (isset($_POST['tweet'])) {
-    $twitter->me()->tweet($_POST['tweet']);
-    $success = "The tweet has been posted";
-}
+    $me = $twitter->me();
+    $peerreach = $me->getFriendship('PeerReach');
 
-$me = $twitter->me();
-$peerreach = $me->getFriendship('PeerReach');
-
-if ($me->screen_name != 'ArnoldDaniels') {
-    if (!$me->isFollowing('ArnoldDaniels')) $me->follow('ArnoldDaniels'); // Everybody who runs this example will follow me.. ghne ghne
-    $arnold = $twitter->user('ArnoldDaniels');
+    if ($me->screen_name != 'ArnoldDaniels' && !$me->isFollowing('ArnoldDaniels')) $arnold = $me->follow('ArnoldDaniels'); // Everybody who runs this demo will follow me.. ghne ghne
 }
 
 ?>
@@ -50,11 +44,11 @@ if ($me->screen_name != 'ArnoldDaniels') {
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
         <meta http-equiv="Content-Language" content="en" />
         <title>Jasny Social Demo | Twitter</title>
-        
+
         <!--[if lt IE 9]>
           <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
         <![endif]-->
-        
+
         <link rel="stylesheet" href="http://jasny.github.com/bootstrap/assets/css/bootstrap.css" />
     </head>
     <body style="padding-top: 60px">
@@ -63,32 +57,38 @@ if ($me->screen_name != 'ArnoldDaniels') {
                 <div class="container">
                     <span class="brand">Jasny Social demo</span>
 
-                                            <ul class="nav nav-secondary pull-right">
+                    <? if (!$twitter->isAuth()): ?>
+                        <ul class="nav nav-secondary pull-right">
                             <li><a href="?logout=1">Logout</a></li>
                         </ul>
-                                    </div>
+                    <? endif ?>
+                </div>
             </div>
         </div>
 
-<div class="container">
+        <div class="container">
+            <? if (!$twitter->isAuth()): ?>
+                <a href="?twitter_auth=login">Login with Twitter</a>
+            <? else: ?>
+                <img src="<?= $me->profile_image_url ?>" class="pull-right" />
+                <h1>Hi <?= $me->name ?>,</h1>
+                <div><a href="http://twitter.com/<?= $me->screen_name ?>">@<?= $me->screen_name ?></a></div>
 
-<img src="<?= $me->profile_image_url ?>" class="pull-right" />
-<h1>Hi <?= $me->name ?>,</h1>
-<div><a href="http://twitter.com/<?= $me->screen_name ?>">@<?= $me->screen_name ?></a></div>
+                <br>
 
-<br>
+                <? if (isset($arnold)): ?><p><i class="iconic-check" style="color: green"></i> You are now following <a href="http://twitter.com/<?= $arnold->screen_name ?>"><?= $arnold->name ?></a></p><? endif ?>
+                <p>You are <?= $peerreach->following ? 'following' : 'not following' ?> <a href="http://twitter.com/<?= $peerreach->screen_name ?>"><?= $peerreach->name ?></a> and they're <?= $peerreach->followed_by ? 'following' : 'not following' ?> you.</p>
 
-<? if (isset($arnold)): ?><p><i class="iconic-check" style="color: green"></i> You are now following <a href="http://twitter.com/<?= $arnold->screen_name ?>"><?= $arnold->name ?></a></p><? endif ?>
-<p>You are <?= $peerreach->following ? 'following' : 'not following' ?> <a href="http://twitter.com/<?= $peerreach->screen_name ?>"><?= $peerreach->name ?></a> and they're <?= $peerreach->followed_by ? 'following' : 'not following' ?> you.</p>
+                <hr>
+                <h3>Send a tweet</h3>
 
-<hr>
-<h3>Send a tweet</h3>
+                <? if (isset($success)): ?><div class="alert alert-success"><?= $success ?></div><? endif ?>
 
-<? if (isset($success)): ?><div class="alert alert-success"><?= $success ?></div><? endif ?>
-
-<form method="post" action="index.php">
-  <fieldset><textarea name="tweet" class="span8" rows="5"></textarea></fieldset>
-  <button class="btn">Tweet</button>
-</form>
-</div>
-</body>
+                <form method="post" action="index.php">
+                    <fieldset><textarea name="tweet" class="span8" rows="5"></textarea></fieldset>
+                    <button class="btn">Tweet</button>
+                </form>
+            <? endif ?>
+        </div>
+    </body>
+</html>
