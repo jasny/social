@@ -59,11 +59,32 @@ abstract class Connection
             if (isset($url->params)) $params = $url->params + $params;
             $url = $url->url;
         }
+
+        $url = $this->processPlaceholders($url, $params);
         
         if (strpos($url, '://') === false) $url = $this->getBaseUrl($url) . ltrim($url, '/');
         return $this->buildUrl($url, $params);
     }
     
+    /**
+     * Replace placeholders with data
+     * 
+     * @param string $url     Relative or absolute URL or a request object
+     * @param array  $params  Parameters
+     */
+    protected function processPlaceholders($url, &$params)
+    {
+        if (strpos($url, '/:') === false) return $url;
+        
+        foreach ($params as $key=>$value) {
+            if ($key[0] == ':') {
+                $url = str_replace($key, $value, $url);
+                unset($params[$key]);
+            }
+        }
+        
+        return $url;
+    }
     
     /**
      * Get errors from the last muli request call.
@@ -122,7 +143,9 @@ abstract class Connection
         $handles = array();
         $mh = curl_multi_init();
         
-        foreach ($requests as $key=>$request) {
+        foreach ($requests as $key=>&$request) {
+            if (is_array($request)) $request = (object)$request;
+            
             $ch = $this->curlInit(isset($request->method) ? $request->method : 'GET', $result->url, isset($request->params) ? $request->params : array(), isset($request->headers) ? $request->headers : array());
             curl_multi_add_handle($mh, $ch);
             $handles[$key] = $ch;
@@ -232,7 +255,10 @@ abstract class Connection
         if (!isset($_SERVER['HTTP_HOST'])) return null;
 
         if (!isset($page)) $page = $_SERVER['REQUEST_URI'];
-        if ($page[0] != '/') $page = dirname($_SERVER['REQUEST_URI']) . '/' . $page;
+        if ($page[0] != '/') {
+            $dir = dirname($_SERVER['REQUEST_URI']);
+            $page = ($dir == '.' ? '' : $dir) . '/' . $page;
+        }
         
         $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on' ? 'https://' : 'http://';
         $currentUrl = $protocol . $_SERVER['HTTP_HOST'] . $page;
@@ -257,7 +283,7 @@ abstract class Connection
             $query_params = array();
             parse_str($parts['query'], $query_params);
 
-            if ($overwrite) $params = $params += $query_params;
+            if ($overwrite) $params = array_merge($query_params, $params);
              else $params = $query_params + $params;
         }
 

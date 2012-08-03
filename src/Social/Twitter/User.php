@@ -14,6 +14,8 @@ use Social\Exception;
 /**
  * Autoexpending Twitter user entity.
  * 
+ * https://dev.twitter.com/docs/api/1/get/users/show
+ * 
  * @property string     $profile_image      users/profile_image
  * @property Tweet[]    $timeline           statuses/user_timeline
  * @property Tweet[]    $retweeted_by_user  statuses/retweeted_by_user
@@ -65,7 +67,7 @@ class User extends Entity
             case 'timeline':               return (object)array('resource' => 'statuses/user_timeline', 'params' => $this->asParams() + $params, 'lazy' => true);
             case 'retweeted_by_user':      return (object)array('resource' => 'statuses/retweeted_by_user', 'params' => $this->asParams() + $params, 'lazy' => true);
             case 'retweeted_to_user':      return (object)array('resource' => 'statuses/retweeted_to_user', 'params' => $this->asParams() + $params, 'lazy' => true);
-            case 'followers':              return (object)array('resource' => 'followers/ids', 'params' => $this->asParams() + $params);
+            case 'followers':              return (object)array('resource' => 'followers/ids', 'params' => $this->asParams() + $params + array('stringify_ids' => 1));
             case 'friends':                return (object)array('resource' => 'friends/ids', 'params' => $this->asParams() + $params);
             case 'contributees':           return (object)array('resource' => 'users/contributees', 'params' => $this->asParams() + $params);
             case 'contributors':           return (object)array('resource' => 'users/contributors', 'params' => $this->asParams() + $params);

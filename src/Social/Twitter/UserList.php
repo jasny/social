@@ -14,28 +14,13 @@ use Social\Exception;
 /**
  * Autoexpending Twitter user list entity.
  * 
+ * https://dev.twitter.com/docs/api/1/get/lists/show
+ * 
+ * @property Tweet[]  $tweets        lists/statuses
+ * @property User[]   $subscribers   lists/subscribers
  */
 class UserList extends Entity
 {
-    /**
-     * Class constructor
-     * 
-     * @param Connection   $connection
-     * @param string       $type
-     * @param object|mixed $data        Data or ID
-     * @param boolean      $stub
-     */
-    public function __construct(Connection $connection, $data=array(), $stub=false)
-    {
-        $this->_connection = $connection;
-        $this->_type = 'user';
-        $this->_stub = $stub || is_scalar($data);
-        
-        if (is_scalar($data)) $data = array('id'=>$data);
-        $this->setProperties($data);
-    }
-    
-
     /**
      * Get resource object for fetching subdata.
      * Preparation for a multi request.
@@ -54,6 +39,8 @@ class UserList extends Entity
             
             case 'tweets':      return (object)array('resource' => 'lists/statuses', 'params' => $params);
             case 'subscribers': return (object)array('resource' => 'lists/subscribers', 'params' => $params);
+                
+            case 'add_member':      return (object)array('method' => 'POST', 'resource' => 'lists/members/create', 'params' => self::makeUserData($target, true) + $params);
         }
         
         return parent::prepareRequest($item, $params);

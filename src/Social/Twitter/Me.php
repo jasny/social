@@ -15,7 +15,7 @@ use Social\Exception;
 /**
  * Autoexpending Twitter entity for the authenticated user.
  * 
- * @see https://dev.twitter.com/docs/api
+ * @see https://dev.twitter.com/docs/api/1/get/account/verify_credentials
  * 
  * @property Tweet[]         $timeline               statuses/home_timeline
  * @property Tweet[]         $mentions               statuses/mentions

@@ -34,7 +34,7 @@ class Connection extends OAuth1
     /**
      * Twitter search API URL
      */
-    const searchURL = "https://search.twitter.com/1/";
+    const searchURL = "https://search.twitter.com/";
 
     /**
      * Twitter OAuth API URL
@@ -147,18 +147,18 @@ class Connection extends OAuth1
      * @param string          $consumerSecret  Application's consumer secret
      * @param string|object   $access          User's access token or { 'token': string, 'secret': string, [ 'user': twitter id ] }
      * @param string          $accessSecret    User's access token secret (supply if $access is a string)
-     * @param int|string|User $user            User's Twitter ID/username or Twitter\Me entity (optional)
+     * @param int|string|Me   $me              User's Twitter ID/username or Twitter\Me entity (optional)
      */
-    public function __construct($consumerKey, $consumerSecret, $access=null, $accessSecret=null, $user=null)
+    public function __construct($consumerKey, $consumerSecret, $access=null, $accessSecret=null, $me=null)
     {
         parent::__construct($consumerKey, $consumerSecret, $access, $accessSecret);
 
-        if (is_object($access) && isset($access->user)) $user = $access->user;
+        if (is_object($access) && isset($access->me)) $user = $access->me;
         
-        if (isset($user)) {
-            if ($user instanceof User) $this->me = $user->reconnectTo($this);
-              elseif (is_scalar($user)) $this->me = new Me($this, $user, true);
-              else throw new Exception("Was expecting an ID (int), username (string) or Twitter\\Me entity for \$user, but got a " . (is_object($user) ? get_class($user) : get_type($user)));
+        if (isset($me)) {
+            if ($me instanceof Me) $this->me = $me->reconnectTo($this);
+              elseif (is_scalar($me)) $this->me = new Me($this, $me, true);
+              else trigger_error("Was expecting an ID (int), username (string) or Twitter\\Me entity for \$me, but got a " . (is_object($me) ? get_class($me) : get_type($me)), E_USER_WARNING);
         }
     }
     
@@ -173,7 +173,7 @@ class Connection extends OAuth1
      */
     public function asUser($access, $accessSecret=null, $user=null)
     {
-        return new static($this->appId, $this->appSecret, $access, $accessSecret, $user);
+        return new static($this->consumerKey, $this->consumerSecret, $access, $accessSecret, $user);
     }
     
     
@@ -237,7 +237,7 @@ class Connection extends OAuth1
      */
     public static function normalizeResource($resource)
     {
-        return preg_replace(array('~/\d+(?=/|$)~', '~\.\w+$~'), array('/*', ''), $resource); // Replace id's by '*' and normalize
+        return preg_replace(array('~/(?:\d+|:\w+)(?=/|$)~', '~(\.\w+(\?.*)?|\?.*)$~'), array('/*', ''), $resource); // Replace id's by '*' and remove file extension
     }
     
     /**
@@ -399,12 +399,13 @@ class Connection extends OAuth1
      * 
      * @param type $query
      * @param array $params 
+     * @param boolean $convert   Convert to collection, false returns raw data
      * @return Collection  of Tweets
      */
-    public function search($query, array $params=array())
+    public function search($query, array $params=array(), $convert=true)
     {
         $params['q'] = $query;
-        return $this->get('search', $params);
+        return $this->get('search', $params, $convert);
     }
 
     /**
@@ -414,12 +415,13 @@ class Connection extends OAuth1
      * 
      * @param type $query
      * @param array $params 
+     * @param boolean $convert   Convert to collection, false returns raw data
      * @return Collection  of Users
      */
-    public function searchUsers($query, array $params=array())
+    public function searchUsers($query, array $params=array(), $convert=true)
     {
         $params['q'] = $query;
-        return $this->get('users/search', $params);
+        return $this->get('users/search', $params, $convert);
     }
     
     
@@ -484,11 +486,11 @@ class Connection extends OAuth1
     /**
      * Short notation for $twitter->entity('user', $data, $stub);
      * 
-     * @param array|int $data  Properties or ID
-     * @param boolean   $stub  True means that $data only contains some of the entity's properties
+     * @param array|int|string $data  Properties or Twitter ID/username
+     * @param boolean          $stub  True means that $data only contains some of the entity's properties
      * @return User
      */
-    public function user($data=array(), $stub=true)
+    public function user($data, $stub=true)
     {
         return $this->entity('user', $data, $stub);
     }
@@ -526,12 +528,20 @@ class Connection extends OAuth1
         if ($data instanceof \stdClass && isset($data->next_cursor)) {
             $key = reset(array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str')));
 
-            $nextPage = null; // TODO: calc next page
+            $nextPage = $request;
+            $nextPage->params['cursor'] = $data->next_cursor_str;
             return new Collection($this, $type, $data->$key, $nextPage);
         }
 
         if (is_array($data) && is_object(reset($data))) {
-            $nextPage = null; // TODO: calc next page
+            $nextPage = null;
+            $last = end($data);
+            
+            if (isset($last->id)) {
+                $nextPage = $request;
+                $nextPage->params['max_id'] = isset($last->id_str) ? $last->id_str : $last->id;
+            }
+            
             return new Collection($this, $type, $data, $nextPage);
         }
         
@@ -565,6 +575,18 @@ class Connection extends OAuth1
      */
     public function __sleep()
     {
-        return array('appId', 'appSecret', 'accessToken', 'accessExpires', 'accessTimestamp');
+        if ($this->me && ($this->me->user_id || $this->me->screen_name)) $this->_me = $this->me->user_id ?: $this->me->screen_name;
+        return array('appId', 'appSecret', 'accessToken', 'accessExpires', 'accessTimestamp', '_me');
+    }
+    
+    /**
+     * Unserialization
+     * 
+     * @return array
+     */
+    public function __wakeup()
+    {
+        if (isset($this->_me)) $this->me = new Me($this, $this->_me);
+        unset($this->_me);
     }
 }

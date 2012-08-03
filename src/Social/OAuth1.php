@@ -136,7 +136,7 @@ abstract class OAuth1 extends Connection
      * @param string $url
      * @param array  $params  Request paramaters + oAuth parameters
      */
-    public function getOAuthSignature($method, $url, array $params)
+    protected function getOAuthSignature($method, $url, array $params)
     {
         // Extract additional paramaters from the URL
         if (strpos($url, '?') !== false) {
@@ -201,6 +201,8 @@ abstract class OAuth1 extends Connection
      */
     protected function httpRequest($method, $url, $params=null, array $headers=array(), array $oauth=array())
     {
+        $url = $this->processPlaceholders($url, $params);
+        
         $multipart = $method == 'POST' && isset($headers['Content-Type']) && $headers['Content-Type'] == 'multipart/form-data';
         if ($multipart) $url = preg_replace('/\?.*$/', '', $url);
         
@@ -216,7 +218,9 @@ abstract class OAuth1 extends Connection
      */
     public function multiRequest(array $requests)
     {
-        foreach ($requests as $request) {
+        foreach ($requests as &$request) {
+            if (is_array($request)) $request = (object)$request;
+            
             $multipart = $request->method == 'POST' && isset($request->headers['Content-Type']) && $request->headers['Content-Type'] == 'multipart/form-data';
             $url = $multipart ? preg_replace('/\?.*$/', '', $request->url) : $request->url;
             

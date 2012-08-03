@@ -12,6 +12,6 @@ function loadClass($name)
 spl_autoload_register('loadClass');
 
 session_start();
-require_once 'config.php'; // Excluded from GIT
+require_once '../config.php'; // Excluded from GIT
 
 header('Content-type: text/html; charset=utf-8');

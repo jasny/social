@@ -15,7 +15,7 @@ use Social\Exception;
  * Autoexpending Twitter direct message entity.
  * 
  */
-class Tweet extends Entity
+class DirectMessage extends Entity
 {
     /**
      * Build request object for fetching or posting.
