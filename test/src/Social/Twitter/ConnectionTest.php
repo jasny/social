@@ -196,7 +196,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     public function testGetDefaultParams()
     {
         $this->assertEquals(array(), $this->connection->getDefaultParams('foo'));
-        $this->assertEquals(array('count' => 200, 'include_entities' => true), $this->connection->getDefaultParams('statuses/home_timeline'));
+        $this->assertEquals(array('include_entities' => true, 'max_id' => null), $this->connection->getDefaultParams('statuses/home_timeline'));
     }
 
     /**
@@ -224,15 +224,60 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     /**
      * Test getting a tweet.
      * 
-     * @depends testConstruct
+     * @depends testGet
      */
     public function testGet_Tweet()
     {
-        $response = $this->connection->get('statuses/show/:id', array(':id' => '231230427510239232'), true);
+        $response = $this->connection->get('statuses/show/:id', array(':id' => '231230427510239232'), false);
         
         $this->assertEquals('231230427510239232', $response->id_str);
-        $this->assertEquals('JasnyArnold', $response->user->screen_name);
         $this->assertEquals("Cool! You're testing #JasnySocialTwitterSearch", $response->text);
+        $this->assertEquals('JasnyArnold', $response->user->screen_name);
+    }
+    
+    /**
+     * Test getting a tweet entity.
+     * 
+     * @depends testGet_Tweet
+     */
+    public function testGet_TweetEntity()
+    {
+        $tweet = $this->connection->get('statuses/show/:id', array(':id' => '231230427510239232'));
+        
+        $this->assertType('Social\Twitter\Tweet', $tweet);
+        $this->assertEquals('231230427510239232', $tweet->id);
+        $this->assertEquals("Cool! You're testing #JasnySocialTwitterSearch", $tweet->text);
+        
+        $this->assertType('Social\Twitter\Tweet', $tweet);
+        $this->assertEquals('JasnyArnold', $tweet->user->screen_name);
+    }
+    
+    /**
+     * Test getting a tweet.
+     * 
+     * @depends testGet
+     */
+    public function testGet_FollowCursor()
+    {
+        $response = $this->connection->get('followers/ids', array('screen_name' => 'planetphp'), false);
+        
+        $this->assertObjectHasAttribute('ids', $response);
+        $this->assertGreaterThan(15000, count($response->ids));
+        $this->assertEquals(0, $response->next_cursor);
+    }
+    
+    /**
+     * Test getting a tweet.
+     * 
+     * @depends testGet
+     */
+    public function testGet_DontFollowCursor()
+    {
+        $response = $this->connection->get('followers/ids', array('screen_name' => 'planetphp', 'cursor' => -1), false);
+        
+        $this->assertObjectHasAttribute('ids', $response);
+        $this->assertEquals(5000, count($response->ids));
+        $this->assertGreaterThan(0, $response->next_cursor);
     }
     
     /**
@@ -242,8 +287,10 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
      */
     public function testPost_Tweet()
     {
-        $text = "This is a test. #JasnySocialTest" . base_convert(uniqid(), 16, 36);
+        $text = "This is a test. #JasnySocialTest " . base_convert(uniqid(), 16, 36);
         $response = $this->connection->post("statuses/update", array('status'=>$text), false);
+        
+        if ($response->id_str) $this->connection->post('statuses/destroy/:id', array(':id' => $response->id_str));
         
         $this->assertEquals($text, $response->text);
     }

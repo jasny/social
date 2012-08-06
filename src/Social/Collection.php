@@ -10,7 +10,7 @@
 namespace Social;
 
 /**
- * An autoexpanding collection.
+ * A collection of entities.
  */
 class Collection extends \ArrayObject
 {
@@ -31,24 +31,6 @@ class Collection extends \ArrayObject
      * @var object
      */
     protected $_nextPage;
-    
-    /**
-     * Load more items if available
-     * @var boolean
-     */
-    protected $_autoload = true;
-    
-    /**
-     * Added items
-     * @var array
-     */
-    protected $_added = array();
-    
-    /**
-     * Removed items
-     * @var array
-     */
-    protected $_removed = array();
 
     
     /**
@@ -66,10 +48,6 @@ class Collection extends \ArrayObject
         
         if (isset($nextPage)) {
             $this->_nextPage = is_string($nextPage) ? (object)array('url' => $nextPage) : (object)$nextPage;
-            if (isset($this->_nextPage->count) && $this->_nextPage->count == 0) {
-                unset($this->_nextPage->count);
-                $this->_autoload = false;
-            }
         }
         
         foreach ($data as &$entry){
@@ -89,18 +67,6 @@ class Collection extends \ArrayObject
         return new CollectionIterator($this);
     }
 
-    /**
-     * Append new data to the collection.
-     * 
-     * @param array $data
-     */
-    protected function appendData(array $data)
-    {
-        foreach ($data as &$value) {
-            parent::append($value);
-        }
-    }
-    
     
     /**
      * Get API connection.
@@ -124,72 +90,15 @@ class Collection extends \ArrayObject
     
     
     /**
-     * Load next page.
+     * Fetch the next page.
      * 
-     * @param int $i  Prevents invinite loop
-     * @return boolean  True if any new data has been added
+     * @return Collection
      */
-    protected function loadNextPage($i=0)
+    public function fetchNextPage()
     {
-        if (!isset($this->_nextPage)) return false;
-        
-        $result = $this->getConnection()->multiRequest(array($this->_nextPage));
-        if (empty($result)) return false; // HTTP request failed has failed. To bad, I won't complain
-        
-        $collection = reset($result);
-        if (!$collection instanceof self) throw new Exception("I expected a Collection, but instead got " . (is_object($collection) ? 'a ' . get_class($collection) : (is_scalar($collection) ? "'$collection'" : 'a ' . get_type($collection))));
-
-        $next_is_same = !empty($collection->_nextPage) && $this->getConnection()->getUrl($this->_nextPage) != $this->getConnection()->getUrl($collection->_nextPage);
-        
-        if ($collection->count() == 0) {
-            // Hmm got nothing, perhaps if I try again, but only once
-            if (!$next_is_same && $i < 1) {
-                $this->_nextPage = $collection->_nextPage;
-                return $this->loadNextPage($count, $i + 1);
-            }
-            
-            $this->_nextPage = null;
-            return false;
-        }
-
-        $this->_nextPage = $next_is_same ? $collection->_nextPage : null;
-        
-        $data = $collection->getArrayCopy();
-        if (isset($count) && count($data) > $count) $data = array_splice($data, 0, $count);
-
-        $this->appendData($data);
-        return true;
+        if (!isset($this->_nextPage)) return null;
+        return $this->getConnection()->doRequest($this->_nextPage);
     }
-    
-    /**
-     * Load items by fetching next pages.
-     * 
-     * @param int $count  The number of items you want in the collection.
-     * @return Collection  $this
-     */
-    public function load($count=null)
-    {
-        if (!isset($this->_nextPage) || (!isset($count) && !$this->_autoload)) return $this;
-        
-        while (!isset($count) || $this->count(false) < $count) {
-            if (!$this->loadNextPage(isset($count) ? $this->count(false) - $count : null)) break;
-        }
-        
-        $this->_autoload = false;
-        return $this;
-    }
-
-    /**
-     * Whether all items are loaded.
-     * 
-     * @param boolean $available  Ignore count and return if a next page can be loaded.
-     * @return boolean
-     */
-    public function isLoaded($available=false)
-    {
-        return $this->_nextPage && ($available || $this->_autoload);
-    }
-    
     
     /**
      * Do a fetch for all entities.
@@ -202,8 +111,6 @@ class Collection extends \ArrayObject
      */
     public function fetchAll($item=null, array $params=array(), $maxPages=5)
     {
-        $this->load();
-        
         $requests = array();
         $entities = $this->getArrayCopy();
         
@@ -259,8 +166,6 @@ class Collection extends \ArrayObject
      */
     public function forAll($action, $target=null, array $params=array())
     {
-        $this->load();
-        
         $requests = array();
         $entities = $this->getArrayCopy();
         
@@ -275,37 +180,6 @@ class Collection extends \ArrayObject
         
         $new_requests = array();
         return $this->getConnection()->multiRequest($requests);
-    }
-    
-    
-    /**
-     * Get added items.
-     * 
-     * @return array
-     */
-    public function getAdded()
-    {
-        return $this->_added;
-    }
-    
-    /**
-     * Get removed items.
-     * 
-     * @return array
-     */
-    public function getRemoved()
-    {
-        return $this->_removed;
-    }
-    
-    /**
-     * Check if there are added or removed items.
-     * 
-     * @return boolean
-     */
-    public function hasChanged()
-    {
-        return !empty($this->_added) || !empty($this->_removed);
     }
     
     
@@ -350,6 +224,7 @@ class Collection extends \ArrayObject
         return isset($key) ? $this::offsetGet($key) : null;
     }
 
+    
     /**
      * Add item.
      * 
@@ -357,54 +232,9 @@ class Collection extends \ArrayObject
      */
     public function append($entity)
     {
-        if (isset($this->_type) && !$entity instanceof Entity) $entity = $this->getConnection()->stub($this->_type, $entity);
-        parent::append($entity);
-        $this->_added[] = $entity;
+        trigger_error('Social\Collections are read only', E_USER_ERROR);
     }
     
-    /**
-     * Remove item.
-     * 
-     * @param mixed $entity  Value or id
-     * @return Entity|mixed  Removed item
-     */
-    public function remove($entity)
-    {
-        $key = $this->search($entity, $this->_data);
-        if (!isset($key)) return null;
-        
-        $entity =& $this->_data[$key];
-        unset($this->_data[$key]);
-        $this->_removed[$key] = $entity;
-        
-        return $entity;
-    }
-    
-    
-    /**
-     * Whether a offset exists.
-     * 
-     * @param int $offset
-     * @return boolean
-     */
-    public function offsetExists($offset)
-    {
-        $this->load();
-        return parent::offsetExists($offset);
-    }
-
-    /**
-     * Retrieve by offset.
-     * 
-     * @param int $offset  The offset to retrieve.
-     * @return Entity|mixed
-     */
-    public function offsetGet($offset)
-    {
-        $this->load();
-        return parent::offsetGet($offset);
-    }
-
     /**
      * Add/change by offset.
      * 
@@ -413,9 +243,7 @@ class Collection extends \ArrayObject
      */
     public function offsetSet($offset, $value)
     {
-        if (isset($offset) && parent::offsetExists($offset)) $this->_removed[] = parent::offsetGet($offset);
-        $this->_added[] = $value;
-        parent::offsetSet($offset, $value);
+        trigger_error('Social\Collections are read only', E_USER_ERROR);
     }
 
     /**
@@ -425,27 +253,6 @@ class Collection extends \ArrayObject
      */
     public function offsetUnset($offset)
     {
-        $entity = parent::offsetGet($offset);
-        
-        if ($entity) {
-            $this->_removed[] = $entity;
-            $key = $this->search($entity, $this->_added);
-            if ($key !== null) unset($this->_added[$key]);
-        }
-        
-        parent::offsetUnset($offset);
+        trigger_error('Social\Collections are read only', E_USER_ERROR);
     }
-    
-    
-    /**
-     * Count the number or items.
-     * 
-     * @param boolean $load  Load all items
-     * @return int
-     */
-    public function count($load=true)
-    {
-        if ($load) $this->load();
-        return parent::count();
-    }    
 }

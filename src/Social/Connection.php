@@ -126,7 +126,7 @@ abstract class Connection
 
         return $result;
     }
-    
+
     /**
      * Run multiple HTTP requests in parallel.
      * 
@@ -135,7 +135,7 @@ abstract class Connection
      * @param array $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array }
      * @return array
      */
-    public function multiRequest(array $requests)
+    protected function httpMultiRequest(array $requests)
     {
         $results = array();
         $this->multiRequestErrors = array();
@@ -146,7 +146,7 @@ abstract class Connection
         foreach ($requests as $key=>&$request) {
             if (is_array($request)) $request = (object)$request;
             
-            $ch = $this->curlInit(isset($request->method) ? $request->method : 'GET', $result->url, isset($request->params) ? $request->params : array(), isset($request->headers) ? $request->headers : array());
+            $ch = $this->curlInit(isset($request->method) ? $request->method : 'GET', $request->url, isset($request->params) ? $request->params : array(), isset($request->headers) ? $request->headers : array());
             curl_multi_add_handle($mh, $ch);
             $handles[$key] = $ch;
         }
@@ -163,12 +163,13 @@ abstract class Connection
             $result = curl_multi_getcontent($ch);
             $error = curl_error($ch);
             $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $request = $requests[$key];
             
             curl_close($ch);
             curl_multi_remove_handle($mh, $ch);
 
             if ($result === false || $httpcode >= 300) {
-                $this->multiRequestErrors[$key] = "HTTP $method request for '" . $this->getUrl($url) . "' failed: " . ($result === false ? $error : $this->httpError($httpcode, $result));
+                $this->multiRequestErrors[$key] = "HTTP {$request->method} request for '{$request->url}' failed: " . ($result === false ? $error : $this->httpError($httpcode, $result));
             } else {
                 $results[$key] = $result;
             }
@@ -312,7 +313,7 @@ abstract class Connection
        
         return join('&', $params);
     }
-
+    
     /**
      * Parse URL and return parameters
      * 
@@ -329,6 +330,25 @@ abstract class Connection
         return $params;
     }
     
+    
+    /**
+     * Run a single prepared HTTP request.
+     * 
+     * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array }
+     * @param boolean $convert  Convert to entity/collection, false returns raw data
+     * @return string
+     */
+    abstract public function doRequest($request, $convert=true);
+    
+    /**
+     * Run multiple HTTP requests in parallel.
+     * 
+     * @param array   $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
+     * @param boolean $convert   Convert to entity/collection, false returns raw data
+     * @return array
+     */
+    abstract public function multiRequest(array $requests, $convert=true);
+    
 
     /**
      * Fetch from web service.
@@ -338,7 +358,10 @@ abstract class Connection
      * @param boolean $convert   Convert to entity/collection, false returns raw data
      * @return Entity|Collection|mixed
      */
-    abstract public function get($resource, array $params=array(), $convert=true);
+    public function get($resource, array $params=array(), $convert=true)
+    {
+        return $this->doRequest((object)array('method' => 'GET', 'url' => $resource, 'params' => $params), $convert);
+    }
     
     /**
      * Post to web service.
@@ -348,17 +371,20 @@ abstract class Connection
      * @param boolean $convert   Convert to entity/collection, false returns raw data
      * @return Entity|Collection|mixed
      */
-    abstract public function post($resource, array $params=array(), $convert=true);
+    public function post($resource, array $params=array(), $convert=true)
+    {
+        return $this->doRequest((object)array('method' => 'POST', 'url' => $resource, 'params' => $params), $convert);
+    }
     
     
     /**
      * Convert data to Entity, Collection or DateTime.
      * 
      * @param mixed   $data
-     * @param string  $type    Entity type
-     * @param boolean $stub    If an Entity, asume it's a stub
-     * @param object  $source  { 'url': string, 'params': array }
+     * @param string  $type     Entity type
+     * @param boolean $stub     If an Entity, asume it's a stub
+     * @param object  $request  Request used to get this data
      * @return Entity|Collection|DateTime|mixed
      */
-    abstract public function convertData($data, $type=null, $stub=true, $source=null);
+    abstract public function convertData($data, $type=null, $stub=true, $request=null);
 }

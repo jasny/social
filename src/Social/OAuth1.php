@@ -216,7 +216,7 @@ abstract class OAuth1 extends Connection
      * @param array $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
      * @return array
      */
-    public function multiRequest(array $requests)
+    public function httpMultiRequest(array $requests)
     {
         foreach ($requests as &$request) {
             if (is_array($request)) $request = (object)$request;
@@ -235,19 +235,19 @@ abstract class OAuth1 extends Connection
      * Get authentication url.
      * Temporary accesss information is automatically stored to a session.
      *
-     * @param int    $level        'authorize', 'authenticate'
-     * @param string $callbackUrl  The URL to return to after successfully authenticating.
-     * @param object $access       Will be filled with the temporary access information.
+     * @param int    $level      'authorize', 'authenticate'
+     * @param string $returnUrl  The URL to return to after successfully authenticating.
+     * @param object $access     Will be filled with the temporary access information.
      * @return string
      */
-    public function getAuthUrl($level='authenticate', $callbackUrl=null, &$tmpAccess=null)
+    public function getAuthUrl($level='authenticate', $returnUrl=null, &$tmpAccess=null)
     {
-        if (!isset($callbackUrl)) {
-            $callbackUrl = $this->getCurrentUrl($callbackUrl, array('twitter_auth' => 'auth'));
-            if (!isset($callbackUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
+        if (!isset($returnUrl)) {
+            $returnUrl = $this->getCurrentUrl($returnUrl, array('twitter_auth' => 'auth'));
+            if (!isset($returnUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         }
 
-        $response = $this->httpRequest('POST', 'oauth/request_token', array(), array(), array('oauth_callback' => $callbackUrl));
+        $response = $this->httpRequest('POST', 'oauth/request_token', array(), array(), array('oauth_callback' => $returnUrl));
         parse_str($response, $tmpAccess);
         
         $_SESSION[str_replace('\\', '/', get_class($this)) . ':tmp_access'] = $tmpAccess;
