@@ -10,7 +10,7 @@
 namespace Social;
 
 /**
- * An autoexpanding collection.
+ * A collection of entities.
  */
 class Collection extends \ArrayObject
 {
@@ -31,12 +31,6 @@ class Collection extends \ArrayObject
      * @var object
      */
     protected $_nextPage;
-    
-    /**
-     * Load more items if available
-     * @var boolean
-     */
-    protected $_autoload = true;
     
     /**
      * Added items
@@ -68,7 +62,6 @@ class Collection extends \ArrayObject
             $this->_nextPage = is_string($nextPage) ? (object)array('url' => $nextPage) : (object)$nextPage;
             if (isset($this->_nextPage->count) && $this->_nextPage->count == 0) {
                 unset($this->_nextPage->count);
-                $this->_autoload = false;
             }
         }
         
@@ -126,10 +119,9 @@ class Collection extends \ArrayObject
     /**
      * Load next page.
      * 
-     * @param int $i  Prevents invinite loop
-     * @return boolean  True if any new data has been added
+     * @return Collection
      */
-    protected function loadNextPage($i=0)
+    public function fetchNextPage()
     {
         if (!isset($this->_nextPage)) return false;
         
@@ -137,17 +129,12 @@ class Collection extends \ArrayObject
         if (empty($result)) return false; // HTTP request failed has failed. To bad, I won't complain
         
         $collection = reset($result);
-        if (!$collection instanceof self) throw new Exception("I expected a Collection, but instead got " . (is_object($collection) ? 'a ' . get_class($collection) : (is_scalar($collection) ? "'$collection'" : 'a ' . get_type($collection))));
+        if (!$collection instanceof self) {
+            trigger_error("I expected a Collection, but instead got " . (is_object($collection) ? 'a ' . get_class($collection) : (is_scalar($collection) ? "'$collection'" : 'a ' . get_type($collection))), E_USER_WARNING);
+            return;
+        }
 
-        $next_is_same = !empty($collection->_nextPage) && $this->getConnection()->getUrl($this->_nextPage) != $this->getConnection()->getUrl($collection->_nextPage);
-        
         if ($collection->count() == 0) {
-            // Hmm got nothing, perhaps if I try again, but only once
-            if (!$next_is_same && $i < 1) {
-                $this->_nextPage = $collection->_nextPage;
-                return $this->loadNextPage($count, $i + 1);
-            }
-            
             $this->_nextPage = null;
             return false;
         }
@@ -165,18 +152,14 @@ class Collection extends \ArrayObject
      * Load items by fetching next pages.
      * 
      * @param int $count  The number of items you want in the collection.
-     * @return Collection  $this
      */
-    public function load($count=null)
+    public function loadAll()
     {
-        if (!isset($this->_nextPage) || (!isset($count) && !$this->_autoload)) return $this;
+        if (!isset($this->_nextPage)) return;
         
         while (!isset($count) || $this->count(false) < $count) {
             if (!$this->loadNextPage(isset($count) ? $this->count(false) - $count : null)) break;
         }
-        
-        $this->_autoload = false;
-        return $this;
     }
 
     /**
@@ -389,6 +372,8 @@ class Collection extends \ArrayObject
      */
     public function offsetExists($offset)
     {
+        if (parent::offsetExists($offset)) return true;
+
         $this->load();
         return parent::offsetExists($offset);
     }
@@ -401,6 +386,8 @@ class Collection extends \ArrayObject
      */
     public function offsetGet($offset)
     {
+        if (parent::offsetExists($offset)) parent::offsetGet($offset);
+
         $this->load();
         return parent::offsetGet($offset);
     }

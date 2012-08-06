@@ -126,6 +126,17 @@ abstract class Connection
 
         return $result;
     }
+
+    /**
+     * Run a single prepared HTTP request.
+     * 
+     * @param object $requests  { 'method': string, 'url': string, 'params': array, 'headers': array }
+     * @return string
+     */
+    public function doRequest($request, $convert=true)
+    {
+        return $this->httpRequest(isset($request->method) ? $request->method : 'GET', $request->url, isset($request->params) ? $request->params : array(), isset($request->headers) ? $request->headers : array());
+    }
     
     /**
      * Run multiple HTTP requests in parallel.
@@ -146,7 +157,7 @@ abstract class Connection
         foreach ($requests as $key=>&$request) {
             if (is_array($request)) $request = (object)$request;
             
-            $ch = $this->curlInit(isset($request->method) ? $request->method : 'GET', $result->url, isset($request->params) ? $request->params : array(), isset($request->headers) ? $request->headers : array());
+            $ch = $this->curlInit(isset($request->method) ? $request->method : 'GET', $request->url, isset($request->params) ? $request->params : array(), isset($request->headers) ? $request->headers : array());
             curl_multi_add_handle($mh, $ch);
             $handles[$key] = $ch;
         }
@@ -163,12 +174,13 @@ abstract class Connection
             $result = curl_multi_getcontent($ch);
             $error = curl_error($ch);
             $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $request = $requests[$key];
             
             curl_close($ch);
             curl_multi_remove_handle($mh, $ch);
 
             if ($result === false || $httpcode >= 300) {
-                $this->multiRequestErrors[$key] = "HTTP $method request for '" . $this->getUrl($url) . "' failed: " . ($result === false ? $error : $this->httpError($httpcode, $result));
+                $this->multiRequestErrors[$key] = "HTTP {$request->method} request for '{$request->url}' failed: " . ($result === false ? $error : $this->httpError($httpcode, $result));
             } else {
                 $results[$key] = $result;
             }

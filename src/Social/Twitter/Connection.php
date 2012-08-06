@@ -120,14 +120,14 @@ class Connection extends OAuth1
      * @var array
      */
     private static $defaultParams = array(
-        'statuses/home_timeline'     => array('count' => 200, 'include_entities' => true),
-        'statuses/mentions'          => array('count' => 200, 'include_entities' => true),
-        'statuses/retweeted_by_me'   => array('count' => 100, 'include_entities' => true),
-        'statuses/retweeted_to_me'   => array('count' => 100, 'include_entities' => true),
-        'statuses/retweets_of_me'    => array('count' => 100, 'include_entities' => true),
-        'statuses/user_timeline'     => array('count' => 200, 'include_entities' => true),
-        'statuses/retweeted_to_user' => array('count' => 100, 'include_entities' => true),
-        'statuses/retweeted_by_user' => array('count' => 100, 'include_entities' => true),
+        'statuses/home_timeline'     => array('@max' => 200, 'include_entities' => true),
+        'statuses/mentions'          => array('@max' => 200, 'include_entities' => true),
+        'statuses/retweeted_by_me'   => array('@max' => 100, 'include_entities' => true),
+        'statuses/retweeted_to_me'   => array('@max' => 100, 'include_entities' => true),
+        'statuses/retweets_of_me'    => array('@max' => 100, 'include_entities' => true),
+        'statuses/user_timeline'     => array('@max' => 200, 'include_entities' => true),
+        'statuses/retweeted_to_user' => array('@max' => 100, 'include_entities' => true),
+        'statuses/retweeted_by_user' => array('@max' => 100, 'include_entities' => true),
     );
     
     
@@ -294,9 +294,7 @@ class Connection extends OAuth1
      */
     protected function httpRequest($method, $url, $params=null, array $headers=array(), array $oauth=array())
     {
-        $params += $this->getDefaultParams($url);
-        if ($this->detectMultipart($url)) $headers['Content-Type'] = 'multipart/form-data';
-        
+        if ($this->detectMultipart($url)) $headers['Content-Type'] = 'multipart/form-data';        
         return parent::httpRequest($method, $url, $params, $headers, $oauth);
     }
     
@@ -310,6 +308,8 @@ class Connection extends OAuth1
      */
     public function get($resource, array $params=array(), $convert=true)
     {
+        $params += $this->getDefaultParams($url);
+
         $response = $this->httpRequest('GET', $resource . (pathinfo($resource, PATHINFO_EXTENSION) ? "" : ".json"), $params);
         $data = json_decode($response);
         
@@ -333,6 +333,8 @@ class Connection extends OAuth1
      */
     public function post($resource, array $params=array(), $convert=true)
     {
+        $params += $this->getDefaultParams($url);
+
         $response = $this->httpRequest('POST', $resource . (pathinfo($resource, PATHINFO_EXTENSION) ? "" : ".json"), $params);
         $data = json_decode($response);
         
@@ -357,6 +359,7 @@ class Connection extends OAuth1
     public function stream($writefunction, $resource, array $params=array())
     {
         $method = $id == 'statuses/filter' ? 'POST' : 'GET';
+        $params += $this->getDefaultParams($url);
         
         $response = $this->httpRequest($method, $resource . (pathinfo($resource, PATHINFO_EXTENSION) ? "" : ".json"), $params, array(), array(), $writefunction);
         return $response;
@@ -530,7 +533,11 @@ class Connection extends OAuth1
 
             $nextPage = $request;
             $nextPage->params['cursor'] = $data->next_cursor_str;
-            return new Collection($this, $type, $data->$key, $nextPage);
+            
+            $collection = new Collection($this, $type, $data->$key, $nextPage);
+            if (isset($request->params['count'])) $collection->load($request->params['count']);
+
+            return $collection;
         }
 
         if (is_array($data) && is_object(reset($data))) {
@@ -541,8 +548,11 @@ class Connection extends OAuth1
                 $nextPage = $request;
                 $nextPage->params['max_id'] = isset($last->id_str) ? $last->id_str : $last->id;
             }
-            
-            return new Collection($this, $type, $data, $nextPage);
+
+            $collection = new Collection($this, $type, $data, $nextPage);
+            if (isset($request->params['count'])) $collection->load($request->params['count']);
+
+            return $collection;
         }
         
         // Value object
