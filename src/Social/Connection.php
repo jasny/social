@@ -120,10 +120,13 @@ abstract class Connection
         $result = curl_exec($ch);
         $error = curl_error($ch);
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $contenttype = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
         curl_close($ch);
 
-        if ($result === false || $httpcode >= 300) throw new Exception("HTTP $method request for '" . $this->getUrl($url) . "' failed: " . ($result === false ? $error : $this->httpError($httpcode, $result)));
-
+        if ($error || $httpcode >= 300) {
+            throw new Exception("HTTP $method request for '" . $this->getUrl($url) . "' failed: " . ($error ?: $this->httpError($httpcode, $contenttype, $result)));
+        }
+        
         return $result;
     }
 
@@ -140,36 +143,48 @@ abstract class Connection
         $results = array();
         $this->multiRequestErrors = array();
         
+        // prepare requests and handles
         $handles = array();
         $mh = curl_multi_init();
         
         foreach ($requests as $key=>&$request) {
-            if (is_array($request)) $request = (object)$request;
+            if (is_scalar($request)) $request = (object)array('url' => $request);
+              elseif (is_array($request)) $request = (object)$request;
             
             $ch = $this->curlInit(isset($request->method) ? $request->method : 'GET', $request->url, isset($request->params) ? $request->params : array(), isset($request->headers) ? $request->headers : array());
             curl_multi_add_handle($mh, $ch);
             $handles[$key] = $ch;
         }
+        unset($request);
         
+        // execute the handles
         $active = null; 
-        do { 
-            $status = curl_multi_exec($mh, $active);
-            if (curl_multi_select($mh, $this->curl_opts[CURLOPT_TIMEOUT]) < 0) { // pause the loop until somethings happens
-                break; // timeout
+        do {
+            $mrc = curl_multi_exec($mh, $active);
+        } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+
+        while ($active && $mrc == CURLM_OK) {
+            if (curl_multi_select($mh, $this->curl_opts[CURLOPT_TIMEOUT]) != -1) {
+                do {
+                    $mrc = curl_multi_exec($mh, $active);
+                } while ($mrc == CURLM_CALL_MULTI_PERFORM);
             }
-        } while ($status === CURLM_CALL_MULTI_PERFORM || $active);
+        }
         
+        // get the results and clean up
         foreach ($handles as $key=>$ch) {
             $result = curl_multi_getcontent($ch);
             $error = curl_error($ch);
             $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $contenttype = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+            
             $request = $requests[$key];
             
             curl_close($ch);
             curl_multi_remove_handle($mh, $ch);
 
-            if ($result === false || $httpcode >= 300) {
-                $this->multiRequestErrors[$key] = "HTTP {$request->method} request for '{$request->url}' failed: " . ($result === false ? $error : $this->httpError($httpcode, $result));
+            if ($error || $httpcode >= 300) {
+                $this->multiRequestErrors[$key] = "HTTP {$request->method} request for '{$request->url}' failed: " . ($error ?: $this->httpError($httpcode, $contenttype, $result));
             } else {
                 $results[$key] = $result;
             }
@@ -223,18 +238,16 @@ abstract class Connection
      * @param string $result
      * @return string
      */
-    private function httpError($httpcode, $result)
+    static private function httpError($httpcode, $contenttype, $result)
     {
         $data = json_decode($result);
         
         // Not JSON
-        if (!isset($data)) {
-            if (preg_match('~Content-Type:\s*text/html~i', $result) || $result == '') return $httpcode;
-            return $result;
-        }
+        if (!isset($data)) return (strpos($contenttype, 'text/html') === false ? $result . ' ' : '') . "($httpcode)";
         
         // JSON
-        if (isset($data->error)) return is_scalar($data->error) ? $data->error : $data->error->message;
+        if (is_scalar($data)) return $data;
+          elseif (isset($data->error)) return is_scalar($data->error) ? $data->error : $data->error->message;
           elseif (isset($data->errors)) return is_scalar($data->errors[0]) ? $data->errors[0] : $data->errors[0]->message;
           elseif (isset($data->error_msg)) return $data->error_msg;
         

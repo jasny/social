@@ -161,7 +161,7 @@ abstract class Entity
         if (!isset($request)) throw new Exception("It's not possible to fetch $item for a " . $this->getType() . ".");
         if (isset($request->method) && $request->method != 'GET') throw new Exception("Can't fetch $item for a " . $this->getType() . ": that's a {$request->method} request");
         
-        $data = $this->getConnection()->get($request->resource, isset($request->params) ? $request->params : array(), false);
+        $data = $this->getConnection()->doRequest($request);
         
         if (!isset($item)) {
             $this->setProperties($data, true);

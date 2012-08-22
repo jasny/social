@@ -116,7 +116,6 @@ class Me extends User
         return parent::prepareRequest($action, $params);
     }
     
-        
     /**
      * Update users profile information.
      * 

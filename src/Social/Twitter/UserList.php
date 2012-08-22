@@ -40,7 +40,7 @@ class UserList extends Entity
             case 'tweets':      return (object)array('resource' => 'lists/statuses', 'params' => $params);
             case 'subscribers': return (object)array('resource' => 'lists/subscribers', 'params' => $params);
                 
-            case 'add_member':      return (object)array('method' => 'POST', 'resource' => 'lists/members/create', 'params' => self::makeUserData($target, true) + $params);
+            case 'add_member':  return (object)array('method' => 'POST', 'resource' => 'lists/members/create', 'params' => User::makeUserData($target, true) + $params);
         }
         
         return parent::prepareRequest($item, $params);

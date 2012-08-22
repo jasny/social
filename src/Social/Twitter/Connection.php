@@ -128,6 +128,8 @@ class Connection extends OAuth1
         'statuses/user_timeline'     => array('include_entities' => true, 'max_id' => null),
         'statuses/retweeted_to_user' => array('include_entities' => true, 'max_id' => null),
         'statuses/retweeted_by_user' => array('include_entities' => true, 'max_id' => null),
+        'follower/ids'               => array('stringify_ids' => 1),
+        'friends/ids'                => array('stringify_ids' => 1),
     );
     
     
@@ -147,18 +149,18 @@ class Connection extends OAuth1
      * @param string          $consumerSecret  Application's consumer secret
      * @param string|object   $access          User's access token or { 'token': string, 'secret': string, [ 'user': twitter id ] }
      * @param string          $accessSecret    User's access token secret (supply if $access is a string)
-     * @param int|string|Me   $me              User's Twitter ID/username or Twitter\Me entity (optional)
+     * @param int|string|Me   $user            User's Twitter ID/username or Twitter\Me entity (optional)
      */
-    public function __construct($consumerKey, $consumerSecret, $access=null, $accessSecret=null, $me=null)
+    public function __construct($consumerKey, $consumerSecret, $access=null, $accessSecret=null, $user=null)
     {
         parent::__construct($consumerKey, $consumerSecret, $access, $accessSecret);
 
         if (is_object($access) && isset($access->me)) $user = $access->me;
         
-        if (isset($me)) {
-            if ($me instanceof Me) $this->me = $me->reconnectTo($this);
-              elseif (is_scalar($me)) $this->me = new Me($this, $me, true);
-              else trigger_error("Was expecting an ID (int), username (string) or Twitter\\Me entity for \$me, but got a " . (is_object($me) ? get_class($me) : get_type($me)), E_USER_WARNING);
+        if (isset($user)) {
+            if ($user instanceof Me) $this->me = $user->reconnectTo($this);
+              elseif (is_scalar($user)) $this->me = new Me($this, $user, true);
+              else trigger_error("Was expecting an ID (int), username (string) or Twitter\\Me entity for \$user, but got a " . (is_object($user) ? get_class($user) : get_type($user)), E_USER_WARNING);
         }
     }
     
@@ -291,8 +293,14 @@ class Connection extends OAuth1
      */
     protected static function completeRequestObject($request)
     {
+        if (is_scalar($request)) $request = (object)array('url' => $request);
+          elseif (is_array($request)) $request = (object)$request;
+        
         if (!isset($request->method)) $request->method = 'GET';
-        $request->url .= pathinfo($request->url, PATHINFO_EXTENSION) ? "" : ".json";
+        
+        list($url, $params) = explode('?', $request->url, 2) + array(1 => null);
+        if (pathinfo($url, PATHINFO_EXTENSION) == '') $request->url = "$url.json" . ($params ? "?$params" : '');
+        
         $request->params = (isset($request->params) ? $request->params : array()) + self::getDefaultParams($request->url);
         
         if (!isset($request->headers)) $request->headers = array();
@@ -320,7 +328,7 @@ class Connection extends OAuth1
         if (!isset($data)) return $response;
 
         // Follow the cursor to load all data
-        if ($data instanceof \stdClass && !isset($request->params['cursor']) && !empty($data->next_cursor_str)) {
+        if (is_object($data) && !isset($request->params['cursor']) && !empty($data->next_cursor_str)) {
             $key = reset(array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str')));
 
             while ($data->next_cursor_str) {
@@ -359,37 +367,50 @@ class Connection extends OAuth1
 
         foreach ($results as $i=>&$response) {
             $data = json_decode($response);
-            if (!isset($data)) continue;
+            if (isset($data)) $response = $data;
         }
         
         // Follow the cursor to load all data
         do {
             $next = array();
-            foreach ($results as $i=>$data) {
+            foreach ($results as $i=>&$data) {
                 $cursors = array();
-                if ($data instanceof \stdClass && (empty($next) || !isset($requests[$i]->params['cursor'])) && !empty($data->next_cursor_str)) {
+                if (is_object($data) && (isset($lastResults[$i]) || !isset($requests[$i]->params['cursor'])) && !empty($data->next_cursor_str)) {
                     $next[$i] = $requests[$i];
                     $next[$i]->params['cursor'] = $data->next_cursor_str;
                 }
             }
             
-            $lastResults = $this->httpMultiRequest($requests);
+            if (!$next) break;
+            
+            $lastResults = $this->httpMultiRequest($next);
 
-            foreach ($lastResults as $i=>$newdata) {
+            foreach ($lastResults as $i=>$result) {
                 $data =& $results[$i];
+                $newdata = json_decode($result);
+                
+                // Something went wrong, let's not go into an endless loop
+                if (!is_object($newdata)) {
+                    $results[$i] = null;
+                    continue;
+                }
+                
                 $key = reset(array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str')));
                 
                 if (!empty($newdata->$key)) $data->$key = array_merge($data->$key, $newdata->$key);
+                $data->next_cursor = $newdata->next_cursor;
                 $data->next_cursor_str = $newdata->next_cursor_str;
             }
-        } while ($next);
+        } while (true); // breaks above
         
         if ($convert) {
-            foreach ($results as $i=>&$response) {
+            foreach ($results as $i=>&$data) {
                 $type = $this->detectType($requests[$i]->url);
-                $response = $this->convertData($data, $type, false, $requests[$i]);
+                $data = $this->convertData($data, $type, false, $requests[$i]);
             }
         }
+        
+        return $results;
     }
 
     /**
@@ -498,6 +519,10 @@ class Connection extends OAuth1
             $type = null;
         }
         
+        if (isset($type) && $type != 'me' && $type != 'user' && $type != 'tweet' && $type != 'direct_message' && $type != 'user_list' && $type != 'saved_search' && $type != 'place') {
+            throw new Exception("Unable to create a Twitter collection: unknown entity type '$type'");
+        }
+        
         return new Collection($this, $type, $data);
     }
 
@@ -551,7 +576,7 @@ class Connection extends OAuth1
         }
         
         if (is_array($data) && $type) {
-            if (array_key_exists('max_id', $params)) {
+            if (array_key_exists('max_id', $params) && function_exists('bc_sub')) {
                 $last = end($data);
                 $request->params['max_id'] = $last && isset($last->id) ? bc_sub(isset($last->id_str) ? $last->id_str : $last->id, 1) : null;
             }
@@ -589,7 +614,11 @@ class Connection extends OAuth1
      */
     public function __sleep()
     {
-        if ($this->me && ($this->me->user_id || $this->me->screen_name)) $this->_me = $this->me->user_id ?: $this->me->screen_name;
+        if ($this->me) {
+            if (property_exists($this->me, 'user_id')) $this->_me = $this->me->user_id;
+              elseif (property_exists($this->me, 'screen_name')) $this->_me = $this->me->screen_name;
+        }
+        
         return array('appId', 'appSecret', 'accessToken', 'accessExpires', 'accessTimestamp', '_me');
     }
     

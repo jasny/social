@@ -164,7 +164,7 @@ class Collection extends \ArrayObject
      * @param mixed  $target  Entity/id or array with entities/ids
      * @param array  $params
      */
-    public function forAll($action, $target=null, array $params=array())
+    public function withAll($action, $target=null, array $params=array())
     {
         $requests = array();
         $entities = $this->getArrayCopy();
@@ -173,7 +173,7 @@ class Collection extends \ArrayObject
             if (!$entity instanceof Entity) continue;
             
             $request = $entity->prepareRequest($item, $params);
-            if (isset($request) || !isset($request->method) || $request->method != 'GET') $requests[$i] = $request;
+            if (isset($request) && isset($request->method) && $request->method != 'GET') $requests[$i] = $request;
         }
 
         if (empty($requests)) throw new Exception("It's not possible to perform $action for the entities in this collection.");

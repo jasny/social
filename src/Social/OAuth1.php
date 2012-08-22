@@ -64,7 +64,7 @@ abstract class OAuth1 extends Connection
     }
     
     /**
-     * Create a new Facebook connection using the specified access token.
+     * Create a new  connection using the specified access token.
      * 
      * @param string|object $access        User's access token or { 'token': string, 'secret': string }
      * @param int           $accessSecret  User's access token secret (supply if $access is a string)
@@ -216,7 +216,7 @@ abstract class OAuth1 extends Connection
      * @param array $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
      * @return array
      */
-    public function httpMultiRequest(array $requests)
+    protected function httpMultiRequest(array $requests)
     {
         foreach ($requests as &$request) {
             if (is_array($request)) $request = (object)$request;
@@ -224,10 +224,10 @@ abstract class OAuth1 extends Connection
             $multipart = $request->method == 'POST' && isset($request->headers['Content-Type']) && $request->headers['Content-Type'] == 'multipart/form-data';
             $url = $multipart ? preg_replace('/\?.*$/', '', $request->url) : $request->url;
             
-            $request->headers['Authorization'] = $this->getAuthorizationHeader(isset($request->method) ? $request->method : 'GET', $url, isset($request->params) && !$multipart ? $request->params : array(), isset($request->oauth) ? $request->oauth : array());
+            $request->headers['Authorization'] = $this->getAuthorizationHeader($request->method, $this->getUrl($url), !$multipart ? $request->params : array(), $request->oauth);
         }
         
-        return parent::multiRequest($requests);
+        return parent::httpMultiRequest($requests);
     }
     
     

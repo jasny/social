@@ -54,7 +54,7 @@ class User extends Entity
      * Preparation for a multi request.
      * 
      * @param string $action  Action or fetch item
-     * @param mixed  $target  Entity/id
+     * @param mixed  $target  Not used!
      * @param array  $params
      * @return object
      */
@@ -62,18 +62,19 @@ class User extends Entity
     {
         switch ($action) {
             case null:                     return (object)array('resource' => 'users/show', 'params' => $this->asParams() + $params);
-            case 'users/profile_image':    return (object)array('resource' => 'users/profile_image', 'params' => array('id' => null, 'screen_name' => $this->screen_name) + $params);
+            case 'profile_image':          return (object)array('resource' => 'users/profile_image', 'params' => array('id' => null, 'screen_name' => $this->screen_name) + $params);
             
             case 'timeline':               return (object)array('resource' => 'statuses/user_timeline', 'params' => $this->asParams() + $params, 'lazy' => true);
             case 'retweeted_by_user':      return (object)array('resource' => 'statuses/retweeted_by_user', 'params' => $this->asParams() + $params, 'lazy' => true);
             case 'retweeted_to_user':      return (object)array('resource' => 'statuses/retweeted_to_user', 'params' => $this->asParams() + $params, 'lazy' => true);
-            case 'followers':              return (object)array('resource' => 'followers/ids', 'params' => $this->asParams() + $params + array('stringify_ids' => 1));
+            case 'followers':              return (object)array('resource' => 'followers/ids', 'params' => $this->asParams() + $params);
             case 'friends':                return (object)array('resource' => 'friends/ids', 'params' => $this->asParams() + $params);
             case 'contributees':           return (object)array('resource' => 'users/contributees', 'params' => $this->asParams() + $params);
             case 'contributors':           return (object)array('resource' => 'users/contributors', 'params' => $this->asParams() + $params);
             case 'lists':                  return (object)array('resource' => 'lists', 'params' => $this->asParams() + $params);
-            case 'subscribed_lists':       return (object)array('resource' => 'lists/subscriptions', 'params' => $this->asParams() + $params);
             case 'all_lists':              return (object)array('resource' => 'lists/all', 'params' => $this->asParams() + $params);
+            case 'subscribed_lists':       return (object)array('resource' => 'lists/subscriptions', 'params' => $this->asParams() + $params);
+            case 'list_memberships':       return (object)array('resource' => 'lists/memberships', 'params' => $this->asParams() + $params);
         }
         
         return null;
