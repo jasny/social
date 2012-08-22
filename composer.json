@@ -1,0 +1,8 @@
+{
+	"name": "jasny/social",
+	"autoload": {
+        "psr-0": {
+            "Social": "src/"
+        }
+    }
+}
