@@ -455,6 +455,8 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
             array('url' => 'users/show', 'params' => array('screen_name' => 'JasnyArnold'))
         ));
         
+        $this->assertType('array', $response);
+                
         $this->assertType('Social\Twitter\Tweet', $response[0]);
         $this->assertEquals('231230427510239232', $response[0]->id);
         $this->assertEquals("Cool! You're testing #JasnySocialTwitterSearch", $response[0]->text);
@@ -472,11 +474,13 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
      */
     public function testSearch()
     {
-        $tag = "#JasnySocialTwitterSearch";
+        $tag = "#facebook";
         $response = $this->connection->search($tag, array(), false);
                 
         $this->assertEquals($tag, urldecode($response->query));
-        $this->assertContains("#JasnySocialTwitterSearch", $response->results[0]->text);
+        $this->assertType('array', $response->results);
+        $this->assertObjectHasAttribute('text', $response->results[0]);
+        $this->assertContains("#facebook", strtolower($response->results[0]->text));
     }
 
     /**
@@ -546,7 +550,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     public function testEntity_Exception()
     {
         $this->setExpectedException('Social\Exception', "Unable to create a Twitter entity: unknown entity type 'foo'");
-        $this->entity('foo');
+        $this->connection->entity('foo');
     }
     
     /**
