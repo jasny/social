@@ -286,7 +286,7 @@ class Connection extends OAuth1
     
     /**
      * Run a single prepared HTTP request.
-     * 
+     *
      * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
      * @param boolean $convert  Convert to entity/collection, false returns raw data
      * @return string
@@ -296,6 +296,11 @@ class Connection extends OAuth1
         if (is_scalar($request)) $request = (object)array('url' => $request);
           elseif (is_array($request)) $request = (object)$request;
         
+        if (!isset($request->url)) {
+            if (isset($request->resource)) $request->url = $request->resource;
+              else throw new Exception("Invalid request, no URL specified");
+        }
+
         if (!isset($request->method)) $request->method = 'GET';
         
         list($url, $params) = explode('?', $request->url, 2) + array(1 => null);
