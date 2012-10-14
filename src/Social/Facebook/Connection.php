@@ -154,11 +154,12 @@ class Connection extends Base
     }
     
     /**
-     * Get Facebook Open Graph API URL
+     * Get Twitter API URL based on de resource.
      * 
+     * @param string $resource
      * @return string
      */
-    protected function getBaseUrl()
+    protected function getBaseUrl($resource=null)
     {
         return self::graphURL;
     }
@@ -284,35 +285,92 @@ class Connection extends Base
 
         return parent::getCurrentUrl($page, $params);
     }
+        
+    /**
+     * Prepare a request.
+     *
+     * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
+     * @param boolean $convert  Convert to entity/collection, false returns raw data
+     * @return object
+     */
+    protected static function completeRequestObject($request, $convert=true)
+    {
+        if (is_scalar($request)) $request = (object)array('url' => $request);
+          elseif (is_array($request)) $request = (object)$request;
+        
+        if (!isset($request->url)) {
+            if (isset($request->resource)) $request->url = $request->resource;
+              else throw new Exception("Invalid request, no URL specified");
+        }
+
+        if (!isset($request->method)) $request->method = 'GET';
+        
+        list($url, $params) = explode('?', $request->url, 2) + array(1 => null);
+        if (pathinfo($url, PATHINFO_EXTENSION) == '') $request->url = $url . ($params ? "?$params" : '');
+        
+        $request->params = (isset($request->params) ? $request->params : array())/* + self::getDefaultParams($request->url)*/;
+        if ($convert) $request->params['metadata'] = true;
+        
+        if (!isset($request->headers)) $request->headers = array();
+        //if (self::detectMultipart($request->url)) $request->headers['Content-Type'] = 'multipart/form-data';
+        
+        return $request;
+    }
     
     
     /**
-     * Fetch raw data from Facebook.
+     * Run a single prepared HTTP request.
      * 
-     * @param string $id
-     * @param array  $params  Get parameters
+     * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
+     * @param boolean $convert  Convert to entity/collection, false returns raw data
+     * @return string
+     */
+    public function doRequest($request, $convert=true)
+    {
+        $request = $this->completeRequestObject($request, $convert);
+        $response = $this->httpRequest($request->method, $request->url, $request->params, $request->headers);
+        $data = json_decode($response);
+        
+        if (!isset($data)) return $response;
+        
+        /*if ($convert) {
+            $type = $this->detectType($request->url);
+            $data = $this->convertData($data, $type, false, $request);
+        }*/
+
+        return $data;        
+    }
+    
+    /**
+     * Run multiple HTTP requests in parallel.
+     * 
+     * @param array   $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
+     * @param boolean $convert   Convert to entity/collection, false returns raw data
      * @return array
      */
-    public function getData($id, array $params=array())
+    public function multiRequest(array $requests, $convert=true)
     {
-        $response = $this->httpRequest('GET', $id, ($this->accessToken ? array('access_token' => $this->accessToken) : array('client_id' => $this->appId)) + $params);
-        $data = json_decode($response);
-        return $data ?: $response;
+        foreach ($requests as &$request) {
+            $request = $this->completeRequestObject($request);
+        }
+        
+        $results = $this->httpMultiRequest($requests);
+
+        foreach ($results as $i=>&$response) {
+            $data = json_decode($response);
+            if (isset($data)) $response = $data;
+        }
+        
+        /*if ($convert) {
+            foreach ($results as $i=>&$data) {
+                $type = $this->detectType($requests[$i]->url);
+                $data = $this->convertData($data, $type, false, $requests[$i]);
+            }
+        }*/
+        
+        return $results;
     }
 
-    /**
-     * Fetch an entity (or other data) from Facebook.
-     * 
-     * @param string $id
-     * @param array  $params
-     * @return Entity
-     */
-    public function get($id, array $params=array())
-    {
-        $data = $this->getData($id, $params);
-        return $this->convertData($data, null, false, $params + $this->extractParams($id));
-    }
-    
     /**
      * Get current user profile.
      * 
@@ -330,13 +388,14 @@ class Connection extends Base
     
 
     /**
-     * Create a new entity.
+     * Factory method for an entity.
      * 
-     * @param string $type
-     * @param array  $data
+     * @param string    $type  'me', 'user', 'tweet', 'direct_message', 'user_list', 'saved_search' or 'place'
+     * @param array|int $data  Properties or ID
+     * @param boolean   $stub  True means that $data doesn't contain all of the entity's properties
      * @return Entity
      */
-    public function create($type, $data=array())
+    public function entity($type, $data=array(), $stub=true)
     {
         return new Entity($this, $type, (object)$data);
     }
@@ -356,26 +415,6 @@ class Connection extends Base
         }
         
         return new Collection($this, $type, $data);
-    }
-    
-    /**
-     * Create a stub.
-     * 
-     * For Facebook you may also do { @example $facebook->stub($id) }}, omitting $type.
-     * 
-     * @param string       $type  Entity type (may be omitted)
-     * @param array|string $data  Data or id (required)
-     * @return Entity
-     */
-    public function stub($type, $data=null)
-    {
-        if (!isset($data)) {
-            $data = $type;
-            $type = null;
-        }
-        
-        if (is_scalar($data)) $data = array('id' => $data);
-        return new Entity($this, $type, (object)$data, true);
     }
     
     

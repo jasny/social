@@ -268,7 +268,7 @@ abstract class Connection
         
         if (!isset($_SERVER['HTTP_HOST'])) return null;
 
-        if (!isset($page)) $page = $_SERVER['REQUEST_URI'];
+        if (!isset($page)) $page = !empty($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
         if ($page[0] != '/') {
             $dir = dirname($_SERVER['REQUEST_URI']);
             $page = ($dir == '.' ? '' : $dir) . '/' . $page;
@@ -291,7 +291,7 @@ abstract class Connection
     {
         if (empty($params)) return $url;
         
-        $parts = parse_url($url);
+        $parts = parse_url($url) + array('path' => '/');
 
         if (isset($parts['query'])) {
             $query_params = array();

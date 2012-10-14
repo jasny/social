@@ -2,7 +2,7 @@
 
 namespace Social;
 
-require_once 'PHPUnit/Framework.php';
+require_once 'PHPUnit/Framework/TestCase.php';
 
 /**
  * Test class for Connection.

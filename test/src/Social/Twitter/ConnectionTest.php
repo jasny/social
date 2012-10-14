@@ -2,7 +2,7 @@
 
 namespace Social\Twitter;
 
-require_once 'PHPUnit/Framework.php';
+require_once 'PHPUnit/Framework/TestCase.php';
 
 /**
  * Test class for Twitter\Connection.
@@ -40,7 +40,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     {
         $this->connection = null;
     }
-    
+
     /**
      * Test object creation.
      */
@@ -57,8 +57,8 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
      */
     public function testConstruct_Access()
     {
-        $twitter = new Connection('foo', 'bar', (object)array('token'=>'dog', 'secret'=>'fox'));
-        
+        $twitter = new Connection('foo', 'bar', (object)array('token' => 'dog', 'secret' => 'fox'));
+
         $this->assertAttributeEquals('foo', 'consumerKey', $twitter);
         $this->assertAttributeEquals('bar', 'consumerSecret', $twitter);
         $this->assertAttributeEquals('dog', 'accessToken', $twitter);
@@ -76,19 +76,19 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
         $this->assertAttributeSame($me, 'me', $twitter);
         $this->assertAttributeSame($twitter, '_connection', $twitter->me());
     }
-    
+
     /**
      * Test object creation with Me entity.
      */
     public function testConstruct_WithMeId()
     {
         $twitter = new Connection('foo', 'bar', 'dog', 'fox', 12345);
-        
+
         $this->assertAttributeEquals(12345, 'user_id', $twitter->me());
         $this->assertAttributeEquals(true, '_stub', $twitter->me());
         $this->assertAttributeSame($twitter, '_connection', $twitter->me());
     }
-    
+
     /**
      * Test asUser().
      * 
@@ -111,7 +111,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     {
         $this->assertEquals($this->cfg->consumer_key, $this->connection->getConsumerKey());
     }
-    
+
     /**
      * Test getAccessToken().
      */
@@ -119,7 +119,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     {
         $this->assertEquals($this->cfg->access_token, $this->connection->getAccessToken());
     }
-    
+
     /**
      * Test getAccessSecret().
      */
@@ -127,7 +127,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     {
         $this->assertEquals($this->cfg->access_secret, $this->connection->getAccessSecret());
     }
-    
+
     /**
      * Test getAccessInfo().
      */
@@ -135,21 +135,21 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     {
         $this->assertEquals((object)array('token' => $this->cfg->access_token, 'secret' => $this->cfg->access_secret), $this->connection->getAccessInfo());
     }
-    
+
     /**
      * Test getBaseUrl().
      */
     public function testGetBaseUrl()
     {
-        $method = new \ReflectionMethod($this->connection, 'getBaseUrl'); 
+        $method = new \ReflectionMethod($this->connection, 'getBaseUrl');
         $method->setAccessible(true);
- 
+
         $this->assertEquals(Connection::restURL, $method->invoke($this->connection, 'statuses/home_timeline'));
         $this->assertEquals(Connection::restURL, $method->invoke($this->connection, 'statuses/home_timeline.json'));
         $this->assertEquals(Connection::restURL, $method->invoke($this->connection, 'statuses/destroy/12345.json'));
-        
+
         $this->assertEquals(Connection::uploadURL, $method->invoke($this->connection, 'statuses/update_with_media'));
-        
+
         $this->assertEquals(Connection::searchURL, $method->invoke($this->connection, 'search'));
         $this->assertEquals(Connection::searchURL, $method->invoke($this->connection, 'search.json'));
         $this->assertEquals(Connection::searchURL, $method->invoke($this->connection, 'search?q=#foo'));
@@ -159,11 +159,11 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(Connection::streamUrl, $method->invoke($this->connection, 'statuses/filter'));
         $this->assertEquals(Connection::streamUrl, $method->invoke($this->connection, 'statuses/sample'));
         $this->assertEquals(Connection::streamUrl, $method->invoke($this->connection, 'statuses/firehose'));
-        
+
         $this->assertEquals(Connection::userstreamUrl, $method->invoke($this->connection, 'user'));
         $this->assertEquals(Connection::sitestreamUrl, $method->invoke($this->connection, 'site'));
     }
-    
+
     /**
      * Test getUrl().
      */
@@ -171,33 +171,33 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     {
         $this->assertEquals(Connection::restURL . "statuses/home_timeline.json", $this->connection->getUrl('statuses/home_timeline.json'));
         $this->assertEquals(Connection::searchURL . 'search.json', $this->connection->getUrl('search.json'));
-        
+
         $this->assertEquals(Connection::restURL . "statuses/home_timeline.json?foo=bar", $this->connection->getUrl('statuses/home_timeline.json', array('foo' => 'bar')));
         $this->assertEquals(Connection::restURL . "statuses/home_timeline.json?dog=fox&foo=bar", $this->connection->getUrl("statuses/home_timeline.json?dog=fox", array('foo' => 'bar')));
         $this->assertEquals(Connection::restURL . "statuses/home_timeline.json?dog=fox&foo=bar", $this->connection->getUrl((object)array('url' => "statuses/home_timeline.json", 'params' => array('dog' => 'fox')), array('foo' => 'bar')));
 
         $this->assertEquals(Connection::restURL . "statuses/show/12345.json", $this->connection->getUrl('statuses/show/:id.json', array(':id' => '12345')));
         $this->assertEquals(Connection::restURL . "statuses/show/12345.json?foo=bar", $this->connection->getUrl('statuses/show/:id.json', array(':id' => '12345', 'foo' => 'bar')));
-        
-        $this->assertEquals("http://example.com?foo=bar", $this->connection->getUrl('http://example.com', array('foo' => 'bar')));
-        $this->assertEquals("https://example.com?foo=bar", $this->connection->getUrl('https://example.com', array('foo' => 'bar')));
+
+        $this->assertEquals("http://example.com/?foo=bar", $this->connection->getUrl('http://example.com', array('foo' => 'bar')));
+        $this->assertEquals("https://example.com/?foo=bar", $this->connection->getUrl('https://example.com', array('foo' => 'bar')));
     }
-    
+
     /**
      * Test getCurrentUrl().
      */
     public function testGetCurrentUrl()
     {
         $_SERVER['HTTP_HOST'] = 'example.com';
-        
+
         $_SERVER['REQUEST_URI'] = '';
         $this->assertEquals("http://example.com/", $this->connection->getCurrentUrl());
         $this->assertEquals("http://example.com/connect.php", $this->connection->getCurrentUrl('connect.php'));
-        $this->assertEquals("http://example.com/connect.php?lion=cat", $this->connection->getCurrentUrl('connect.php', array('lion'=>'cat')));
-        
+        $this->assertEquals("http://example.com/connect.php?lion=cat", $this->connection->getCurrentUrl('connect.php', array('lion' => 'cat')));
+
         $_SERVER['REQUEST_URI'] = '?fox=dog&oauth_token=foo&oauth_verifier=bar';
         $this->assertEquals("http://example.com/?fox=dog", $this->connection->getCurrentUrl());
-        $this->assertEquals("http://example.com/?fox=dog&lion=cat", $this->connection->getCurrentUrl(null, array('lion'=>'cat')));
+        $this->assertEquals("http://example.com/?fox=dog&lion=cat", $this->connection->getCurrentUrl(null, array('lion' => 'cat')));
     }
 
     /**
@@ -229,7 +229,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
         $this->assertNull($this->connection->detectType('statuses/oembed'));
         $this->assertEquals('@user', $this->connection->detectType('friendships'));
     }
-    
+
     /**
      * Test simple get().
      * 
@@ -241,7 +241,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * Test simple get().
+     * Test an error using get().
      * 
      * @depends testConstruct
      */
@@ -259,12 +259,12 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     public function testGet_Tweet()
     {
         $response = $this->connection->get('statuses/show/:id', array(':id' => '231230427510239232'), false);
-        
+
         $this->assertEquals('231230427510239232', $response->id_str);
         $this->assertEquals("Cool! You're testing #JasnySocialTwitterSearch", $response->text);
         $this->assertEquals('JasnyArnold', $response->user->screen_name);
     }
-    
+
     /**
      * Test getting a tweet.
      * 
@@ -273,12 +273,12 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     public function testGet_TweetXML()
     {
         $response = $this->connection->get('statuses/show/:id.xml', array(':id' => '231230427510239232'));
-        
+
         $this->assertContains("<id>231230427510239232</id>", $response);
         $this->assertContains("<text>Cool! You're testing #JasnySocialTwitterSearch</text>", $response);
         $this->assertContains("<screen_name>JasnyArnold</screen_name>", $response);
     }
-    
+
     /**
      * Test getting a tweet entity.
      * 
@@ -287,15 +287,15 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     public function testGet_TweetEntity()
     {
         $tweet = $this->connection->get('statuses/show/:id', array(':id' => '231230427510239232'));
-        
-        $this->assertType('Social\Twitter\Tweet', $tweet);
+
+        $this->assertInstanceOf('Social\Twitter\Tweet', $tweet);
         $this->assertEquals('231230427510239232', $tweet->id);
         $this->assertEquals("Cool! You're testing #JasnySocialTwitterSearch", $tweet->text);
-        
-        $this->assertType('Social\Twitter\User', $tweet->user);
+
+        $this->assertInstanceOf('Social\Twitter\User', $tweet->user);
         $this->assertEquals('JasnyArnold', $tweet->user->screen_name);
     }
-    
+
     /**
      * Test getting a tweet.
      * 
@@ -305,10 +305,10 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     {
         $compare = $this->connection->get('friends/ids', array('screen_name' => 'JasnyArnold'), false);
         $response = $this->connection->get('friends/ids?screen_name=JasnyArnold', array(), false);
-        
+
         $this->assertEquals($compare, $response);
     }
-    
+
     /**
      * Test get() following the cursor.
      * 
@@ -317,12 +317,12 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     public function testGet_FollowCursor()
     {
         $response = $this->connection->get('followers/ids', array('screen_name' => 'zend'), false);
-        
+
         $this->assertObjectHasAttribute('ids', $response);
         $this->assertGreaterThan(15000, count($response->ids));
         $this->assertEquals(0, $response->next_cursor);
     }
-    
+
     /**
      * Test get() without following the cursor.
      * 
@@ -331,13 +331,13 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     public function testGet_DontFollowCursor()
     {
         $response = $this->connection->get('followers/ids', array('screen_name' => 'zend', 'cursor' => -1), false);
-        
+
         $this->assertObjectHasAttribute('ids', $response);
         $this->assertGreaterThan(4900, count($response->ids));     // Number of followers should be 5000, but blocked users
         $this->assertLessThanOrEqual(5000, count($response->ids)); //  are taken out of the list after pagination
         $this->assertGreaterThan(0, $response->next_cursor);
     }
-    
+
     /**
      * Test posting a tweet.
      * 
@@ -347,12 +347,13 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     {
         $text = "This is a test. #JasnySocialTest " . base_convert(uniqid(), 16, 36);
         $response = $this->connection->post("statuses/update", array('status' => $text), false);
-        
-        if (isset($response->id_str)) $this->connection->post('statuses/destroy/:id', array(':id' => $response->id_str), false);
-        
+
+        if (isset($response->id_str))
+            $this->connection->post('statuses/destroy/:id', array(':id' => $response->id_str), false);
+
         $this->assertEquals($text, $response->text);
     }
-    
+
     /**
      * @todo Implement testStream().
      */
@@ -374,12 +375,13 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
         $response = $this->connection->multiRequest(array(
             'help/test',
             'help/test',
-        ), false);
-        
+                ), false);
+
+        $this->assertCount(2, $response);
         $this->assertEquals('ok', $response[0]);
         $this->assertEquals('ok', $response[1]);
     }
-    
+
     /**
      * Test simple multiRequest().
      * 
@@ -391,16 +393,18 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
             'help/test',
             'http://foo.bar',
             'help/test',
-        ), false);
+                ), false);
 
         $errors = $this->connection->getMultiRequestErrors();
 
+        $this->assertArrayHasKey(0, $response);
         $this->assertEquals('ok', $response[0]);
         $this->assertArrayHasKey(1, $errors);
         $this->assertContains("HTTP GET request for 'http://foo.bar' failed", $errors[1]);
+        $this->assertArrayHasKey(2, $response);
         $this->assertEquals('ok', $response[2]);
     }
-    
+
     /**
      * Test multiRequest().
      * 
@@ -409,7 +413,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     public function testMultiRequest_Complex()
     {
         $text = "This is a test. #JasnySocialTest " . base_convert(uniqid(), 16, 36);
-        
+
         $response = $this->connection->multiRequest(array(
             'help/test',
             array('url' => 'statuses/show/:id', 'params' => array(':id' => '231230427510239232')),
@@ -417,16 +421,17 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
             (object)array('method' => 'GET', 'url' => 'followers/ids', 'params' => array('screen_name' => 'phpc')),
             (object)array('method' => 'GET', 'url' => 'followers/ids', 'params' => array('screen_name' => 'php_net', 'cursor' => -1)),
             (object)array('method' => 'POST', 'url' => 'statuses/update', 'params' => array('status' => $text))
-        ), false);
+                ), false);
 
-        if (isset($response[5]->id_str)) $this->connection->post('statuses/destroy/:id', array(':id' => $response[5]->id_str), false);
-        
+        if (isset($response[5]->id_str))
+            $this->connection->post('statuses/destroy/:id', array(':id' => $response[5]->id_str), false);
+
         $this->assertEquals('ok', $response[0]);
-        
+
         $this->assertEquals('231230427510239232', $response[1]->id_str);
         $this->assertEquals("Cool! You're testing #JasnySocialTwitterSearch", $response[1]->text);
         $this->assertEquals('JasnyArnold', $response[1]->user->screen_name);
-        
+
         $this->assertObjectHasAttribute('ids', $response[2]);
         $this->assertGreaterThan(15000, count($response[2]->ids));
         $this->assertEquals(0, $response[2]->next_cursor);
@@ -434,12 +439,12 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
         $this->assertObjectHasAttribute('ids', $response[3]);
         $this->assertGreaterThan(19000, count($response[3]->ids));
         $this->assertEquals(0, $response[3]->next_cursor);
-        
+
         $this->assertObjectHasAttribute('ids', $response[4]);
         $this->assertGreaterThan(4900, count($response[4]->ids));     // Number of followers should be 5000, but blocked users
         $this->assertLessThanOrEqual(5000, count($response[4]->ids)); //  are taken out of the list after pagination
         $this->assertGreaterThan(0, $response[4]->next_cursor);
-        
+
         $this->assertEquals($text, $response[5]->text);
     }
 
@@ -453,20 +458,21 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
         $response = $this->connection->multiRequest(array(
             array('url' => 'statuses/show/:id', 'params' => array(':id' => '231230427510239232')),
             array('url' => 'users/show', 'params' => array('screen_name' => 'JasnyArnold'))
-        ));
-        
-        $this->assertType('array', $response);
-                
-        $this->assertType('Social\Twitter\Tweet', $response[0]);
+                ));
+
+        $this->assertInternalType('array', $response);
+        $this->assertCount(2, $response);
+
+        $this->assertInstanceOf('Social\Twitter\Tweet', $response[0]);
         $this->assertEquals('231230427510239232', $response[0]->id);
         $this->assertEquals("Cool! You're testing #JasnySocialTwitterSearch", $response[0]->text);
 
-        $this->assertType('Social\Twitter\User', $response[1]);
+        $this->assertInstanceOf('Social\Twitter\User', $response[1]);
         $this->assertEquals('89494775', $response[1]->id);
         $this->assertEquals("JasnyArnold", $response[1]->screen_name);
         $this->assertEquals("Jasny Test account", $response[1]->name);
     }
-    
+
     /**
      * Test search().
      * 
@@ -476,9 +482,9 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     {
         $tag = "#facebook";
         $response = $this->connection->search($tag, array(), false);
-                
+
         $this->assertEquals($tag, urldecode($response->query));
-        $this->assertType('array', $response->results);
+        $this->assertInternalType('array', $response->results);
         $this->assertObjectHasAttribute('text', $response->results[0]);
         $this->assertContains("#facebook", strtolower($response->results[0]->text));
     }
@@ -500,7 +506,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
      */
     public function testMe()
     {
-        $this->assertType('Social\Twitter\Me', $this->connection->me());
+        $this->assertInstanceOf('Social\Twitter\Me', $this->connection->me());
         $this->assertAttributeSame($this->connection, '_connection', $this->connection->me());
         $this->assertAttributeEquals(true, '_stub', $this->connection->me());
     }
@@ -510,13 +516,13 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
      */
     public function testEntity()
     {
-        $this->assertType('Social\Twitter\Me', $this->connection->entity('me'));
-        $this->assertType('Social\Twitter\User', $this->connection->entity('user'));
-        $this->assertType('Social\Twitter\Tweet', $this->connection->entity('tweet'));
-        $this->assertType('Social\Twitter\DirectMessage', $this->connection->entity('direct_message'));
-        $this->assertType('Social\Twitter\UserList', $this->connection->entity('user_list'));
-        $this->assertType('Social\Twitter\SavedSearch', $this->connection->entity('saved_search'));
-        $this->assertType('Social\Twitter\Place', $this->connection->entity('place'));
+        $this->assertInstanceOf('Social\Twitter\Me', $this->connection->entity('me'));
+        $this->assertInstanceOf('Social\Twitter\User', $this->connection->entity('user'));
+        $this->assertInstanceOf('Social\Twitter\Tweet', $this->connection->entity('tweet'));
+        $this->assertInstanceOf('Social\Twitter\DirectMessage', $this->connection->entity('direct_message'));
+        $this->assertInstanceOf('Social\Twitter\UserList', $this->connection->entity('user_list'));
+        $this->assertInstanceOf('Social\Twitter\SavedSearch', $this->connection->entity('saved_search'));
+        $this->assertInstanceOf('Social\Twitter\Place', $this->connection->entity('place'));
     }
 
     /**
@@ -528,18 +534,18 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
         $this->assertAttributeSame($this->connection, '_connection', $user);
         $this->assertAttributeEquals(true, '_stub', $user);
         $this->assertObjectNotHasAttribute('user_id', $user);
-        
+
         $user = $this->connection->entity('user', 12345);
         $this->assertAttributeSame($this->connection, '_connection', $user);
         $this->assertAttributeEquals(true, '_stub', $user);
         $this->assertAttributeEquals(12345, 'user_id', $user);
-        
+
         $user = $this->connection->entity('user', array('user_id' => 12345, 'screen_name' => "FooBar"));
         $this->assertAttributeSame($this->connection, '_connection', $user);
         $this->assertAttributeEquals(true, '_stub', $user);
         $this->assertAttributeEquals(12345, 'user_id', $user);
         $this->assertAttributeEquals("FooBar", 'screen_name', $user);
-        
+
         $this->assertAttributeEquals(false, '_stub', $this->connection->entity('user', array('user_id' => 12345, 'screen_name' => "FooBar"), false));
         $this->assertAttributeEquals(true, '_stub', $this->connection->entity('@user', array('user_id' => 12345, 'screen_name' => "FooBar"), false));
     }
@@ -552,7 +558,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
         $this->setExpectedException('Social\Exception', "Unable to create a Twitter entity: unknown entity type 'foo'");
         $this->connection->entity('foo');
     }
-    
+
     /**
      * Test collection().
      * 
@@ -561,16 +567,16 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     public function testCollection()
     {
         $collection = $this->connection->collection('user');
-        $this->assertType('Social\Twitter\Collection', $collection);
+        $this->assertInstanceOf('Social\Twitter\Collection', $collection);
         $this->assertSame($this->connection, $collection->getConnection());
         $this->assertSame('user', $collection->getType());
-        
+
         $collection = $this->connection->collection(array(1, 2));
-        $this->assertType('Social\Twitter\Collection', $collection);
+        $this->assertInstanceOf('Social\Twitter\Collection', $collection);
         $this->assertSame($this->connection, $collection->getConnection());
         $this->assertSame(array(1, 2), $collection->getArrayCopy());
     }
-    
+
     /**
      * Test user().
      * 
@@ -579,13 +585,13 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     public function testUser()
     {
         $user = $this->connection->user(12345);
-        $this->assertType('Social\Twitter\User', $user);
+        $this->assertInstanceOf('Social\Twitter\User', $user);
         $this->assertAttributeSame($this->connection, '_connection', $user);
         $this->assertAttributeEquals(true, '_stub', $user);
         $this->assertAttributeEquals(12345, 'user_id', $user);
 
         $user = $this->connection->user(array('user_id' => 12345, 'screen_name' => "FooBar"), false);
-        $this->assertType('Social\Twitter\User', $user);
+        $this->assertInstanceOf('Social\Twitter\User', $user);
         $this->assertAttributeSame($this->connection, '_connection', $user);
         $this->assertAttributeEquals(false, '_stub', $user);
         $this->assertAttributeEquals(12345, 'user_id', $user);
@@ -613,4 +619,5 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
                 'This test has not been implemented yet.'
         );
     }
+
 }

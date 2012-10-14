@@ -289,7 +289,7 @@ class Connection extends OAuth1
      *
      * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
      * @param boolean $convert  Convert to entity/collection, false returns raw data
-     * @return string
+     * @return object
      */
     protected static function completeRequestObject($request)
     {
