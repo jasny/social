@@ -1,8 +1,11 @@
 {
-	"name": "jasny/social",
-	"autoload": {
+    "name": "jasny/social",
+    "autoload": {
         "psr-0": {
             "Social": "src/"
         }
+    },
+    "require": {
+        "php": ">=5.3.0"
     }
 }

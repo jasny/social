@@ -25,7 +25,7 @@ abstract class Connection
         CURLOPT_TIMEOUT             => 60,
         CURLOPT_USERAGENT           => 'JasnySocial/1.0',
         CURLOPT_HTTPHEADER          => array('Expect:'),
-        CURLOPT_FOLLOWLOCATION      => true,
+        CURLOPT_FOLLOWLOCATION      => true, 
         CURLOPT_MAXREDIRS           => 3,
         CURLOPT_TIMEOUT             => 10,
     );
