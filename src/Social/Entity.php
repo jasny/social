@@ -14,6 +14,16 @@ namespace Social;
  */
 abstract class Entity
 {
+    /** No stub */
+    const NO_STUB = 0;
+    
+    /** Doesn't contain all of entities properties */
+    const STUB = 1;
+
+    /** Autoexpanding stub */
+    const AUTOEXPAND = 2;
+    
+    
     /**
      * Social connection
      * @var Connection
@@ -28,9 +38,9 @@ abstract class Entity
     
     /**
      * Entity is a stub
-     * @var boolean
+     * @var int
      */
-    protected $_stub = false;
+    protected $_stub = 0;
     
     
     /**
@@ -136,45 +146,6 @@ abstract class Entity
     
     
     /**
-     * Get resource object for fetching subdata.
-     * Preparation for a multi request.
-     * 
-     * @param string $action  Action or fetch item
-     * @param mixed  $target  Entity/id
-     * @param array  $params
-     * @return object
-     */
-    abstract public function prepareRequest($action, $target=null, array $params=array());
-    
-    /**
-     * Fetch new data from web service.
-     * Expands the entity if it's a stub.
-     * 
-     * @param string $item    Sub item or null to refresh entity
-     * @param array  $params
-     * @return Collection|mixed
-     */
-    public function fetch($item=null, array $params=array())
-    {
-        $request = $this->prepareRequest($item, $params);
-
-        if (!isset($request)) throw new Exception("It's not possible to fetch $item for a " . $this->getType() . ".");
-        if (isset($request->method) && $request->method != 'GET') throw new Exception("Can't fetch $item for a " . $this->getType() . ": that's a {$request->method} request");
-        
-        $data = $this->getConnection()->doRequest($request);
-        
-        if (!isset($item)) {
-            $this->setProperties($data, true);
-            return $this;
-        }
-        
-        if ($data instanceof Collection) $data->load();
-        $this->$item = $data;
-        
-        return $this->$item;
-    }
-    
-    /**
      * Expand a stub when trying to get a non existing property.
      * 
      * @param string $name
@@ -182,23 +153,9 @@ abstract class Entity
      */
     public function __get($name)
     {
-        // Do we need to expand or get subdata
-        $request = $this->prepareRequest($name);
-        
-        if (isset($request)) {
-            // Prefer lazy load
-            if (!empty($request->lazy)) {
-                $type = $this->getConnection()->detectType($request->url);
-                $this->$name = Collection($this->getConnection(), $type, array(), $request);
-                
-                return $this->$name;
-            }
-            
-            return $this->fetch($name);
-        }
+        if ($this->isStub() == self::AUTOEXPAND) $this->fetch();
+         elseif ($this->isStub()) trigger_error("This " . get_class() . " is a stub, please call \$entity->fetch() to get all properties.", E_USER_NOTICE);
 
-        // Let's expand
-        if ($this->isStub()) $this->fetch();
         return $this->$name;
     }
     

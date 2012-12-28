@@ -347,17 +347,16 @@ abstract class Connection
     /**
      * Run a single prepared HTTP request.
      * 
-     * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array }
-     * @param boolean $convert  Convert to entity/collection, false returns raw data
+     * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
      * @return string
      */
-    abstract public function doRequest($request, $convert=true);
+    abstract public function doRequest($request);
     
     /**
      * Run multiple HTTP requests in parallel.
      * 
-     * @param array   $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
-     * @param boolean $convert   Convert to entity/collection, false returns raw data
+     * @param array   $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
+     * @param mixed   $convert   Convert to entity/collection (boolean) or callback for all requests
      * @return array
      */
     abstract public function multiRequest(array $requests, $convert=true);
@@ -368,12 +367,12 @@ abstract class Connection
      * 
      * @param string  $resource
      * @param array   $params
-     * @param boolean $convert   Convert to entity/collection, false returns raw data
+     * @param mixed   $convert   Convert to entity/collection (boolean), object to be updated or callback
      * @return Entity|Collection|mixed
      */
     public function get($resource, array $params=array(), $convert=true)
     {
-        return $this->doRequest((object)array('method' => 'GET', 'url' => $resource, 'params' => $params), $convert);
+        return $this->doRequest((object)array('method' => 'GET', 'url' => $resource, 'params' => $params, 'convert' => $convert));
     }
     
     /**
@@ -381,12 +380,12 @@ abstract class Connection
      * 
      * @param string  $resource
      * @param array   $params    POST parameters
-     * @param boolean $convert   Convert to entity/collection, false returns raw data
+     * @param mixed   $convert   Convert to entity/collection (boolean), object to be updated or callback
      * @return Entity|Collection|mixed
      */
     public function post($resource, array $params=array(), $convert=true)
     {
-        return $this->doRequest((object)array('method' => 'POST', 'url' => $resource, 'params' => $params), $convert);
+        return $this->doRequest((object)array('method' => 'POST', 'url' => $resource, 'params' => $params, 'convert' => $convert));
     }
     
     
@@ -399,5 +398,5 @@ abstract class Connection
      * @param object  $request  Request used to get this data
      * @return Entity|Collection|DateTime|mixed
      */
-    abstract public function convertData($data, $type=null, $stub=true, $request=null);
+    abstract public function convertData($data, $type=null, $stub=Entity::NO_STUB, $request=null);
 }

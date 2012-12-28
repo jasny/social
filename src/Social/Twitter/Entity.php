@@ -10,7 +10,6 @@
 namespace Social\Twitter;
 
 use Social\Entity as Base;
-use Social\Exception;
 
 /**
  * Autoexpending Twitter entity.
@@ -25,7 +24,7 @@ abstract class Entity extends Base
      * @param object|mixed $data        Data or ID
      * @param boolean      $stub
      */
-    public function __construct(Connection $connection, $data=array(), $stub=false)
+    public function __construct(Connection $connection, $data=array(), $stub=self::NO_STUB)
     {
         $this->_connection = $connection;
         $this->_type = strtolower(preg_replace(array('/^.*\\\\/', '/([a-z])([A-Z])/'), array('', '$1_$2'), get_class($this)));
@@ -60,19 +59,5 @@ abstract class Entity extends Base
             $type = $key == 'user' ? 'user' : ($key == 'status' ? 'tweet' : null);
             $this->$key = $conn->convertData($value, $type);
         }
-    }
-    
-    
-    /**
-     * Reconnect an unserialized Entity.
-     * 
-     * { @internal Making sure it's a Twitter connection }}
-     * 
-     * @param Connection $connection
-     * @return Entity  $this
-     */
-    public function reconnectTo(Connection $connection)
-    {
-        return parent::reconnectTo($connection);
     }
 }

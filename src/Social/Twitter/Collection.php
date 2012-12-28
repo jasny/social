@@ -10,7 +10,6 @@
 namespace Social\Twitter;
 
 use Social\Collection as Base;
-use Social\Exception;
 
 /**
  * Autoexpending Twitter Collection.
@@ -23,11 +22,12 @@ class Collection extends Base
      * 
      * @param string $item
      * @param array  $params
-     * @return Collection  $this
+     * @return Collection|\SplObjectStorage
      */
     public function fetchAll($item=null, array $params=array())
     {
-        if ($this->_type == 'user' && !isset($item)) return $this->fetchUsers($params);
+        if (!isset($item) && $this->allUsers()) return $this->fetchUsers($params);
+        
         return parent::fetchAll($item, $params);
     }
 
@@ -40,14 +40,10 @@ class Collection extends Base
      */
     private function fetchUsers(array $params=array())
     {
-        $this->load();
+        $entities = array();
         
-        $entities = $this->getArrayCopy();
-        
-        foreach ($entities as $i=>$entity) {
-            if (!$entity->isStub()) continue;
-
-            if (property_exists($entity, 'id')) {
+        foreach ($this as $entity) {
+            if (isset($entity->id)) {
                 $ids[] = $entity->id;
                 $entities[$entity->id] = $entity;
 
@@ -74,11 +70,25 @@ class Collection extends Base
         
         foreach ($results as $result) {
             foreach ($result as $data) {
-                $key = isset($entitys[$data->id]) ? 'id' : 'screen_name';
-                $entitys[$data->$key]->setProperties($data, true);
+                $key = isset($entities[$data->id]) ? 'id' : 'screen_name';
+                $entities[$data->$key]->setProperties($data, true);
             }
         }
 
         return $this;
+    }
+    
+    /**
+     * Check if all entities all Users
+     * 
+     * @return boolean
+     */
+    private function allUsers()
+    {
+        foreach ($this as $entity) {
+            if (!$entity instanceof User) return false;
+        }
+        
+        return true;
     }
 }

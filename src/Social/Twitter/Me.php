@@ -9,29 +9,12 @@
 /** */
 namespace Social\Twitter;
 
-use Social\Entity;
-use Social\Exception;
+use Social\Result;
 
 /**
  * Autoexpending Twitter entity for the authenticated user.
  * 
- * @see https://dev.twitter.com/docs/api/1/get/account/verify_credentials
- * 
- * @property Tweet[]         $timeline               statuses/home_timeline
- * @property Tweet[]         $mentions               statuses/mentions
- * @property Tweet[]         $retweeted_by_me        statuses/retweeted_by_me
- * @property Tweet[]         $retweeted_to_me        statuses/retweeted_to_me
- * @property Tweet[]         $retweets_of_me         statuses/retweets_of_me
- * @property DirectMessage[] $direct_messages        direct_messages
- * @property DirectMessage[] $send_direct_messages   direct_messages/send
- * @property User[]          $incomming_friends      friendships/incoming
- * @property User[]          $outgoing_friends       friendships/outgoing
- * @property User[]          $no_retweet_friends     friendships/no_retweet_ids
- * @property Tweet[]         $favorites              favorites
- * @property object          $rate_limit_status      rate_limit_status
- * @property object          $totals                 totals
- * @property object          $settings               settings
- * @property Collection      $saved_searches         saved_searches
+ * @see https://dev.twitter.com/docs/api/1.1/get/account/verify_credentials
  */
 class Me extends User
 {
@@ -43,7 +26,7 @@ class Me extends User
      * @param object|mixed $data        Data or ID/username; Caution: We don't verify the id/username against the access token.
      * @param boolean      $stub
      */
-    public function __construct(Connection $connection, $data=array(), $stub=false)
+    public function __construct(Connection $connection, $data=array(), $stub=self::NO_STUB)
     {
         $this->_connection = $connection;
         $this->_type = 'me';
@@ -65,79 +48,42 @@ class Me extends User
         }
     }
     
+
     /**
-     * Build request object for fetching or posting.
-     * Preparation for a multi request.
+     * Expand if this is a stub.
      * 
-     * @param string $action  Action or fetch item
-     * @param mixed  $target  Entity/id
-     * @param array  $params
-     * @return object  { 'method': string, 'url': string, 'params': array }
+     * @see https://dev.twitter.com/docs/api/1.1/post/account/verify_credentials
+     * 
+     * @param boolean $force  Fetch new data, even if this isn't a stub
+     * @return Me  $this
      */
-    public function prepareRequest($action, $target=null, array $params=array())
+    public function expand($force=false)
     {
-        switch ($action) {
-            case null:                      return (object)array('resource' => 'account/verify_credentials');
-            
-            case 'timeline':                return (object)array('resource' => 'statuses/home_timeline', 'lazy' => true);
-            case 'mentions':                return (object)array('resource' => 'statuses/mentions', 'lazy' => true);
-            case 'retweeted_by_me':         return (object)array('resource' => 'statuses/retweeted_by_me', 'lazy' => true);
-            case 'retweeted_to_me':         return (object)array('resource' => 'statuses/retweeted_to_me', 'lazy' => true);
-            case 'retweets_of_me':          return (object)array('resource' => 'statuses/retweets_of_me', 'lazy' => true);
-            case 'direct_messages':         return (object)array('resource' => 'direct_messages', 'lazy' => true);
-            case 'send_direct_messages':    return (object)array('resource' => 'direct_messages/send', 'lazy' => true);
-            case 'incomming_friends':       return (object)array('resource' => 'friendships/incoming');
-            case 'outgoing_friends':        return (object)array('resource' => 'friendships/outgoing');
-            case 'no_retweet_friends':      return (object)array('resource' => 'friendships/no_retweet_ids');
-            case 'favorites':               return (object)array('resource' => 'favorites', 'lazy' => true);
-            case 'rate_limit_status':       return (object)array('resource' => 'account/rate_limit_status');
-            case 'totals':                  return (object)array('resource' => 'account/totals');
-            case 'settings':                return (object)array('resource' => 'account/settings');
-            case 'saved_searches':          return (object)array('resource' => 'saved_searches');
-            
-            case 'update':                  return (object)array('method' => 'POST', 'resource' => 'account/update_profile', 'params' => $params + $this->getParameters(array('name', 'url', 'location', 'description')));
-            case 'update_background_image': return (object)array('method' => 'POST', 'resource' => 'account/update_profile_background_image', 'params' => (isset($target) ? array('image' => $target) : array()) + $params + $this->getParameters(array('image', 'tile', 'use'), 'profile_background'));
-            case 'update_colors':           return (object)array('method' => 'POST', 'resource' => 'account/update_profile_colors', 'params' => (is_array($target) ? $target : $params) + $this->getParameters(array('profile_background_color', 'profile_link_color', 'profile_sidebar_border_color', 'profile_sidebar_fill_color', 'profile_text_color')));
-            case 'update_profile_image':    return (object)array('method' => 'POST', 'resource' => 'account/update_profile_image', 'params' => (isset($target) ? array('image' => $target) : array()) + $params + $this->getParameters(array('image'), 'profile'));
-            case 'tweet':                   return (object)array('method' => 'POST', 'resource' => 'account/statuses/update' . (is_array($params) && !empty($params['media']) ? '_with_media' : ''), 'params' => (isset($target) ? array('status' => $target) : array()) + $params);
-            case 'send_message':            return (object)array('method' => 'POST', 'resource' => 'direct_messages/new', 'params' => self::makeUserData($target, true) + $params);
-            case 'follow':                  return (object)array('method' => 'POST', 'resource' => 'friendships/create', 'params' => self::makeUserData($target, true) + $params);
-            case 'unfollow':                return (object)array('method' => 'POST', 'resource' => 'friendships/destroy', 'params' => self::makeUserData($target, true) + $params);
-            case 'block':                   return (object)array('method' => 'POST', 'resource' => 'block/create', 'params' => self::makeUserData($target, true) + $params);
-            case 'unblock':                 return (object)array('method' => 'POST', 'resource' => 'block/destroy', 'params' => self::makeUserData($target, true) + $params);
-            case 'update_friendship':       return (object)array('method' => 'POST', 'resource' => 'friendships/update', 'params' => self::makeUserData($target, true) + $params);
-            case 'favorite':                return (object)array('method' => 'POST', 'resource' => 'favorites/create', 'params' => (isset($target) ? array('id' => is_object($target) ? $target->id : $target) : array()) + $params);
-            case 'unfavorite':              return (object)array('method' => 'POST', 'resource' => 'favorites/destroy', 'params' => (isset($target) ? array('id' => is_object($target) ? $target->id : $target) : array()) + $params);
-            case 'create_list':             return (object)array('method' => 'POST', 'resource' => 'lists/create', 'params' => (isset($target) ? array('name' => $target) : array()) + $params);
-            case 'subscribe':               return (object)array('method' => 'POST', 'resource' => 'lists/subscribers/create', 'params' => array('list_id' => is_object($target) ? $target->id : $target) + $params);
-            case 'unsubscribe':             return (object)array('method' => 'POST', 'resource' => 'lists/subscribers/destroy', 'params' => array('list_id' => is_object($target) ? $target->id : $target) + $params);
-        }
-        
-        return parent::prepareRequest($action, $params);
+        if ($force || $this->isStub()) $this->getConnection()->get('account/verify_credentials', array(), $this);
+        return $this;
     }
+    
     
     /**
      * Update users profile information.
      * 
-     * @see https://dev.twitter.com/docs/api/1/post/account/update_profile
+     * @see https://dev.twitter.com/docs/api/1.1/post/account/update_profile
      * 
      * @param array $params  If omitted parameter are taken from the entity
      * @return Me  $this
      */
     public function update(array $params=array())
     {
-        $params = $this->getParameters(array('name', 'url', 'location', 'description'), $params);
+        $params = $this->getConnection()->getParameters(array('name', 'url', 'location', 'description'), $params);
         
-        $data = $this->getConnection()->postData('account/update_profile', $params);
-        $this->setProperties($data, false);
-        
+        $this->getConnection()->post('account/update_profile', $params, $this);
         return $this;
     }
 
     /**
      * Update users profile background image.
      * 
-     * @see https://dev.twitter.com/docs/api/1/post/account/update_profile_background_image
+     * @see https://dev.twitter.com/docs/api/1.1/post/account/update_profile_background_image
      * 
      * @param array|string $params   Parameters or raw image, if omitted it's taken from the entity.
      * @return Me  $this
@@ -147,19 +93,17 @@ class Me extends User
         if (is_string($params)) {
             $params = array('image' => $params);
         } else {
-            $params = $this->getParameters(array('image', 'tile', 'use'), $params, 'profile_background');
+            $params = $this->getConnection()->getParameters(array('image', 'tile', 'use'), $params, 'profile_background');
         }
         
-        $data = $this->getConnection()->postData('account/update_profile_background_image', $params);
-        $this->setProperties($data, false);
-        
+        $this->getConnection()->post('account/update_profile_background_image', $params, $this);
         return $this;
     }
     
     /**
      * Update users profile colors.
      * 
-     * @see https://dev.twitter.com/docs/api/1/post/account/update_profile_colors
+     * @see https://dev.twitter.com/docs/api/1.1/post/account/update_profile_colors
      * 
      * @param array $params  If omitted the parameters are taken from the entity
      * @return Me  $this
@@ -171,16 +115,14 @@ class Me extends User
             $params = array_intersect_key((array)$this, array_fill_keys($fields, null));
         }
         
-        $data = $this->getConnection()->postData('account/update_profile_colors', $params);
-        $this->setProperties($data, false);
-        
+        $this->getConnection()->post('account/update_profile_colors', $params, $this);
         return $this;
     }
     
     /**
      * Update users profile image.
      * 
-     * @see https://dev.twitter.com/docs/api/1/post/account/update_profile_image
+     * @see https://dev.twitter.com/docs/api/1.1/post/account/update_profile_image
      * 
      * @param array|string $params   Parameters or raw image, if omitted it's taken from the entity.
      * @return Me  $this
@@ -193,9 +135,7 @@ class Me extends User
             $params['image'] = $this->profile_image;
         }
         
-        $data = $this->getConnection()->postData('account/update_profile_image', $params);
-        $this->setProperties($data, false);
-        
+        $this->getConnection()->post('account/update_profile_image', $params, $this);
         return $this;
     }
     
@@ -203,8 +143,8 @@ class Me extends User
     /**
      * Send a tweet.
      * 
-     * @see https://dev.twitter.com/docs/api/1/post/statuses/update
-     * @see https://dev.twitter.com/docs/api/1/post/statuses/update_with_media
+     * @see https://dev.twitter.com/docs/api/1.1/post/statuses/update
+     * @see https://dev.twitter.com/docs/api/1.1/post/statuses/update_with_media
      * 
      * @param string $tweet   The status message
      * @param array  $media   Images
@@ -220,16 +160,77 @@ class Me extends User
     }
 
     /**
+     * Returns a collection of the most recent Tweets and retweets posted by the authenticating user and the users they follow. 
+     *
+     * @see https://dev.twitter.com/docs/api/1.1/get/statuses/home_timeline
+     * 
+     * @return Collection of tweets
+     */
+    public function getTimeline(array $params=array())
+    {
+        return $this->getConnection()->get('statuses/home_timeline', $params);
+    }
+
+    /**
+     * Returns the most recent mentions (tweets containing a users's screen_name) for the authenticating user.
+     *
+     * @see https://dev.twitter.com/docs/api/1.1/get/statuses/mentions_timeline
+     * 
+     * @return Collection of tweets
+     */
+    public function getMentions(array $params=array())
+    {
+        return $this->getConnection()->get('statuses/mentions_timeline', $params);
+    }
+
+    /**
+     * Returns the most recent tweets authored by the authenticating user that have recently been retweeted by others.
+     *
+     * @see https://dev.twitter.com/docs/api/1.1/get/statuses/retweets_of_me
+     * 
+     * @return Collection of tweets
+     */
+    public function getRetweetsOfMe(array $params=array())
+    {
+        return $this->getConnection()->get('statuses/retweets_of_me', $params);
+    }
+    
+    
+    /**
+     * Returns the most recent direct messages sent to the authenticating user. Includes detailed information about the sender and recipient user.
+     *
+     * @see https://dev.twitter.com/docs/api/1.1/get/direct_messages
+     * 
+     * @return Collection of direct messages
+     */
+    public function getDirectMessages(array $params=array())
+    {
+        return $this->getConnection()->get('direct_messages', $params);
+    }
+
+    /**
+     * Returns the most recent direct messages sent by the authenticating user. Includes detailed information about the sender and recipient user.
+     *
+     * @see https://dev.twitter.com/docs/api/1.1/get/direct_messages/send
+     * 
+     * @return Collection of direct messages
+     */
+    public function getSendDirectMessages(array $params=array())
+    {
+        return $this->getConnection()->get('direct_messages/send', $params);
+    }
+
+    /**
      * Send a direct message.
      * 
-     * @see https://dev.twitter.com/docs/api/1/post/direct_messages/new
+     * @see https://dev.twitter.com/docs/api/1.1/post/direct_messages/new
      * 
      * @param mixed  $user    User entity/ID/username or array with users
      * @param string $text    The text of the direct message
      * @param array  $params  Additional parameters
      * @return DirectMessage
      */
-    public function sendMessage($user, $text, array $params=array())
+    public function sendDirectMessage($user, $text, array $params=array())
     {
         $params = self::makeUserData($user, true) + array('text' => $text) + $params;
         return $this->getConnection()->post('direct_messages/new', $params);
@@ -237,246 +238,205 @@ class Me extends User
 
     
     /**
+     * Perform an action for a set of users.
+     * 
+     * @param string $action
+     * @param mixed  $user    User entity/ID/username or array with users
+     * @param array  $params
+     * @return User|Collection
+     */
+    protected function forUsers($action, $user, array $params=array())
+    {
+        // Single user
+        if (!is_array($user) && !$user instanceof \ArrayObject) {
+            return $this->getConnection()->post($action, self::makeUserData($user, true) + $params, $user instanceof User ? $user : true);
+        }
+        
+        // Multiple users
+        $this->getConnection()->prepare();
+        
+        foreach ($user as $u) {
+            $this->getConnection()->post($action, self::makeUserData($u, true) + $params, $u instanceof User ? $u : true);
+        }
+        
+        return $this->getConnection()->execute();
+    }
+
+    /**
      * Follow a user/users.
      * 
-     * @see https://dev.twitter.com/docs/api/1/post/friendships/create
+     * @see https://dev.twitter.com/docs/api/1.1/post/friendships/create
      * 
      * @param mixed $user  User entity/ID/username or array with users
      * @return User|Collection
      */
     public function follow($user)
     {
-        // Single user
-        if (!is_array($user) && !$user instanceof \ArrayObject) {
-            $user = $user;
-            $response = $this->getConnection()->post('friendships/create', self::makeUserData($user, true));
-        
-            if (!$user instanceof User) return $response;
-            
-            $user->setProperties($response, true);
-            return $user;
-        }
-        
-        // Multiple users
-        $entities = array();
-        foreach ($user as $i=>$user) {
-            if (is_object($user)) $entities[$i] = $user;
-            $requests[$i] = (object)array('method' => 'POST', 'url' => 'friendships/create', self::makeUserData($user, true));
-        }
-        
-        $results = $this->getConnection()->multiRequest($requests);
-        
-        foreach ($entities as $i=>$user) {
-            if (!isset($results[$i])) continue;
-            
-            $user->setProperties($results[$i], true);
-            $results[$i] = $user;
-        }
-        
-        return $results;
+        return $this->forUsers('friendships/create', $user);
     }
     
     /**
      * Unfollow a user/users.
      * 
-     * @see https://dev.twitter.com/docs/api/1/post/friendships/destroy
+     * @see https://dev.twitter.com/docs/api/1.1/post/friendships/destroy
      * 
      * @param mixed $user  User entity/ID/username or array with users
      * @return User|Collection
      */
     public function unfollow($user)
     {
-        // Single user
-        if (!is_array($user) && !$user instanceof \ArrayObject) {
-            $user = $user;
-            $response = $this->getConnection->post('friendships/destroy', self::makeUserData($user, true));
-
-            if (!$user instanceof User) return $response;
-            
-            $user->setProperties($response, true);
-            return $user;
-        }
-        
-        // Multiple users
-        $users = array();
-        foreach ($user as $i=>$u) {
-            if (is_object($u)) $users[$i] = $u;
-            $requests[$i] = (object)array('method' => 'POST', 'url' => 'friendships/destroy', self::makeUserData($u, true));
-        }
-        
-        $results = $this->_connection->multiRequest($requests);
-        
-        foreach ($users as $i=>$user) {
-            if (!isset($results[$i])) continue;
-            
-            $user->setProperties($results[$i], true);
-            $results[$i] = $user;
-        }
-        
-        return $results;
+        return $this->forUsers('friendships/destroy', $user);
     }
     
     /**
      * Block a user.
      * 
-     * https://dev.twitter.com/docs/api/1/post/blocks/create
+     * https://dev.twitter.com/docs/api/1.1/post/blocks/create
      * 
      * @param mixed $user  User entity/ID/username or array with users
      * @return User|Collection
      */
     public function block($user)
     {
-        // Single user
-        if (!is_array($user) && !$user instanceof \ArrayObject) {
-            return $this->getConnection->post('blocks/create', self::makeUserData($user, true));
-        }
-        
-        // Multiple users
-        foreach ($user as $u) {
-            $requests[] = (object)array('method' => 'POST', 'url' => 'blocks/create', self::makeUserData($u, true));
-        }
-        
-        return $this->_connection->multiRequest($requests);
+        return $this->forUsers('blocks/create', $user);
     }
 
     /**
      * Unblock a user.
      * 
-     * https://dev.twitter.com/docs/api/1/post/blocks/create
+     * https://dev.twitter.com/docs/api/1.1/post/blocks/destroy
      * 
      * @param mixed $user  User entity/ID/username or array with users
      * @return User|Collection
      */
     public function unblock($user)
     {
-        // Single user
-        if (!is_array($user) && !$user instanceof \ArrayObject) {
-            return $this->getConnection->post('blocks/destroy', self::makeUserData($user, true));
-        }
-        
-        // Multiple users
-        foreach ($user as $u) {
-            $requests[] = (object)array('method' => 'POST', 'url' => 'blocks/destroy', self::makeUserData($u, true));
-        }
-        
-        return $this->_connection->multiRequest($requests);
+        return $this->forUsers('blocks/destroy', $user);
     }
     
     /**
      * Enable or disable retweets and device notifications from the specified user(s).
      * 
-     * @see https://dev.twitter.com/docs/api/1/post/friendships/update
+     * @see https://dev.twitter.com/docs/api/1.1/post/friendships/update
      * 
      * @param mixed $user    User entity/ID/username or array with users
      * @param array $params
-     * @return object|Collection
+     * @return User|Collection
      */
     public function updateFriendship($user, array $params)
     {
-        // Single user
-        if (!is_array($user) && !$user instanceof \ArrayObject) {
-            return $this->getConnection->post('friendships/update', self::makeUserData($user, true) + $params);
-        }
-        
-        // Multiple users
-        foreach ($user as $u) {
-            $requests[] = (object)array('method' => 'POST', 'url' => 'friendships/update', self::makeUserData($u, true) + $params);
-        }
-        
-        return $this->_connection->multiRequest($requests);
+        return $this->forUsers('blocks/update', $user, $params);
     }
     
     /**
      * Get the relationship between me and the user(s).
      * 
-     * The resulting user entity/entities will have following extra properties: 'following', 'following_requested', 'followed_by'.
+     * Results in value object(s) with the following properties 'following', 'following_requested', 'followed_by'.
      * Optionally also include extra properties: 'notifications_enabled', 'can_dm', 'want_retweets', 'marked_spam', 'all_replies', 'blocking'.
      * 
-     * @see https://dev.twitter.com/docs/api/1/get/friendships/lookup
-     * @see https://dev.twitter.com/docs/api/1/get/friendships/show
+     * @see https://dev.twitter.com/docs/api/1.1/get/friendships/lookup
+     * @see https://dev.twitter.com/docs/api/1.1/get/friendships/show
      * 
      * @param mixed   $user      User entity/ID/username or array with users
      * @param boolean $extended  Include additional info
-     * @return User|Collection
+     * @return User|Result
      */
     public function getFriendship($user, $extended=false)
     {
-        if ($extended) return parent::friendship($user);
+        $key = null;
+        if ($extended === 'following' || $extended === 'followed_by') {
+            $key = $extended;
+            $extended = false;
+        }
+        
+        if ($extended) return parent::getFriendship($user);
         
         // Single user
         if (!is_array($user) && !$user instanceof \ArrayObject) {
-            $result = $this->getConnection()->get('friendships/lookup', self::makeUserData($user, true));
-            $entity = $result[0];
-
-            $entity->following = in_array('following', $entity->connections);
-            $entity->following_requested = in_array('following_requested', $entity->connections);
-            $entity->followed_by = in_array('followed_by', $entity->connections);
-            unset($entity->connections);
+            if (!isset($fn)) $fn = function ($result) use ($user, $key) { return Me::processLookupFriendship($result, $user, $key); };
             
-            if (is_object($user)) $entity->setProperties($user, true);
-            return $entity;
+            $results = $this->getConnection()->get('friendships/lookup', self::makeUserData($user, true), $fn);
+            return $results[0][1];
         }
         
         // Multiple users (1 request per 100 users)
         foreach ($user as $u) {
-            if (is_object($u)) $key = property_exists($u, 'id') ? 'id' : 'screen_name';
-              else $key = is_int($u) || ctype_digit($u) ? 'id' : 'screen_name';
+            if (!is_object($u)) $u = new User($this->connection, $u, Entity::STUB);
+            $key = property_exists($u, 'id') ? 'id' : 'screen_name';
             
             if ($key == 'id') {
-                if (is_object($u)) {
-                    $ids[] = $u->id;
-                    $users[$u->id] = $u;
-                } else {
-                    $ids[] = $u;
-                }
-
-                if (count($ids) >= 100) {
-                    $requests[] = (object)array('method' => 'POST', 'url' => 'friendships/lookup', array('user_id' => $ids));
-                    $ids = array();
-                }
-
+                $ids[] = $u->id;
+                $users[$u->id] = $u;
             } else {
-                if (is_object($u)) {
-                    $names[] = $u->screen_name;
-                    $users[$u->screen_name] = $u;
-                } else {
-                    $names[] = $u;
-                }
-
-                if (count($names) >= 100) {
-                    $requests[] = (object)array('method' => 'POST', 'url' => 'friendships/lookup', array('screen_name' => $names));
-                    $names = array();
-                }
+                $names[] = $u->screen_name;
+                $users[$u->screen_name] = $u;
             }
         }
 
-        if (!empty($ids)) $requests[] = (object)array('method' => 'POST', 'url' => 'friendships/lookup', array('user_id' => $ids) + $params);
-        if (!empty($names)) $requests[] = (object)array('method' => 'POST', 'url' => 'friendships/lookup', array('screen_name' => $names) + $params);
+        if (!isset($fn)) $fn = function ($result) use (&$users, $key) { return Me::processLookupFriendship($result, $users, $key); };
         
-        $entities = array();
-        $results = $this->_connection->multiRequest($requests);
+        $this->getConnection()->prepare(new Result($this->getConnection()));
         
-        foreach ($results as $result) {
-            foreach ($result as $user) {
-                $entity->following = in_array('following', $entity->connections);
-                $entity->following_requested = in_array('following_requested', $entity->connections);
-                $entity->followed_by = in_array('followed_by', $entity->connections);
-                
-                if (isset($entitys[$entity->id])) $entity->setProperties($entitys[$entity->id], true);
-                  elseif (isset($entitys[$entity->screen_name])) $entity->setProperties($entitys[$entity->screen_name], true);
-                
-                $entities[] = $entity;
-            }
-        }
+        foreach (array_chunk($ids, 100) as $chunk) $this->getConnection()->post('friendships/lookup', array('user_id' => $chunk), $fn);
+        foreach (array_chunk($names, 100) as $chunk) $this->getConnection()->post('friendships/lookup', array('screen_name' => $chunk), $fn);
+        
+        return $this->getConnection()->execute();
+    }
+    
+    /**
+     * Convert the result of friendships/lookup.
+     * 
+     * @param array  $result
+     * @param array  $users
+     * @param string $key
+     * @return array
+     */
+    protected static function convertLookupFriendship($result, $users, $key)
+    {
+        $friendship = (object)array(
+            'following' => in_array('following', $result->connections),
+            'following_requested' => in_array('following_requested', $result->connections),
+            'followed_by' => in_array('followed_by', $result->connections)
+        );
+        unset($result->connections);
 
-        return new Collection($this->getConnection(), 'user', $entities);
+        $user = !is_array($users) ? $users : (isset($users[$result->id]) ? $users[$result->id] : $users[$result->screen_name]);
+        if ($user instanceof User && $user->isStub()) $user->setProperties($result);
+
+        return array($user, $key ? $friendship->$key : $friendship);
+    }
+    
+    
+    /**
+     * Returns a collection of users who has a pending request to follow the authenticating user.
+     * Only if the authenticating user has a protected account.
+     *
+     * @see https://dev.twitter.com/docs/api/1.1/get/friendships/incoming
+     * 
+     * @return Collection of users
+     */
+    public function getPendingFollowers(array $params=array())
+    {
+        return $this->getConnection()->get('friendships/incoming', $params);
+    }
+
+    /**
+     * Returns a collection of protected users for whom the authenticating user has a pending follow request.
+     *
+     * @see https://dev.twitter.com/docs/api/1.1/get/friendships/outgoing
+     * 
+     * @return Collection of users
+     */
+    public function getPendingFollowRequests(array $params=array())
+    {
+        return $this->getConnection()->get('friendships/outgoing', $params);
     }
     
     
     /**
      * Mark a tweet as favorite.
      * 
-     * @see https://dev.twitter.com/docs/api/1/post/favorites/create/%3Aid
+     * @see https://dev.twitter.com/docs/api/1.1/post/favorites/create/%3Aid
      * 
      * @param Tweet|int  $tweet   Tweet entity/ID
      * @param array      $params  Additional parameters
@@ -485,13 +445,13 @@ class Me extends User
     public function favorite($tweet, array $params=array())
     {
         $params['id'] = is_object($tweet) ? $tweet->id : $tweet;
-        return $this->getConnection->post('favorites/create', $params);
+        return $this->getConnection()->post('favorites/create', $params);
     }
 
     /**
      * Un-favorite a tweet.
      * 
-     * @see https://dev.twitter.com/docs/api/1/post/favorites/create/%3Aid
+     * @see https://dev.twitter.com/docs/api/1.1/post/favorites/destroy/%3Aid
      * 
      * @param Tweet|int  $tweet   Tweet entity/ID
      * @param array      $params  Additional parameters
@@ -500,14 +460,26 @@ class Me extends User
     public function unfavorite($tweet, array $params=array())
     {
         $params['id'] = is_object($tweet) ? $tweet->id : $tweet;
-        return $this->getConnection->post('favorites/destroy', $params);
+        return $this->getConnection()->post('favorites/destroy', $params);
+    }
+    
+    /**
+     * Returns the most recent Tweets favorited by the authenticating or specified user.
+     *
+     * @see https://dev.twitter.com/docs/api/1.1/get/favorites
+     * 
+     * @return Collection of tweets
+     */
+    public function getFavorites(array $params=array())
+    {
+        return $this->getConnection()->get('favorites', $params);
     }
     
     
     /**
      * Create a new list.
      * 
-     * @see https://dev.twitter.com/docs/api/1/post/lists/create
+     * @see https://dev.twitter.com/docs/api/1.1/post/lists/create
      * 
      * @param array|string $params  Parameters or list name
      * @return UserList
@@ -515,56 +487,97 @@ class Me extends User
     public function createList($params=array())
     {
         if (!is_array($params)) $params = array('name' => $params);
-        return $this->getConnection->post('lists/create', $params);
+        return $this->getConnection()->post('lists/create', $params);
     }
     
     /**
+     * Perform an action for a set of lists.
+     * 
+     * @param string $action
+     * @param mixed  $list    UserList entity/ID or array with lists or params
+     * @return UserList|Collection
+     */
+    protected function forLists($action, $list)
+    {
+        // Single list
+        if (!is_array($list) || is_string(key($list))) {
+            $params = is_array($list) ? $list : ($list instanceof UserList ? $list->asParams() : array('list_id' => $list));
+            return $this->getConnection()->post($action, $params, $list instanceof \ArrayObject ? $list : true);
+        }
+
+        // Multiple lists
+        $this->prepare();
+        
+        foreach ($list as $l) {
+            $params = $l instanceof UserList ? $l->asParams() : array('list_id' => $list);
+            $this->getConnection()->post($action, $params, $l instanceof \ArrayObject ? $l : true);
+        }
+        
+        return $this->execute();
+    }
+
+    /**
      * Subscribe to a list.
      * 
-     * https://dev.twitter.com/docs/api/1/post/lists/subscribers/create
+     * https://dev.twitter.com/docs/api/1.1/post/lists/subscribers/create
      * 
-     * @param UserList|int $list  UserList entity/ID or array with lists or params
-     * @return UserList
+     * @param UserList|int|array $list  UserList entity/ID or array with lists or params
+     * @return UserList|Collection
      */
     public function subscribe($list)
     {
-        // Single list
-        if ((!is_array($list) || is_string(key($list))) && !$list instanceof \ArrayObject) {
-            $params = is_array($list) ? $list : ($list instanceof UserList ? $list->asParams() : array('list_id' => $list));
-            return $this->getConnection()->post('lists/subscribers/create', $params);
-        }
-        
-        // Multiple lists
-        foreach ($list as $l) {
-            $params = $list instanceof UserList ? $list->asParams() : array('list_id' => $list);
-            $requests[] = (object)array('method' => 'POST', 'url' => 'lists/subscribers/create', $params);
-        }
-        
-        return $this->_connection->multiRequest($requests);
+        return $this->forLists('lists/subscribers/create', $list);
     }
 
     /**
      * Unsubscribe from a list.
      * 
-     * https://dev.twitter.com/docs/api/1/post/lists/subscribers/create
+     * https://dev.twitter.com/docs/api/1.1/post/lists/subscribers/create
      * 
      * @param UserList|int|array $list  UserList entity/ID or array with lists or params
-     * @return UserList
+     * @return UserList|Collection
      */
     public function unsubscribe($list)
     {
-        // Single list
-        if ((!is_array($list) || is_string(key($list))) && !$list instanceof \ArrayObject) {
-            $params = is_array($list) ? $list : ($list instanceof UserList ? $list->asParams() : array('list_id' => $list));
-            return $this->getConnection()->post('lists/subscribers/destroy', $params);
-        }
-        
-        // Multiple lists
-        foreach ($list as $l) {
-            $params = $list instanceof UserList ? $list->asParams() : array('list_id' => $list);
-            $requests[] = (object)array('method' => 'POST', 'url' => 'lists/subscribers/destroy', $params);
-        }
-        
-        return $this->_connection->multiRequest($requests);
+        return $this->forLists('lists/subscribers/destroy', $list);
+    }
+    
+    
+    /**
+     * Create a new saved search for the authenticated user.
+     *
+     * @see https://dev.twitter.com/docs/api/1.1/post/saved_searches/create
+     * 
+     * @param string $query
+     * @return SavedSearch
+     */
+    public function saveSearch($query)
+    {
+        return $this->getConnection()->post('saved_searches/create', is_array($query) ? $query : compact('query'));
+    }
+
+    /**
+     * Returns the authenticated user's saved search queries.
+     *
+     * @see https://dev.twitter.com/docs/api/1.1/get/saved_searches/list
+     * 
+     * @return Collection of saved searches
+     */
+    public function getSavedSearches()
+    {
+        return $this->getConnection()->get('saved_searches/list');
+    }
+    
+    
+    /**
+     * Get authenticated user's Settings.
+     *
+     * @see https://dev.twitter.com/docs/api/1.1/get/account/settings
+     * 
+     * @return object
+     */
+    public function getSettings()
+    {
+        return $this->getConnection()->get('account/settings');
     }
 }

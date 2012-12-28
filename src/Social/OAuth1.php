@@ -193,27 +193,30 @@ abstract class OAuth1 extends Connection
     /**
      * Do an HTTP request.
      * 
-     * @param string $method   GET, POST or DELETE
-     * @param string $url
-     * @param array  $params   Request parameters
-     * @param array  $headers  Additional HTTP headers
-     * @param array  $oauth    Additional oAUth parameters
+     * @param string   $method   GET, POST or DELETE
+     * @param string   $url
+     * @param array    $params   Request parameters
+     * @param array    $headers  Additional HTTP headers + additional oauth params
+     * @param callback $writefunction  Stream content to this function, instead of returning it as result
      */
-    protected function httpRequest($method, $url, $params=null, array $headers=array(), array $oauth=array())
+    protected function httpRequest($method, $url, $params=null, array $headers=array(), $writefunction=null)
     {
         $url = $this->processPlaceholders($url, $params);
         
         $multipart = $method == 'POST' && isset($headers['Content-Type']) && $headers['Content-Type'] == 'multipart/form-data';
         if ($multipart) $url = preg_replace('/\?.*$/', '', $url);
         
+        $oauth = isset($headers['oauth']) ? $headers['oauth'] : array();
+        unset($headers['oauth']);
         $headers['Authorization'] = $this->getAuthorizationHeader($method, $this->getUrl($url), !$multipart ? $params : array(), $oauth);
-        return parent::httpRequest($method, $url, $params, $headers);
+        
+        return parent::httpRequest($method, $url, $params, $headers, $writefunction);
     }
     
     /**
      * Run multiple HTTP requests in parallel.
      * 
-     * @param array $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
+     * @param array $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array }
      * @return array
      */
     protected function httpMultiRequest(array $requests)
@@ -224,7 +227,9 @@ abstract class OAuth1 extends Connection
             $multipart = $request->method == 'POST' && isset($request->headers['Content-Type']) && $request->headers['Content-Type'] == 'multipart/form-data';
             $url = $multipart ? preg_replace('/\?.*$/', '', $request->url) : $request->url;
             
-            $request->headers['Authorization'] = $this->getAuthorizationHeader($request->method, $this->getUrl($url), !$multipart ? $request->params : array(), $request->oauth);
+            $oauth = isset($request->headers['oauth']) ? $request->headers['oauth'] : array();
+            unset($request->headers['oauth']);
+            $request->headers['Authorization'] = $this->getAuthorizationHeader($request->method, $this->getUrl($url), !$multipart ? $request->params : array(), $oauth);
         }
         
         return parent::httpMultiRequest($requests);
@@ -247,7 +252,7 @@ abstract class OAuth1 extends Connection
             if (!isset($returnUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         }
 
-        $response = $this->httpRequest('POST', 'oauth/request_token', array(), array(), array('oauth_callback' => $returnUrl));
+        $response = $this->httpRequest('POST', 'oauth/request_token', array(), array('oauth'=>array('oauth_callback' => $returnUrl)));
         parse_str($response, $tmpAccess);
         
         $_SESSION[str_replace('\\', '/', get_class($this)) . ':tmp_access'] = $tmpAccess;

@@ -24,12 +24,12 @@ class Connection extends OAuth1
     /**
      * Twitter REST API URL
      */
-    const restURL = "https://api.twitter.com/1/";
+    const restURL = "https://api.twitter.com/1.1/";
 
     /**
      * Twitter upload API URL
      */
-    const uploadURL = "https://upload.twitter.com/1/";
+    const uploadURL = "https://upload.twitter.com/1.1/";
     
     /**
      * Twitter search API URL
@@ -44,17 +44,17 @@ class Connection extends OAuth1
     /**
      * Twitter streaming API URL
      */
-    const streamUrl = "https://stream.twitter.com/1/";
+    const streamUrl = "https://stream.twitter.com/1.1/";
 
     /**
      * Twitter streaming API URL for user stream
      */
-    const userstreamUrl = "https://userstream.twitter.com/2/";
+    const userstreamUrl = "https://userstream.twitter.com/1.1/";
 
     /**
      * Twitter streaming API URL for site stream
      */
-    const sitestreamUrl = "https://sitestream.twitter.com/2b/";
+    const sitestreamUrl = "https://sitestream.twitter.com/1.1/";
     
     
     /**
@@ -287,7 +287,7 @@ class Connection extends OAuth1
     /**
      * Run a single prepared HTTP request.
      *
-     * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
+     * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array }
      * @param boolean $convert  Convert to entity/collection, false returns raw data
      * @return object
      */
@@ -311,8 +311,6 @@ class Connection extends OAuth1
         if (!isset($request->headers)) $request->headers = array();
         if (self::detectMultipart($request->url)) $request->headers['Content-Type'] = 'multipart/form-data';
         
-        if (!isset($request->oauth)) $request->oauth = array();
-        
         return $request;
     }
     
@@ -320,25 +318,26 @@ class Connection extends OAuth1
     /**
      * Run a single prepared HTTP request.
      * 
-     * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
+     * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array }
      * @param boolean $convert  Convert to entity/collection, false returns raw data
      * @return string
      */
     public function doRequest($request, $convert=true)
     {
         $request = $this->completeRequestObject($request);
-        $response = $this->httpRequest($request->method, $request->url, $request->params, $request->headers, $request->oauth);
+        $response = $this->httpRequest($request->method, $request->url, $request->params, $request->headers);
         $data = json_decode($response);
         
         if (!isset($data)) return $response;
 
         // Follow the cursor to load all data
         if (is_object($data) && !isset($request->params['cursor']) && !empty($data->next_cursor_str)) {
-            $key = reset(array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str')));
-
+            $keys = array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str'));
+            $key = reset($keys);
+            
             while ($data->next_cursor_str) {
                 $request->params['cursor'] = $data->next_cursor_str;
-                $response = $this->httpRequest($request->method, $request->url, $request->params, $request->headers, $request->oauth);
+                $response = $this->httpRequest($request->method, $request->url, $request->params, $request->headers);
                 $newdata = json_decode($response);
                 
                 if (!empty($newdata->$key)) $data->$key = array_merge($data->$key, $newdata->$key);
@@ -358,7 +357,7 @@ class Connection extends OAuth1
     /**
      * Run multiple HTTP requests in parallel.
      * 
-     * @param array   $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'oauth': array }
+     * @param array   $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array }
      * @param boolean $convert   Convert to entity/collection, false returns raw data
      * @return array
      */
@@ -369,6 +368,7 @@ class Connection extends OAuth1
         }
         
         $results = $this->httpMultiRequest($requests);
+        $lastResults = array();
 
         foreach ($results as $i=>&$response) {
             $data = json_decode($response);
@@ -379,7 +379,6 @@ class Connection extends OAuth1
         do {
             $next = array();
             foreach ($results as $i=>&$data) {
-                $cursors = array();
                 if (is_object($data) && (isset($lastResults[$i]) || !isset($requests[$i]->params['cursor'])) && !empty($data->next_cursor_str)) {
                     $next[$i] = $requests[$i];
                     $next[$i]->params['cursor'] = $data->next_cursor_str;
@@ -429,7 +428,7 @@ class Connection extends OAuth1
     public function stream($writefunction, $resource, array $params=array())
     {
         $method = $id == 'statuses/filter' ? 'POST' : 'GET';
-        $params += $this->getDefaultParams($url);
+        $params += $this->getDefaultParams($resource);
         
         $response = $this->httpRequest($method, $resource . (pathinfo($resource, PATHINFO_EXTENSION) ? "" : ".json"), $params, array(), array(), $writefunction);
         return $response;
@@ -478,7 +477,7 @@ class Connection extends OAuth1
     {
         if (!isset($this->me)) {
             if (!$this->isAuth()) throw new Exception("There is no current user. Please set the access token.");
-            $this->me = new Me($this, null, true);
+            $this->me = new Me($this, null, Entity::AUTOEXPAND);
         }
         
         return $this->me;
@@ -489,10 +488,10 @@ class Connection extends OAuth1
      * 
      * @param string    $type  'me', 'user', 'tweet', 'direct_message', 'user_list', 'saved_search' or 'place'
      * @param array|int $data  Properties or ID
-     * @param boolean   $stub  True means that $data doesn't contain all of the entity's properties
+     * @param int       $stub  Entity::NO_STUB, Entity::STUB or Entity::AUTOEXPAND
      * @return Entity
      */
-    public function entity($type, $data=array(), $stub=true)
+    public function entity($type, $data=array(), $stub=Entity::AUTOEXPAND)
     {
         if (isset($type) && $type[0] == '@') {
             $type = substr($type, 1);
@@ -528,6 +527,7 @@ class Connection extends OAuth1
             throw new Exception("Unable to create a Twitter collection: unknown entity type '$type'");
         }
         
+        $data = $this->convertData($data, $type, Entity::AUTOEXPAND);
         return new Collection($this, $type, $data);
     }
 
@@ -535,10 +535,10 @@ class Connection extends OAuth1
      * Short notation for $twitter->entity('user', $data, $stub);
      * 
      * @param array|int|string $data  Properties or Twitter ID/username
-     * @param boolean          $stub  True means that $data only contains some of the entity's properties
+     * @param int              $stub  Entity::NO_STUB, Entity::STUB or Entity::AUTOEXPAND
      * @return User
      */
-    public function user($data, $stub=true)
+    public function user($data, $stub=Entity::AUTOEXPAND)
     {
         return $this->entity('user', $data, $stub);
     }
@@ -553,7 +553,7 @@ class Connection extends OAuth1
      * @param object   $request  Request used to get this data
      * @return Entity|Collection|DateTime|mixed
      */
-    public function convertData($data, $type=null, $stub=false, $request=null)
+    public function convertData($data, $type=null, $stub=Entity::NO_STUB, $request=null)
     {
         // Don't convert
         if ($data instanceof Entity || $data instanceof Collection || $data instanceof \DateTime) {
@@ -563,7 +563,7 @@ class Connection extends OAuth1
         // Scalar
         if (is_scalar($data) || is_null($data)) {
             if (preg_match('/^\w{3}\s\w{3}\s\d+\s\d+:\d+:\d+\s\+\d{4}\s\d{4}$/', $data)) return new \DateTime($data);
-            if (isset($type)) return $this->entity($type, $data, true);
+            if (isset($type)) return $this->entity($type, $data, ENTITY::STUB);
             return $data;
         }
 
@@ -581,9 +581,9 @@ class Connection extends OAuth1
         }
         
         if (is_array($data) && $type) {
-            if (array_key_exists('max_id', $params) && function_exists('bc_sub')) {
+            if (array_key_exists('max_id', $request->params)) {
                 $last = end($data);
-                $request->params['max_id'] = $last && isset($last->id) ? bc_sub(isset($last->id_str) ? $last->id_str : $last->id, 1) : null;
+                $request->params['max_id'] = $last && isset($last->id) ? self::decrementId(isset($last->id_str) ? $last->id_str : $last->id) : null;
             }
 
             return new Collection($this, $type, $data, !empty($request->params['max_id']) ? $request : null);
@@ -636,5 +636,25 @@ class Connection extends OAuth1
     {
         if (isset($this->_me)) $this->me = new Me($this, $this->_me);
         unset($this->_me);
+    }
+    
+    
+    /**
+     * Subtract 1 from ID.
+     * 
+     * @param string $id  A big integer
+     * @return string
+     */
+    static private function decrementId($id)
+    {
+        // We have bcsub :)
+        if (function_exists('bcsub')) return bcsub($id, 1);
+        
+        // No bcsub :/
+        $i = strlen($id) - 1;
+        while ($id[$i] == 0) $id[$i++] = 9;
+        $id[$i] = $id[i] - 1;
+        
+        return $id;
     }
 }

@@ -38,11 +38,11 @@ class User extends Entity
      * @param object|mixed $data        Data or ID/username
      * @param boolean      $stub
      */
-    public function __construct(Connection $connection, $data=array(), $stub=false)
+    public function __construct(Connection $connection, $data=array(), $stub=self::NO_STUB)
     {
         $this->_connection = $connection;
         $this->_type = 'user';
-        $this->_stub = $stub || is_scalar($data);
+        $this->_stub = is_scalar($data) ? self::STUB : $stub;
         
         if (is_scalar($data)) $data = self::makeUserData($data);
         $this->setProperties($data);
@@ -58,7 +58,7 @@ class User extends Entity
      * @param array  $params
      * @return object
      */
-    public function prepareRequest($action, $target=null, array $params=array())
+    public function _prepareRequest($action, $target=null, array $params=array())
     {
         switch ($action) {
             case null:                     return (object)array('resource' => 'users/show', 'params' => $this->asParams() + $params);
@@ -82,62 +82,85 @@ class User extends Entity
     
     
     /**
+     * Expand if this is a stub.
+     * 
+     * @see https://dev.twitter.com/docs/api/1.1/post/account/verify_credentials
+     * 
+     * @param boolean $force  Fetch new data, even if this isn't a stub
+     * @return Me  $this
+     */
+    public function expand($force=false)
+    {
+        if ($force || $this->isStub()) $this->getConnection()->get('account/verify_credentials', array(), $this);
+        return $this;
+    }
+
+    
+    /**
      * Get the relationship between users.
      * 
      * The resulting user entity/entities will have following extra properties: 'following', 'followed_by', 'notifications_enabled', 'can_dm', 'want_retweets', 'marked_spam', 'all_replies', 'blocking'.
      * 
      * @see https://dev.twitter.com/docs/api/1/get/friendships/show
      * 
-     * @param mixed $user  User entity/ID/username or array with users
+     * @param mixed $user        User entity/ID/username or array with users
      * @return User|Collection
      */
     public function getFriendship($user)
     {
+        $key = func_num_args() >= 2 ? func_get_arg(2) : null;
+        $fn = function ($result) use ($user, $key) { return User::processShowFriendship($result, $user, $key); };
+        
         // Single user
         if (!is_array($user) && !$user instanceof \ArrayObject) {
-            $result = $this->getConnection()->get('friendships/show', self::makeUserData($this, true, 'source_') + self::makeUserData($user, true, 'target_'), false);
-            $result = $result[0];
-
-            $data =& $result->source;
-            $data->id = $data->id_str = $result->target->id_str;
-            $data->screen_name = $result->target->screen_name;
             
-            $entity = new User($this->getConnection(), $data);
-            if (is_object($user)) $entity->setProperties($user, true);
-            
-            return $entity;
+            $results = $this->getConnection()->get('friendships/show', self::makeUserData($user, true), $fn);
+            return $results[0][1];
         }
         
         // Multiple users
+        $fn = function ($result) use (&$user) { return Me::processShowFriendship($result, $user); };
         $source = self::makeUserData($this, true, 'source_');
-        foreach ($user as $u) {
-            $requests[] = (object)array('method' => 'GET', 'url' => 'friendships/show', $source + self::makeUserData($u, true, 'target_'));
-        }
-        
-        $entities = array();
-        $results = $this->_connection->multiRequest($requests);
-        
-        foreach ($results as $result) {
-            $data =& $result->source;
-            $data->id = $data->id_str = $result->target->id_str;
-            $data->screen_name = $result->target->screen_name;
-            
-            $entity = new User($this->getConnection(), $data);
-            if (is_object($user)) $entity->setProperties($user, true);
-        }
 
-        return new Collection($this->getConnection(), 'user', $entities);
+        $this->getConnection()->prepare(new Result($this->getConnection()));
+        
+        foreach ($user as $u) {
+            $this->getConnection()->get('friendships/show', $source + self::makeUserData($u, true, 'target_'), $fn);
+        }
+        
+        return $this->getConnection()->execute();
+    }
+    
+    /**
+     * Convert the result of friendships/lookup.
+     * 
+     * @param array  $result
+     * @param array  $users
+     * @param string $key
+     * @return array
+     */
+    protected static function processShowFriendship($result, $users, $key)
+    {
+        $friendship =& $result->source;
+        unset($friendship->id, $friendship->id_str, $friendship->screen_name);
+
+        $user = !is_array($users) ? $users : (isset($users[$result->id]) ? $users[$result->id] : $users[$result->screen_name]);
+        
+        if (!$user instanceof User) $user = new User($this->getConnection(), array('id'=>$result->target->id_str, 'screen_name'=>$result->target->screen_name));
+          elseif ($user->isStub()) $user->setProperties(array('id'=>$result->target->id_str, 'screen_name'=>$result->target->screen_name));
+        
+        return array($user, $key ? $friendship->$key : $friendship);
     }
     
     /**
      * Check if this user is following the specified user.
      * 
-     * @param mixed $user  User entity/ID/username
-     * @return boolean
+     * @param mixed $user  User entity/ID/username or array with users
+     * @return boolean|array
      */
     public function isFollowing($user)
     {
-        return $this->getConnection()->get('friendships/exists', self::makeUserData($this, true, '', '_a') + self::makeUserData($user, true, '', '_b'));
+        return $this->getFriendship($user, 'following');
     }    
     
     /**
@@ -148,7 +171,7 @@ class User extends Entity
      */
     public function isFollowedBy($user)
     {
-        return $this->getConnection()->get('friendships/exists', self::makeUserData($this, true, '', '_b') + self::makeUserData($user, true, '', '_a'));
+        return $this->getFriendship($user, 'followed_by');
     }
     
     
