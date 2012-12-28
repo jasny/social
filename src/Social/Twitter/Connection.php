@@ -120,14 +120,14 @@ class Connection extends OAuth1
      * @var array
      */
     private static $defaultParams = array(
-        'statuses/home_timeline'     => array('include_entities' => true, 'max_id' => null),
-        'statuses/mentions'          => array('include_entities' => true, 'max_id' => null),
-        'statuses/retweeted_by_me'   => array('include_entities' => true, 'max_id' => null),
-        'statuses/retweeted_to_me'   => array('include_entities' => true, 'max_id' => null),
-        'statuses/retweets_of_me'    => array('include_entities' => true, 'max_id' => null),
-        'statuses/user_timeline'     => array('include_entities' => true, 'max_id' => null),
-        'statuses/retweeted_to_user' => array('include_entities' => true, 'max_id' => null),
-        'statuses/retweeted_by_user' => array('include_entities' => true, 'max_id' => null),
+        'statuses/home_timeline'     => array('max_id' => null),
+        'statuses/mentions'          => array('max_id' => null),
+        'statuses/retweeted_by_me'   => array('max_id' => null),
+        'statuses/retweeted_to_me'   => array('max_id' => null),
+        'statuses/retweets_of_me'    => array('max_id' => null),
+        'statuses/user_timeline'     => array('max_id' => null, 'trim_user' => true),
+        'statuses/retweeted_to_user' => array('max_id' => null),
+        'statuses/retweeted_by_user' => array('max_id' => null),
         'follower/ids'               => array('stringify_ids' => 1),
         'friends/ids'                => array('stringify_ids' => 1),
     );
@@ -442,13 +442,13 @@ class Connection extends OAuth1
      * 
      * @param type $query
      * @param array $params 
-     * @param boolean $convert   Convert to collection, false returns raw data
+     * @param boolean $convert  Convert to collection, false returns raw data
      * @return Collection  of Tweets
      */
     public function search($query, array $params=array(), $convert=true)
     {
         $params['q'] = $query;
-        return $this->get('search', $params, $convert);
+        return $this->get('search/tweets', $params, $convert);
     }
 
     /**
@@ -458,7 +458,7 @@ class Connection extends OAuth1
      * 
      * @param type $query
      * @param array $params 
-     * @param boolean $convert   Convert to collection, false returns raw data
+     * @param boolean $convert  Convert to collection, false returns raw data
      * @return Collection  of Users
      */
     public function searchUsers($query, array $params=array(), $convert=true)

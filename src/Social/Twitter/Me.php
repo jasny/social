@@ -52,7 +52,7 @@ class Me extends User
     /**
      * Expand if this is a stub.
      * 
-     * @see https://dev.twitter.com/docs/api/1.1/post/account/verify_credentials
+     * @see https://dev.twitter.com/docs/api/1.1/get/account/verify_credentials
      * 
      * @param boolean $force  Fetch new data, even if this isn't a stub
      * @return Me  $this
@@ -69,15 +69,12 @@ class Me extends User
      * 
      * @see https://dev.twitter.com/docs/api/1.1/post/account/update_profile
      * 
-     * @param array $params  If omitted parameter are taken from the entity
+     * @param array $params
      * @return Me  $this
      */
-    public function update(array $params=array())
+    public function updateProfile(array $params)
     {
-        $params = $this->getConnection()->getParameters(array('name', 'url', 'location', 'description'), $params);
-        
-        $this->getConnection()->post('account/update_profile', $params, $this);
-        return $this;
+        return $this->getConnection()->post('account/update_profile', $params, $this);
     }
 
     /**
@@ -85,19 +82,12 @@ class Me extends User
      * 
      * @see https://dev.twitter.com/docs/api/1.1/post/account/update_profile_background_image
      * 
-     * @param array|string $params   Parameters or raw image, if omitted it's taken from the entity.
+     * @param string|array $image  Raw image or parameters
      * @return Me  $this
      */
-    public function updateBackgroundImage($params=array())
+    public function updateProfileBackgroundImage($image)
     {
-        if (is_string($params)) {
-            $params = array('image' => $params);
-        } else {
-            $params = $this->getConnection()->getParameters(array('image', 'tile', 'use'), $params, 'profile_background');
-        }
-        
-        $this->getConnection()->post('account/update_profile_background_image', $params, $this);
-        return $this;
+        return $this->getConnection()->post('account/update_profile_background_image', is_string($image) ? compact('image') : $image, $this);
     }
     
     /**
@@ -105,18 +95,12 @@ class Me extends User
      * 
      * @see https://dev.twitter.com/docs/api/1.1/post/account/update_profile_colors
      * 
-     * @param array $params  If omitted the parameters are taken from the entity
+     * @param array $params
      * @return Me  $this
      */
-    public function updateColors($params=null)
+    public function updateProfileColors($params)
     {
-        if (!isset($params)) {
-            $fields = array('profile_background_color', 'profile_link_color', 'profile_sidebar_border_color', 'profile_sidebar_fill_color', 'profile_text_color');
-            $params = array_intersect_key((array)$this, array_fill_keys($fields, null));
-        }
-        
-        $this->getConnection()->post('account/update_profile_colors', $params, $this);
-        return $this;
+        return $this->getConnection()->post('account/update_profile_colors', $params, $this);
     }
     
     /**
@@ -124,19 +108,25 @@ class Me extends User
      * 
      * @see https://dev.twitter.com/docs/api/1.1/post/account/update_profile_image
      * 
-     * @param array|string $params   Parameters or raw image, if omitted it's taken from the entity.
+     * @param string|array $image  Raw image or parameters
      * @return Me  $this
      */
-    public function updateImage($params=null)
+    public function updateProfileImage($image)
     {
-        if (is_string($params)) {
-            $params = array('image' => $params);
-        } elseif (!isset($params['image']) && property_exists($this, 'profile_image')) {
-            $params['image'] = $this->profile_image;
-        }
-        
-        $this->getConnection()->post('account/update_profile_image', $params, $this);
-        return $this;
+        return $this->getConnection()->post('account/update_profile_image', is_string($image) ? compact('image') : $image, $this);
+    }
+    
+    /**
+     * Uploads a profile banner on behalf of the authenticating user.
+     * 
+     * @see https://dev.twitter.com/docs/api/1.1/post/account/update_profile_banner
+     * 
+     * @param string|array $image  Raw image or parameters
+     * @return Me  $this
+     */
+    public function updateProfileBanner($image)
+    {
+        return $this->getConnection()->post('account/update_profile_banner', is_string($image) ? compact('image') : $image, $this);
     }
     
     
@@ -580,4 +570,17 @@ class Me extends User
     {
         return $this->getConnection()->get('account/settings');
     }
+    
+    /**
+     * Sets which device Twitter delivers updates to for the authenticating user. Sending none as the device parameter will disable SMS updates.
+     *
+     * @see https://dev.twitter.com/docs/api/1.1/post/account/update_delivery_device
+     * 
+     * @param string $device
+     * @return Me  $this
+     */
+    public function updateDeliveryDevice($device)
+    {
+        return $this->getConnection()->post('account/update_delivery_device', is_string($device) ? compact('device') : $device, $this);
+    }    
 }

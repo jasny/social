@@ -14,7 +14,7 @@ use Social\Exception;
 /**
  * Autoexpending Twitter user entity.
  * 
- * https://dev.twitter.com/docs/api/1/get/users/show
+ * https://dev.twitter.com/docs/api/1.1/get/users/show
  * 
  * @property string     $profile_image      users/profile_image
  * @property Tweet[]    $timeline           statuses/user_timeline
@@ -48,60 +48,79 @@ class User extends Entity
         $this->setProperties($data);
     }
     
-
-    /**
-     * Get resource object for fetching subdata.
-     * Preparation for a multi request.
-     * 
-     * @param string $action  Action or fetch item
-     * @param mixed  $target  Not used!
-     * @param array  $params
-     * @return object
-     */
-    public function _prepareRequest($action, $target=null, array $params=array())
-    {
-        switch ($action) {
-            case null:                     return (object)array('resource' => 'users/show', 'params' => $this->asParams() + $params);
-            case 'profile_image':          return (object)array('resource' => 'users/profile_image', 'params' => array('id' => null, 'screen_name' => $this->screen_name) + $params);
-            
-            case 'timeline':               return (object)array('resource' => 'statuses/user_timeline', 'params' => $this->asParams() + $params, 'lazy' => true);
-            case 'retweeted_by_user':      return (object)array('resource' => 'statuses/retweeted_by_user', 'params' => $this->asParams() + $params, 'lazy' => true);
-            case 'retweeted_to_user':      return (object)array('resource' => 'statuses/retweeted_to_user', 'params' => $this->asParams() + $params, 'lazy' => true);
-            case 'followers':              return (object)array('resource' => 'followers/ids', 'params' => $this->asParams() + $params);
-            case 'friends':                return (object)array('resource' => 'friends/ids', 'params' => $this->asParams() + $params);
-            case 'contributees':           return (object)array('resource' => 'users/contributees', 'params' => $this->asParams() + $params);
-            case 'contributors':           return (object)array('resource' => 'users/contributors', 'params' => $this->asParams() + $params);
-            case 'lists':                  return (object)array('resource' => 'lists', 'params' => $this->asParams() + $params);
-            case 'all_lists':              return (object)array('resource' => 'lists/all', 'params' => $this->asParams() + $params);
-            case 'subscribed_lists':       return (object)array('resource' => 'lists/subscriptions', 'params' => $this->asParams() + $params);
-            case 'list_memberships':       return (object)array('resource' => 'lists/memberships', 'params' => $this->asParams() + $params);
-        }
-        
-        return null;
-    }
-    
     
     /**
      * Expand if this is a stub.
      * 
-     * @see https://dev.twitter.com/docs/api/1.1/post/account/verify_credentials
+     * @see https://dev.twitter.com/docs/api/1.1/get/users/show
      * 
      * @param boolean $force  Fetch new data, even if this isn't a stub
      * @return Me  $this
      */
     public function expand($force=false)
     {
-        if ($force || $this->isStub()) $this->getConnection()->get('account/verify_credentials', array(), $this);
+        if ($force || $this->isStub()) $this->getConnection()->get('users/show', $this->asParams(), $this);
         return $this;
     }
 
+    /**
+     * Returns a map of the available size variations of the specified user's profile banner.
+     * 
+     * @see https://dev.twitter.com/docs/api/1.1/get/users/profile_banner
+     * 
+     * @return object
+     */
+    public function getProfileBanner()
+    {
+        return $this->getConnection()->get('users/profile_banner', $this->asParams());
+    }
+    
+    
+    /**
+     * Returns a collection of the most recent Tweets posted by the user.
+     * 
+     * @see https://dev.twitter.com/docs/api/1.1/get/statuses/user_timeline
+     * 
+     * @param array $params
+     */
+    public function getTweets(array $params=array())
+    {
+        return $this->getConnection()->get('statuses/user_timeline', $this->asParams() + $params);
+    }
+    
+    
+    /**
+     * Returns a collection of users following the specified user.
+     * 
+     * @see https://dev.twitter.com/docs/api/1.1/get/followers/list
+     * 
+     * @param array $params
+     * @param array $stub    Entity::STUB or Entity::NO_STUB
+     * @return Collection of users
+     */
+    public function getFollowers(array $params=array())
+    {
+        return $this->getConnection()->get('followers/ids', $this->asParams() + $params);
+    }
+    
+    /**
+     * Returns a collection of with every user the specified user is following (otherwise known as their "friends").
+     * 
+     * @see https://dev.twitter.com/docs/api/1.1/get/friends/list
+     * 
+     * @param array $params
+     */
+    public function getFriends(array $params=array())
+    {
+        return $this->getConnection()->get('friends/ids', $this->asParams() + $params);
+    }
     
     /**
      * Get the relationship between users.
      * 
      * The resulting user entity/entities will have following extra properties: 'following', 'followed_by', 'notifications_enabled', 'can_dm', 'want_retweets', 'marked_spam', 'all_replies', 'blocking'.
      * 
-     * @see https://dev.twitter.com/docs/api/1/get/friendships/show
+     * @see https://dev.twitter.com/docs/api/1.1/get/friendships/show
      * 
      * @param mixed $user        User entity/ID/username or array with users
      * @return User|Collection
@@ -172,6 +191,70 @@ class User extends Entity
     public function isFollowedBy($user)
     {
         return $this->getFriendship($user, 'followed_by');
+    }
+    
+    
+    /**
+     * Returns a collection of users that the specified user can "contribute" to.
+     * 
+     * @see https://dev.twitter.com/docs/api/1.1/get/users/contributees
+     * 
+     * @param array $params
+     * @return Collection of users
+     */
+    public function getContributees(array $params=array())
+    {
+        $this->getConnection()->get('users/contributees', $this->asParams() + $params);
+    }
+    
+    /**
+     * Returns a collection of users who can contribute to the specified account.
+     * 
+     * @see https://dev.twitter.com/docs/api/1.1/get/users/contributors
+     * 
+     * @param array $params
+     * @return Collection of users
+     */
+    public function getContributors(array $params=array())
+    {
+        $this->getConnection()->get('users/contributors', $this->asParams() + $params);
+    }
+    
+    
+    /**
+     * Returns all lists the authenticating or specified user subscribes to, including their own.
+     * 
+     * @see https://dev.twitter.com/docs/api/1.1/get/lists/list
+     * 
+     * @return Collection of lists
+     */
+    public function getLists()
+    {
+        return $this->getConnection()->get('lists/list', $this->asParams());
+    }
+    
+    /**
+     * Obtain a collection of the lists the specified user is subscribed to. Does not include the user's own lists.
+     * 
+     * @see https://dev.twitter.com/docs/api/1.1/get/lists/subscriptions
+     * 
+     * @return Collection of lists
+     */
+    public function getListSubscriptions()
+    {
+        return $this->getConnection()->get('lists/subscriptions', $this->asParams());
+    }
+    
+    /**
+     * Returns the lists the specified user has been added to.
+     * 
+     * @see https://dev.twitter.com/docs/api/1.1/get/lists/memberships
+     * 
+     * @return Collection of lists
+     */
+    public function getListMemberships()
+    {
+        return $this->getConnection()->get('lists/memberships', $this->asParams());
     }
     
     
