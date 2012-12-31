@@ -57,7 +57,7 @@ abstract class Entity
         $this->_type = $type;
         $this->_stub = $stub;
         
-        $this->setProperties($data);
+        $this->setData($data);
     }
     
 
@@ -98,8 +98,9 @@ abstract class Entity
      * 
      * @param array   $data 
      * @param boolean $expanded  Entity is no longer a stub
+     * @return Entity $this
      */
-    public function setProperties($data, $expanded=false)
+    public function setData($data, $expanded=false)
     {
         // Data is already converted
         if ($data instanceof self) {
@@ -117,33 +118,18 @@ abstract class Entity
         }
         
         if ($expanded) $this->_stub = false;
+        
+        return $this;
     }
-    
+
     /**
-     * Get properties (for POST).
+     * Check if entity is the same as the provided entity or id.
      * 
-     * @param array  $fields
-     * @param string $prefix  Prefix in entity properties
-     * @return array
+     * @param Entity|string $entity
+     * @return boolean
      */
-    protected function getProperties($fields=null, $prefix=null)
-    {
-        if (isset($prefix)) {
-            $values = (array)$this;
-            if (isset($fields)) $values = array_intersect_key($values, array_fill_keys($fields, null));
-        
-            $data = array();
-            foreach ($values as $key=>$value) {
-                $key = substr($key, strlen($prefix) + 1);
-                $data[$key] = $value;
-            }
-        } else {            
-            $data = array_intersect_key((array)$this, array_fill_keys($fields, null));
-        }
-        
-        return $data;
-    }
-    
+    abstract public function is($entity);
+
     
     /**
      * Expand a stub when trying to get a non existing property.

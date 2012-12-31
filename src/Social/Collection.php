@@ -46,17 +46,6 @@ class Collection extends \ArrayObject
     }
     
     /**
-     * Get iterator used for foreach loop.
-     * 
-     * @return CollectionIterator 
-     */
-    public function getIterator()
-    {
-        return new CollectionIterator($this);
-    }
-
-    
-    /**
      * Get API connection.
      * 
      * @return Connection
@@ -65,7 +54,6 @@ class Collection extends \ArrayObject
     {
         return $this->_connection;
     }
-    
     
     /**
      * Fetch the next page.
@@ -78,6 +66,7 @@ class Collection extends \ArrayObject
         return $this->getConnection()->doRequest($this->_nextPage);
     }
     
+    
     /**
      * Perform an action on all entities in the collection.
      * 
@@ -87,24 +76,41 @@ class Collection extends \ArrayObject
      */
     public function __call($name, $arguments)
     {
+        $conn = $this->getConnection();
+        
         // Prepare and execute
-        $this->getConnection()->prepare();
+        $conn->prepare($this);
         foreach ($this as $entity) {
             call_user_func_array(array($entity, $name), $arguments);
         }
-        $data = $this->getConnection()->execute();
+        $data = $conn->execute();
         
-        if ($name == 'expand') return $this;
-        
-        // Process data
-        $keys = array_keys($this);
-        $result = new Result($this->getConnection());
+        if ($name == 'expand') return $data;
+    }
+    
+    /**
+     * Set properties of all entities (or create result).
+     * 
+     * @param array   $data
+     * @param boolean $expanded  Entity is no longer a stub
+     * @return Result|Collection
+     */
+    public function setData($data, $expanded=false)
+    {
+        $result = null;
+        $keys = array_keys($this->getArrayCopy());        
         
         foreach ($data as $i=>$item) {
             $key = $keys[$i];
-            $result[$this[$key]] = $item;
+            
+            if ($this[$key]->is($item)) {
+                $this[$key]->setData($item, $expanded);
+            } else {
+                if (!isset($result)) $result = new Result($this->getConnection());
+                $result[$this[$key]] = $item;
+            }
         }
         
-        return $result;
+        return $result ?: $this;
     }
 }

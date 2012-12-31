@@ -12,21 +12,9 @@ namespace Social\Twitter;
 use Social\Exception;
 
 /**
- * Autoexpending Twitter user entity.
+ * Twitter user entity.
  * 
- * https://dev.twitter.com/docs/api/1.1/get/users/show
- * 
- * @property string     $profile_image      users/profile_image
- * @property Tweet[]    $timeline           statuses/user_timeline
- * @property Tweet[]    $retweeted_by_user  statuses/retweeted_by_user
- * @property Tweet[]    $retweeted_to_user  statuses/retweeted_to_user
- * @property User[]     $followers          followers/ids
- * @property User[]     $friends            friends/ids
- * @property User[]     $contributees       users/contributees
- * @property User[]     $contributors       users/contributors
- * @property UserList[] $lists              lists
- * @property UserList[] $subscribed_lists   lists/subscriptions
- * @property UserList[] $all_lists          lists/all
+ * @see https://dev.twitter.com/docs/api/1.1/get/users/show
  */
 class User extends Entity
 {
@@ -55,7 +43,7 @@ class User extends Entity
      * @see https://dev.twitter.com/docs/api/1.1/get/users/show
      * 
      * @param boolean $force  Fetch new data, even if this isn't a stub
-     * @return Me  $this
+     * @return User $this
      */
     public function expand($force=false)
     {
@@ -82,6 +70,7 @@ class User extends Entity
      * @see https://dev.twitter.com/docs/api/1.1/get/statuses/user_timeline
      * 
      * @param array $params
+     * @return Collection of tweets
      */
     public function getTweets(array $params=array())
     {
@@ -95,7 +84,6 @@ class User extends Entity
      * @see https://dev.twitter.com/docs/api/1.1/get/followers/list
      * 
      * @param array $params
-     * @param array $stub    Entity::STUB or Entity::NO_STUB
      * @return Collection of users
      */
     public function getFollowers(array $params=array())
@@ -109,6 +97,7 @@ class User extends Entity
      * @see https://dev.twitter.com/docs/api/1.1/get/friends/list
      * 
      * @param array $params
+     * @return Collection of users
      */
     public function getFriends(array $params=array())
     {
@@ -132,13 +121,11 @@ class User extends Entity
         
         // Single user
         if (!is_array($user) && !$user instanceof \ArrayObject) {
-            
-            $results = $this->getConnection()->get('friendships/show', self::makeUserData($user, true), $fn);
+            $results = $this->getConnection()->get('friendships/show', self::makeUserData($this, true, 'source_') + self::makeUserData($user, true, 'target_'), $fn);
             return $results[0][1];
         }
         
         // Multiple users
-        $fn = function ($result) use (&$user) { return Me::processShowFriendship($result, $user); };
         $source = self::makeUserData($this, true, 'source_');
 
         $this->getConnection()->prepare(new Result($this->getConnection()));
@@ -257,6 +244,27 @@ class User extends Entity
         return $this->getConnection()->get('lists/memberships', $this->asParams());
     }
     
+    
+    /**
+     * Check if this user is the same as the given one.
+     * 
+     * @param User|string $user  User entity, id or screen name
+     * @return boolean
+     */
+    public function is($user)
+    {
+        if (is_scalar($user)) {
+            $key = is_int($user) || ctype_digit($user) ? 'id' : 'screen_name';
+            $user = (object)array($key => $user);
+        } elseif (is_array($user)) {
+            $user = (object)$user;
+        }
+        
+        if (isset($this->id) && isset($user->id)) return $this->id == $user->id;
+        if (isset($this->screen_name) && isset($user->screen_name)) return $this->screen_name == $user->screen_name;
+        
+        throw new Exception("Unable to compare lists: can't compare user id with screen_name.");
+    }
     
     /**
      * Get user id/screen_name in array.

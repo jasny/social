@@ -12,7 +12,7 @@ namespace Social\Twitter;
 use Social\Result;
 
 /**
- * Autoexpending Twitter entity for the authenticated user.
+ * Twitter entity for the authenticated user.
  * 
  * @see https://dev.twitter.com/docs/api/1.1/get/account/verify_credentials
  */
@@ -46,6 +46,46 @@ class Me extends User
             
             $this->setProperties($data);
         }
+    }
+    
+
+    /**
+     * Perform an action for a single or multiple items.
+     * 
+     * @param string $resource
+     * @param string $key       Id property or '@user'
+     * @param mixed  $entity    Entity/ID or collection/array with entities
+     * @param array  $params
+     * @param array  $media
+     * @return Entity|Collection
+     */
+    protected function postForAll($resource, $key, $entity, array $params=array(), array $media=array())
+    {
+        $conn = $this->getConnection();
+        
+        // Single item
+        if (!is_array($entity) && !$entity instanceof \ArrayObject) {
+            if ($key == '@user') $p = self::makeUserData($entity, true) + $params;
+              else $p = ($entity instanceof Entity ? $entity->asParams() : array($key => $entity)) + $params;
+            
+            if (!empty($media)) $p['media'] = (array)$media;
+
+            return $conn->post($resource, $p, $entity instanceof Entity ? $entity : true);
+        }
+        
+        // Multiple items
+        $conn->prepare();
+        
+        foreach ($entity as $i=>$e) {
+            if ($key == '@user') $p = self::makeUserData($e, true) + $params;
+              else $p = ($e instanceof Entity ? $e->asParams() : array($key => $e)) + $params;
+            
+            if (!empty($media)) $p['media'] = (array)$media[$i];
+              
+            $conn->post($resource, $p, $e instanceof Entity ? $e : true);
+        }
+        
+        return $conn->execute();
     }
     
 
@@ -136,17 +176,28 @@ class Me extends User
      * @see https://dev.twitter.com/docs/api/1.1/post/statuses/update
      * @see https://dev.twitter.com/docs/api/1.1/post/statuses/update_with_media
      * 
-     * @param string $tweet   The status message
-     * @param array  $media   Images
-     * @param array  $params  Additional parameters
-     * @return Tweet
+     * @param string       $message  The status message or an with messages
+     * @param string|array $media    Image(s) as binary content (not link or filename)
+     * @param array        $params   Additional parameters
+     * @return Tweet|Collection
      */
-    public function tweet($tweet, $media=array(), array $params=array())
+    public function tweet($message, $media=null, array $params=array())
     {
-        $params['status'] = $tweet;
-        if (!empty($media)) $params['media'] = (array)$media;
-        
-        return $this->getConnection()->post('statuses/update' . ($media ? '_with_media' : ''), $params);
+        return $this->postForAll('statuses/update' . (!empty($params['media']) ? '_with_media' : ''), 'status', $message, $params, $media);
+    }
+
+    /**
+     * Retweets a tweet.
+     * 
+     * @see https://dev.twitter.com/docs/api/1.1/post/statuses/retweet/%3Aid
+     * 
+     * @param Tweet|array $tweet   Tweet entity or array with tweets
+     * @param array       $params
+     * @return Tweet|Collection
+     */
+    public function retweet($tweet, array $params=array())
+    {
+        return $this->postForAll('statuses/retweet/:id', ':id', $tweet, $params);
     }
 
     /**
@@ -226,32 +277,6 @@ class Me extends User
         return $this->getConnection()->post('direct_messages/new', $params);
     }
 
-    
-    /**
-     * Perform an action for a set of users.
-     * 
-     * @param string $action
-     * @param mixed  $user    User entity/ID/username or array with users
-     * @param array  $params
-     * @return User|Collection
-     */
-    protected function forUsers($action, $user, array $params=array())
-    {
-        // Single user
-        if (!is_array($user) && !$user instanceof \ArrayObject) {
-            return $this->getConnection()->post($action, self::makeUserData($user, true) + $params, $user instanceof User ? $user : true);
-        }
-        
-        // Multiple users
-        $this->getConnection()->prepare();
-        
-        foreach ($user as $u) {
-            $this->getConnection()->post($action, self::makeUserData($u, true) + $params, $u instanceof User ? $u : true);
-        }
-        
-        return $this->getConnection()->execute();
-    }
-
     /**
      * Follow a user/users.
      * 
@@ -262,7 +287,7 @@ class Me extends User
      */
     public function follow($user)
     {
-        return $this->forUsers('friendships/create', $user);
+        return $this->postForAll('friendships/create', '@user', $user);
     }
     
     /**
@@ -275,7 +300,7 @@ class Me extends User
      */
     public function unfollow($user)
     {
-        return $this->forUsers('friendships/destroy', $user);
+        return $this->postForAll('friendships/destroy', '@user', $user);
     }
     
     /**
@@ -288,7 +313,7 @@ class Me extends User
      */
     public function block($user)
     {
-        return $this->forUsers('blocks/create', $user);
+        return $this->postForAll('blocks/create', '@user', $user);
     }
 
     /**
@@ -301,7 +326,7 @@ class Me extends User
      */
     public function unblock($user)
     {
-        return $this->forUsers('blocks/destroy', $user);
+        return $this->postForAll('blocks/destroy', '@user', $user);
     }
     
     /**
@@ -315,7 +340,7 @@ class Me extends User
      */
     public function updateFriendship($user, array $params)
     {
-        return $this->forUsers('blocks/update', $user, $params);
+        return $this->postForAll('blocks/update', '@user', $user, $params);
     }
     
     /**
@@ -343,13 +368,15 @@ class Me extends User
         
         // Single user
         if (!is_array($user) && !$user instanceof \ArrayObject) {
-            if (!isset($fn)) $fn = function ($result) use ($user, $key) { return Me::processLookupFriendship($result, $user, $key); };
+            $fn = function ($result) use ($user, $key) { return Me::processLookupFriendship($result, $user, $key); };
             
             $results = $this->getConnection()->get('friendships/lookup', self::makeUserData($user, true), $fn);
             return $results[0][1];
         }
         
         // Multiple users (1 request per 100 users)
+        $users = $ids = $names = array();
+        
         foreach ($user as $u) {
             if (!is_object($u)) $u = new User($this->connection, $u, Entity::STUB);
             $key = property_exists($u, 'id') ? 'id' : 'screen_name';
@@ -363,7 +390,7 @@ class Me extends User
             }
         }
 
-        if (!isset($fn)) $fn = function ($result) use (&$users, $key) { return Me::processLookupFriendship($result, $users, $key); };
+        $fn = function ($result) use (&$users, $key) { return Me::processLookupFriendship($result, $users, $key); };
         
         $this->getConnection()->prepare(new Result($this->getConnection()));
         
@@ -428,14 +455,13 @@ class Me extends User
      * 
      * @see https://dev.twitter.com/docs/api/1.1/post/favorites/create/%3Aid
      * 
-     * @param Tweet|int  $tweet   Tweet entity/ID
-     * @param array      $params  Additional parameters
+     * @param Tweet|int|array $tweet   Tweet entity/ID or array of tweets
+     * @param array           $params  Additional parameters
      * @return Tweet
      */
     public function favorite($tweet, array $params=array())
     {
-        $params['id'] = is_object($tweet) ? $tweet->id : $tweet;
-        return $this->getConnection()->post('favorites/create', $params);
+        return $this->postForAll('favorites/create', 'id', $tweet, $params);
     }
 
     /**
@@ -443,14 +469,13 @@ class Me extends User
      * 
      * @see https://dev.twitter.com/docs/api/1.1/post/favorites/destroy/%3Aid
      * 
-     * @param Tweet|int  $tweet   Tweet entity/ID
+     * @param Tweet|int|array  $tweet   Tweet entity/ID or array of tweets
      * @param array      $params  Additional parameters
      * @return Tweet
      */
     public function unfavorite($tweet, array $params=array())
     {
-        $params['id'] = is_object($tweet) ? $tweet->id : $tweet;
-        return $this->getConnection()->post('favorites/destroy', $params);
+        return $this->postForAll('favorites/destroy', 'id', $tweet, $params);
     }
     
     /**
@@ -465,7 +490,7 @@ class Me extends User
         return $this->getConnection()->get('favorites', $params);
     }
     
-    
+
     /**
      * Create a new list.
      * 
@@ -481,42 +506,17 @@ class Me extends User
     }
     
     /**
-     * Perform an action for a set of lists.
-     * 
-     * @param string $action
-     * @param mixed  $list    UserList entity/ID or array with lists or params
-     * @return UserList|Collection
-     */
-    protected function forLists($action, $list)
-    {
-        // Single list
-        if (!is_array($list) || is_string(key($list))) {
-            $params = is_array($list) ? $list : ($list instanceof UserList ? $list->asParams() : array('list_id' => $list));
-            return $this->getConnection()->post($action, $params, $list instanceof \ArrayObject ? $list : true);
-        }
-
-        // Multiple lists
-        $this->prepare();
-        
-        foreach ($list as $l) {
-            $params = $l instanceof UserList ? $l->asParams() : array('list_id' => $list);
-            $this->getConnection()->post($action, $params, $l instanceof \ArrayObject ? $l : true);
-        }
-        
-        return $this->execute();
-    }
-
-    /**
      * Subscribe to a list.
      * 
      * https://dev.twitter.com/docs/api/1.1/post/lists/subscribers/create
      * 
-     * @param UserList|int|array $list  UserList entity/ID or array with lists or params
+     * @param UserList|int|array $list    UserList entity/ID or array with lists
+     * @param array              $params  Additional parameters
      * @return UserList|Collection
      */
-    public function subscribe($list)
+    public function subscribe($list, array $params=array())
     {
-        return $this->forLists('lists/subscribers/create', $list);
+        return $this->postForAll('lists/subscribers/create', 'list_id', $list, $params);
     }
 
     /**
@@ -525,11 +525,12 @@ class Me extends User
      * https://dev.twitter.com/docs/api/1.1/post/lists/subscribers/create
      * 
      * @param UserList|int|array $list  UserList entity/ID or array with lists or params
+     * @param array              $params  Additional parameters
      * @return UserList|Collection
      */
-    public function unsubscribe($list)
+    public function unsubscribe($list, array $params=array())
     {
-        return $this->forLists('lists/subscribers/destroy', $list);
+        return $this->postForAll('lists/subscribers/destroy', 'list_id', $list, $params);
     }
     
     
@@ -543,7 +544,7 @@ class Me extends User
      */
     public function saveSearch($query)
     {
-        return $this->getConnection()->post('saved_searches/create', is_array($query) ? $query : compact('query'));
+        return $this->postForAll('saved_searches/create', 'query', $query);
     }
 
     /**
@@ -581,6 +582,6 @@ class Me extends User
      */
     public function updateDeliveryDevice($device)
     {
-        return $this->getConnection()->post('account/update_delivery_device', is_string($device) ? compact('device') : $device, $this);
+        return $this->getConnection()->post('account/update_delivery_device', compact('device'), $this);
     }    
 }

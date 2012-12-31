@@ -17,65 +17,60 @@ use Social\Collection as Base;
 class Collection extends Base
 {
     /**
-     * Do a fetch for all entities.
-     * Implies loading all pages of this collection.
+     * Expand all stubs.
      * 
-     * @param string $item
-     * @param array  $params
-     * @return Collection|\SplObjectStorage
+     * @param boolean $force  Fetch new data, even if the entity isn't a stub
+     * @return Collection  $this
      */
-    public function fetchAll($item=null, array $params=array())
+    public function expand($force=false)
     {
-        if (!isset($item) && $this->allUsers()) return $this->fetchUsers($params);
-        
-        return parent::fetchAll($item, $params);
+        if ($this->allUsers()) return $this->expandUsers($force);
+        return parent::expand($force);
     }
 
     /**
      * Fetch all user entities.
      * We can get the info of up to 100 users per call.
      * 
-     * @param array $params 
+     * @param boolean $force  Fetch new data, even if the entity isn't a stub
      * @return Collection  $this
      */
-    private function fetchUsers(array $params=array())
+    private function expandUsers($force)
     {
-        $entities = array();
+        $users = $ids = $names = array();
         
         foreach ($this as $entity) {
+            if (!$force && $entity->isStub()) continue;
+            
             if (isset($entity->id)) {
                 $ids[] = $entity->id;
-                $entities[$entity->id] = $entity;
-
-                if (count($ids) >= 100) {
-                    $requests[] = (object)array('method' => 'POST', 'url' => 'users/lookup', array('user_id' => $ids) + $params);
-                    $ids = array();
-                }
-
+                $users[$entity->id] = $entity;
             } else {
                 $names[] = $entity->screen_name;
-                $entities[$entity->screen_name] = $entity;
-
-                if (count($names) >= 100) {
-                    $requests[] = (object)array('method' => 'POST', 'url' => 'users/lookup', array('screen_name' => $names) + $params);
-                    $names = array();
-                }
+                $users[$entity->screen_name] = $entity;
             }
         }
 
-        if (!empty($ids)) $requests[] = (object)array('method' => 'POST', 'url' => 'users/lookup', array('user_id' => $ids) + $params);
-        if (!empty($names)) $requests[] = (object)array('method' => 'POST', 'url' => 'users/lookup', array('screen_name' => $names) + $params);
+        $fn = function ($result) use (&$users) { return Me::updateUsers($result, $users); };
         
-        $results = $this->_connection->multiRequest($requests, false);
+        $this->getConnection()->prepare($this);
         
-        foreach ($results as $result) {
-            foreach ($result as $data) {
-                $key = isset($entities[$data->id]) ? 'id' : 'screen_name';
-                $entities[$data->$key]->setProperties($data, true);
-            }
-        }
-
-        return $this;
+        foreach (array_chunk($ids, 100) as $chunk) $this->getConnection()->post('friendships/lookup', array('user_id' => $chunk), $fn);
+        foreach (array_chunk($names, 100) as $chunk) $this->getConnection()->post('friendships/lookup', array('screen_name' => $chunk), $fn);
+        
+        return $this->getConnection()->execute();
+    }
+    
+    /**
+     * Update user properties as callback from expandUsers()
+     * 
+     * @param array $result
+     * @param array $users
+     */
+    private static function updateUsers($result, $users)
+    {
+        $user = isset($users[$result->id]) ? $users[$result->id] : $users[$result->screen_name];
+        $user->setProperties($result);
     }
     
     /**

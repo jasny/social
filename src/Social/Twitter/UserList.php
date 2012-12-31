@@ -9,61 +9,50 @@
 /** */
 namespace Social\Twitter;
 
-use Social\Exception;
-
 /**
- * Autoexpending Twitter user list entity.
- * 
- * https://dev.twitter.com/docs/api/1/get/lists/show
- * 
- * @property Tweet[]  $tweets        lists/statuses
- * @property User[]   $subscribers   lists/subscribers
+ * Twitter user list entity.
  */
 class UserList extends Entity
 {
     /**
-     * Get resource object for fetching subdata.
-     * Preparation for a multi request.
+     * Expand if this is a stub.
      * 
-     * @param string $action
-     * @param mixed  $target  Entity/id
-     * @param array  $params
-     * @return object
+     * @see https://dev.twitter.com/docs/api/1.1/get/statuses/show/%3Aid
+     * 
+     * @param boolean $force  Fetch new data, even if this isn't a stub
+     * @return Tweet $this
      */
-    public function prepareRequest($action, $target=null, array $params=array())
+    public function expand($force=false)
     {
-        $params = $this->asParams() + $params;
-        
-        switch ($action) {
-            case null:          return (object)array('resource' => 'lists/show');
-            
-            case 'tweets':      return (object)array('resource' => 'lists/statuses', 'params' => $params);
-            case 'subscribers': return (object)array('resource' => 'lists/subscribers', 'params' => $params);
-                
-            case 'add_member':  return (object)array('method' => 'POST', 'resource' => 'lists/members/create', 'params' => User::makeUserData($target, true) + $params);
-        }
-        
-        return parent::prepareRequest($item, $params);
+        if ($force || $this->isStub()) $this->getConnection()->get('lists/show', $this->asParams(), $this);
+        return $this;
     }
     
     
     /**
-     * Get user id/screen_name in array.
+     * Returns tweet timeline for members of the specified list.
      * 
-     * @return array
+     * @see https://dev.twitter.com/docs/api/1.1/get/lists/subscribers
+     * 
+     * @params array $params
+     * @return Collection of tweets
      */
-    public function asParams()
+    public function getTweets(array $params=array())
     {
-        if (isset($this->id)) return array('list_id' => $this->id);
-        
-        if (isset($this->user) && isset($this->slug)) {
-            if (is_scalar($this->user)) {
-                $key = is_int($this->user) || ctype_digit($this->user) ? 'owner_id' : 'owner_screen_name';
-                $data = array($key => $data, 'slug'=>$this->slug);
-            }
-        }
-        
-        throw new Exception("Unknown list: id is unknown and user+slug is also unknown");
+        return $this->getConnection()->get('lists/statuses', $this->asParams() + $params);
+    }
+    
+    /**
+     * Returns the subscribers of the specified list.
+     * 
+     * @see https://dev.twitter.com/docs/api/1.1/get/lists/subscribers
+     * 
+     * @params array $params
+     * @return Collection of users
+     */
+    public function getSubscribers(array $params=array())
+    {
+        return $this->getConnection()->get('lists/subscribers', $this->asParams() + $params);
     }
     
     
@@ -80,61 +69,69 @@ class UserList extends Entity
     {
         // Single user
         if (!is_array($user) && !$user instanceof \ArrayObject) {
-            return $this->getConnection()->get('lists/members/create', $this->makeUserData($user, true));
+            return $this->getConnection()->get('lists/members/create', User::makeUserData($user, true), $this);
         }
         
-        // Multiple users (1 request per 500 users)
-        foreach ($user as $u) {
-            if (is_object($u)) $key = property_exists($u, 'id') ? 'id' : 'screen_name';
-              else $key = is_int($u) || ctype_digit($u) ? 'id' : 'screen_name';
-            
-            if ($key == 'id') {
-                if (is_object($u)) {
-                    $ids[] = $u->id;
-                    $users[$u->id] = $u;
-                } else {
-                    $ids[] = $u;
-                }
+        // Multiple users (1 request per 100 users)
+        $ids = $names = array();
+        
+        foreach ($this as $entity) {
+            if (isset($entity->id)) $ids[] = $entity->id;
+             else $names[] = $entity->screen_name;
+        }
 
-                if (count($ids) >= 100) {
-                    $requests[] = (object)array('method' => 'POST', 'url' => 'lists/members/create_all', array('user_id' => $ids));
-                    $ids = array();
-                }
+        $this->getConnection()->prepare($this);
+        
+        foreach (array_chunk($ids, 100) as $chunk) $this->getConnection()->post('lists/members/create_all', array('user_id' => $chunk), $fn);
+        foreach (array_chunk($names, 100) as $chunk) $this->getConnection()->post('lists/members/create_all', array('screen_name' => $chunk), $fn);
+        
+        return $this->getConnection()->execute();
+    }
+    
+    
+    /**
+     * Compare if lists are the same. 
+     * 
+     * @param UserList|string $list
+     */
+    public function is($list)
+    {
+        if (is_scalar($list)) $list = (object)array('id'=>$list);
+         elseif (is_array($list)) $list = (object)$list;
+        
+        if (isset($this->id) && isset($list->id)) return $this->id == $list->id;
 
+        if (isset($this->slug) && isset($list->slug) && $this->slug != $list->slug) return false;
+        
+        if (isset($this->user) && isset($list->user)) {
+            if (is_scalar($this->user) && is_scalar($list->user)) {
+                return $this->user == $list->user; // Might be incorrect when comparing a user id with a screen name
+            } elseif (is_object($this->user)) {
+                return $this->user->is($list->user);
             } else {
-                if (is_object($u)) {
-                    $names[] = $u->screen_name;
-                    $users[$u->screen_name] = $u;
-                } else {
-                    $names[] = $u;
-                }
-
-                if (count($names) >= 500) {
-                    $requests[] = (object)array('method' => 'POST', 'url' => 'lists/members/create_all', array('screen_name' => $names));
-                    $names = array();
-                }
+                return $list->user->is($this->user);
             }
         }
+        
+        throw new Exception("Unable to compare lists: can't compare list id with user+slug.");
+    }
 
-        if (!empty($ids)) $requests[] = (object)array('method' => 'POST', 'url' => 'lists/members/create_all', array('user_id' => $ids) + $params);
-        if (!empty($names)) $requests[] = (object)array('method' => 'POST', 'url' => 'lists/members/create_all', array('screen_name' => $names) + $params);
+    /**
+     * Get user id/screen_name in array.
+     * 
+     * @return array
+     */
+    public function asParams()
+    {
+        if (isset($this->id)) return array('list_id' => $this->id);
         
-        $users = array();
-        $results = $this->_connection->multiRequest($requests);
-        
-        foreach ($results as $result) {
-            foreach ($result as $user) {
-                $user->following = in_array('following', $user->connections);
-                $user->following_requested = in_array('following_requested', $user->connections);
-                $user->followed_by = in_array('followed_by', $user->connections);
-                
-                if (isset($users[$user->id])) $user->setProperties($users[$user->id], true);
-                  elseif (isset($users[$user->screen_name])) $user->setProperties($users[$user->screen_name], true);
-                
-                $users[] = $user;
+        if (isset($this->user) && isset($this->slug)) {
+            if (is_scalar($this->user)) {
+                $key = is_int($this->user) || ctype_digit($this->user) ? 'owner_id' : 'owner_screen_name';
+                return array($key => $this->user, 'slug'=>$this->slug);
             }
         }
-
-        return new Collection($this->getConnection(), 'user', $users);
+        
+        throw new Exception("Unknown list: id is unknown and user+slug is also unknown");
     }
 }
