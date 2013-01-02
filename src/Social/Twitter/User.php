@@ -9,7 +9,7 @@
 /** */
 namespace Social\Twitter;
 
-use Social\Exception;
+use Social\Result;
 
 /**
  * Twitter user entity.
@@ -117,21 +117,28 @@ class User extends Entity
     public function getFriendship($user)
     {
         $key = func_num_args() >= 2 ? func_get_arg(2) : null;
-        $fn = function ($result) use ($user, $key) { return User::processShowFriendship($result, $user, $key); };
         
         // Single user
         if (!is_array($user) && !$user instanceof \ArrayObject) {
+            $fn = function ($result) use ($user, $key) { return User::processShowFriendship($result, $user, $key); };
+            
             $results = $this->getConnection()->get('friendships/show', self::makeUserData($this, true, 'source_') + self::makeUserData($user, true, 'target_'), $fn);
-            return $results[0][1];
+            return $results[0];
         }
         
         // Multiple users
-        $source = self::makeUserData($this, true, 'source_');
+        $users = $user;
 
-        $this->getConnection()->prepare(new Result($this->getConnection()));
+        foreach ($users as &$user) {
+            if (!$user instanceof self) $user = new User($this->connection, $user, Entity::STUB);
+        }
+
+        $this->getConnection()->prepare(new Result($this->getConnection(), $users));
+        $fn = function ($result, $i) use ($users, $key) { return User::processShowFriendship($result, $users[$i], $key); };
         
-        foreach ($user as $u) {
-            $this->getConnection()->get('friendships/show', $source + self::makeUserData($u, true, 'target_'), $fn);
+        $source = self::makeUserData($this, true, 'source_');
+        foreach ($users as $user) {
+            $this->getConnection()->get('friendships/show', $source + self::makeUserData($user, true, 'target_'), $fn);
         }
         
         return $this->getConnection()->execute();
@@ -140,22 +147,19 @@ class User extends Entity
     /**
      * Convert the result of friendships/lookup.
      * 
-     * @param array  $result
-     * @param array  $users
+     * @param object $result
+     * @param User   $user
      * @param string $key
      * @return array
      */
-    protected static function processShowFriendship($result, $users, $key)
+    protected static function processShowFriendship($result, $user, $key)
     {
         $friendship =& $result->source;
         unset($friendship->id, $friendship->id_str, $friendship->screen_name);
 
-        $user = !is_array($users) ? $users : (isset($users[$result->id]) ? $users[$result->id] : $users[$result->screen_name]);
+        if ($user->isStub()) $user->setProperties(array('id'=>$result->target->id_str, 'screen_name'=>$result->target->screen_name));
         
-        if (!$user instanceof User) $user = new User($this->getConnection(), array('id'=>$result->target->id_str, 'screen_name'=>$result->target->screen_name));
-          elseif ($user->isStub()) $user->setProperties(array('id'=>$result->target->id_str, 'screen_name'=>$result->target->screen_name));
-        
-        return array($user, $key ? $friendship->$key : $friendship);
+        return $key ? $friendship->$key : $friendship;
     }
     
     /**
@@ -248,22 +252,26 @@ class User extends Entity
     /**
      * Check if this user is the same as the given one.
      * 
-     * @param User|string $user  User entity, id or screen name
+     * @param User|object|string $user  User entity, id or screen name
      * @return boolean
      */
     public function is($user)
     {
+        if ($user instanceof Entity && !$user instanceof User) return false;
+        
         if (is_scalar($user)) {
             $key = is_int($user) || ctype_digit($user) ? 'id' : 'screen_name';
-            $user = (object)array($key => $user);
-        } elseif (is_array($user)) {
-            $user = (object)$user;
+            if (!isset($this->$key)) return null; // Not sure
+            
+            return $this->$key == $user;
         }
+        
+        if (is_array($user)) $user = (object)$user;
         
         if (isset($this->id) && isset($user->id)) return $this->id == $user->id;
         if (isset($this->screen_name) && isset($user->screen_name)) return $this->screen_name == $user->screen_name;
         
-        throw new Exception("Unable to compare lists: can't compare user id with screen_name.");
+        return null; // Not sure
     }
     
     /**

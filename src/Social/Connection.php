@@ -37,6 +37,12 @@ abstract class Connection
      */
     private $multiRequestErrors = null;
 
+    /**
+     * Prepared requests stack
+     * @var $array
+     */
+    private $prepared;
+    
     
     /**
      * Get API base URL.
@@ -94,6 +100,96 @@ abstract class Connection
     public function getMultiRequestErrors()
     {
         return $this->multiRequestErrors;
+    }
+    
+    
+    /**
+     * Prepare and buffer all requests.
+     * Calling execute() will send all buffered requests.
+     * 
+     * Request buffers are stackable, that is, you may call prepare() while another prepare() is active. Just make sure
+     * that you call execute() the appropriate number of times.
+     * 
+     * @param Collection $target  Call $target->setData($results) after execute.
+     */
+    public function prepare($target=null)
+    {
+        $prepared = (object)array('target'=>$target, 'requests'=>array(), 'parent'=>$this->prepared);
+
+        if ($this->prepared) $this->prepared->requests[] = $prepared;
+        $this->prepared = $prepared;
+    }
+    
+    /**
+     * Execute buffered requests.
+     * 
+     * @return array|null
+     */
+    public function execute()
+    {
+        if ($this->prepared->parent) {
+            $this->prepared = $this->prepared->parent;
+            return null;
+        }
+        
+        $prepared = $this->prepared;
+        $this->prepared = null;
+        
+        $requests = $this->getPreparedRequests($prepared);
+        $results = $this->multiRequest($requests);
+        return $this->handlePrepared($prepared, $requests, $results);
+    }
+    
+    /**
+     * Add a request to the prepare buffer.
+     * 
+     * @param object $request
+     */
+    protected function addPreparedRequest($request)
+    {
+        $this->prepared->requests[] = $request;
+    }
+
+
+    /**
+     * Get all requests from prepare buffer.
+     * 
+     * @param array $prepared  Prepared buffer
+     * @return array
+     */
+    protected function getPreparedRequests($prepared)
+    {
+        foreach ($prepared->requests as $request) {
+            if (isset($request->requests)) $requests += $this->getPreparedRequests($request);
+              else $request[] = $request;
+        }
+        
+        return $requests;
+    }
+    
+    /**
+     * Process results from prepared requests.
+     * 
+     * @param array $prepared
+     * @param array $requests
+     * @param array $results
+     * @return array|Collection|Result
+     */
+    protected function handlePrepared($prepared, $requests, $results)
+    {
+        $ret = array();
+        
+        foreach ($prepared->requests as $i=>$request) {
+            if (isset($request->requests)) {
+                $ret[$i] = $this->handlePrepared($request, $requests, $results);
+            } else {
+                $key = array_search($request, $requests, true);
+                if (isset($results[$key])) $ret[$i] = $results[$key];
+            }
+        }
+        
+        if ($prepared->target) $ret = $prepared->target->setData($ret);
+        return $ret;
     }
     
     
@@ -235,6 +331,7 @@ abstract class Connection
      * Get error from HTTP result.
      * 
      * @param int    $httpcode
+     * @param string $contenttype
      * @param string $result
      * @return string
      */
@@ -259,7 +356,7 @@ abstract class Connection
      * Get the URL of the current script.
      *
      * @param string $page    Relative path to page
-     * @param array  $params
+     * @param array  $params  Parameters to overwrite
      * @return string
      */
     static public function getCurrentUrl($page=null, array $params=array())
@@ -296,9 +393,7 @@ abstract class Connection
         if (isset($parts['query'])) {
             $query_params = array();
             parse_str($parts['query'], $query_params);
-
-            if ($overwrite) $params = array_merge($query_params, $params);
-             else $params = $query_params + $params;
+            $params = $overwrite ? array_merge($query_params, $params) : $query_params + $params;
         }
 
         $query = self::buildHttpQuery($params);
@@ -359,7 +454,7 @@ abstract class Connection
      * @param mixed   $convert   Convert to entity/collection (boolean) or callback for all requests
      * @return array
      */
-    abstract public function multiRequest(array $requests, $convert=true);
+    abstract public function doMultiRequest(array $requests);
     
 
     /**
@@ -372,7 +467,11 @@ abstract class Connection
      */
     public function get($resource, array $params=array(), $convert=true)
     {
-        return $this->doRequest((object)array('method' => 'GET', 'url' => $resource, 'params' => $params, 'convert' => $convert));
+        $request = (object)array('method' => 'GET', 'url' => $resource, 'params' => $params, 'convert' => $convert);
+
+        if ($this->prepared) return $this->addPreparedRequest($request);
+        
+        return $this->doRequest($request);
     }
     
     /**
@@ -385,7 +484,11 @@ abstract class Connection
      */
     public function post($resource, array $params=array(), $convert=true)
     {
-        return $this->doRequest((object)array('method' => 'POST', 'url' => $resource, 'params' => $params, 'convert' => $convert));
+        $request = (object)array('method' => 'POST', 'url' => $resource, 'params' => $params, 'convert' => $convert);
+
+        if ($this->prepared) return $this->addPreparedRequest($request);
+        
+        return $this->doRequest($request);
     }
     
     

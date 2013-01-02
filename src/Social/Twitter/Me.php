@@ -368,10 +368,10 @@ class Me extends User
         
         // Single user
         if (!is_array($user) && !$user instanceof \ArrayObject) {
-            $fn = function ($result) use ($user, $key) { return Me::processLookupFriendship($result, $user, $key); };
+            $fn = function($result) use($user, $key) { return Me::processLookupFriendship($result, $user, $key); };
             
             $results = $this->getConnection()->get('friendships/lookup', self::makeUserData($user, true), $fn);
-            return $results[0][1];
+            return $results[0];
         }
         
         // Multiple users (1 request per 100 users)
@@ -379,20 +379,17 @@ class Me extends User
         
         foreach ($user as $u) {
             if (!is_object($u)) $u = new User($this->connection, $u, Entity::STUB);
-            $key = property_exists($u, 'id') ? 'id' : 'screen_name';
             
-            if ($key == 'id') {
-                $ids[] = $u->id;
-                $users[$u->id] = $u;
-            } else {
-                $names[] = $u->screen_name;
-                $users[$u->screen_name] = $u;
-            }
+            if (property_exists($u, 'id')) $ids[] = $u->id;
+             else $names[] = $u->screen_name;
+            
+            $users[] = $u;
         }
 
-        $fn = function ($result) use (&$users, $key) { return Me::processLookupFriendship($result, $users, $key); };
+        $target = new Result($this->getConnection(), $users);
+        $fn = function($result) use($target, $key) { Me::processLookupFriendship($result, $target, $key); };
         
-        $this->getConnection()->prepare(new Result($this->getConnection()));
+        $this->getConnection()->prepare($target);
         
         foreach (array_chunk($ids, 100) as $chunk) $this->getConnection()->post('friendships/lookup', array('user_id' => $chunk), $fn);
         foreach (array_chunk($names, 100) as $chunk) $this->getConnection()->post('friendships/lookup', array('screen_name' => $chunk), $fn);
@@ -403,24 +400,37 @@ class Me extends User
     /**
      * Convert the result of friendships/lookup.
      * 
-     * @param array  $result
-     * @param array  $users
-     * @param string $key
+     * @param Collection  $result
+     * @param User|Result $target
+     * @param string      $key
      * @return array
      */
-    protected static function convertLookupFriendship($result, $users, $key)
+    protected static function convertLookupFriendship($result, $target, $key=null)
     {
-        $friendship = (object)array(
-            'following' => in_array('following', $result->connections),
-            'following_requested' => in_array('following_requested', $result->connections),
-            'followed_by' => in_array('followed_by', $result->connections)
-        );
-        unset($result->connections);
+        $ret = array();
+        if ($target instanceof Result) $users = $target->getEntities();
+        
+        foreach ($result as $item) {
+            $friendship = (object)array(
+                'following' => in_array('following', $item->connections),
+                'following_requested' => in_array('following_requested', $item->connections),
+                'followed_by' => in_array('followed_by', $item->connections)
+            );
+            unset($item->connections);
 
-        $user = !is_array($users) ? $users : (isset($users[$result->id]) ? $users[$result->id] : $users[$result->screen_name]);
-        if ($user instanceof User && $user->isStub()) $user->setProperties($result);
-
-        return array($user, $key ? $friendship->$key : $friendship);
+            $value = $key ? $friendship->$key : $friendship;
+            $ret[] = $value;
+            
+            if ($target instanceof Result) {
+                $user = $users->find($item);
+                $user->setProperties($item);
+                $target[$user] = $value;
+            } else {
+                if ($target instanceof User && $target->isStub()) $target->setProperties($item);
+            }
+        }
+        
+        return $ret;
     }
     
     

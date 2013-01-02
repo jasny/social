@@ -12,7 +12,7 @@ namespace Social;
 /**
  * An autoexpanding Entity.
  */
-abstract class Entity
+abstract class Entity implements Data
 {
     /** No stub */
     const NO_STUB = 0;

@@ -12,7 +12,7 @@ namespace Social;
 /**
  * A collection of entities.
  */
-class Collection extends \ArrayObject
+class Collection extends \ArrayObject implements Data
 {
     /**
      * Social connection

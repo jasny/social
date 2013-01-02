@@ -93,6 +93,7 @@ class UserList extends Entity
      * Compare if lists are the same. 
      * 
      * @param UserList|string $list
+     * @return boolean
      */
     public function is($list)
     {
@@ -105,7 +106,8 @@ class UserList extends Entity
         
         if (isset($this->user) && isset($list->user)) {
             if (is_scalar($this->user) && is_scalar($list->user)) {
-                return $this->user == $list->user; // Might be incorrect when comparing a user id with a screen name
+                if (ctype_digit((string)$this->user) xor ctype_digit((string)$list->user)) return null; // Can't compare user id with screen name
+                return $this->user == $list->user;
             } elseif (is_object($this->user)) {
                 return $this->user->is($list->user);
             } else {
@@ -113,7 +115,7 @@ class UserList extends Entity
             }
         }
         
-        throw new Exception("Unable to compare lists: can't compare list id with user+slug.");
+        return null; // Not sure
     }
 
     /**

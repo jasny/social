@@ -358,10 +358,9 @@ class Connection extends OAuth1
      * Run multiple HTTP requests in parallel.
      * 
      * @param array   $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array }
-     * @param boolean $convert   Convert to entity/collection, false returns raw data
      * @return array
      */
-    public function multiRequest(array $requests, $convert=true)
+    public function doMultiRequest(array $requests)
     {
         foreach ($requests as &$request) {
             $request = $this->completeRequestObject($request);
@@ -407,10 +406,17 @@ class Connection extends OAuth1
             }
         } while (true); // breaks above
         
-        if ($convert) {
-            foreach ($results as $i=>&$data) {
-                $type = $this->detectType($requests[$i]->url);
-                $data = $this->convertData($data, $type, false, $requests[$i]);
+        foreach ($results as $i=>&$data) {
+            if (!$requests[$i]->convert) continue;
+            
+            $type = $this->detectType($requests[$i]->url);
+            $data = $this->convertData($data, $type, false, $requests[$i]);
+            
+            $convert = $requests[$i]->convert;
+            if ($convert instanceof \Social\Data) {
+                $data = $convert->setData($data);
+            } elseif (is_callable($convert)) {
+                $convert($result, $i);
             }
         }
         
@@ -427,7 +433,7 @@ class Connection extends OAuth1
      */
     public function stream($writefunction, $resource, array $params=array())
     {
-        $method = $id == 'statuses/filter' ? 'POST' : 'GET';
+        $method = $resource == 'statuses/filter' ? 'POST' : 'GET';
         $params += $this->getDefaultParams($resource);
         
         $response = $this->httpRequest($method, $resource . (pathinfo($resource, PATHINFO_EXTENSION) ? "" : ".json"), $params, array(), array(), $writefunction);
