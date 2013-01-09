@@ -231,11 +231,11 @@ abstract class OAuth1 extends Connection
             if (!isset($callbackUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         }
 
-        $response = $this->httpRequest('POST', preg_replace('~/\d+/~', '/', $this->getBaseUrl()) . "oauth/request_token", array(), array(), array('oauth_callback' => $callbackUrl));
+        $response = $this->httpRequest('POST', preg_replace('~/[\d\.]+/~', '/', $this->getBaseUrl()) . "oauth/request_token", array(), array(), array('oauth_callback' => $callbackUrl));
         parse_str($response, $tmp_access);
         
         $_SESSION[str_replace('\\', '/', get_class($this)) . ':tmp_access'] = $tmp_access;
-        return $this->getUrl(preg_replace('~/\d+/~', '/', $this->getBaseUrl()) . "oauth/$level", array('oauth_token' => $tmp_access['oauth_token']));
+        return $this->getUrl(preg_replace('~/[\d\.]+/~', '/', $this->getBaseUrl()) . "oauth/$level", array('oauth_token' => $tmp_access['oauth_token']));
     }
     
     /**
@@ -259,7 +259,7 @@ abstract class OAuth1 extends Connection
         unset($tmp_access['oauth_callback_confirmed']);
         
         $data = null;
-        $response = $this->httpRequest('GET', preg_replace('~/\d+/~', '/', $this->getBaseUrl()) . "oauth/access_token", array(), array(), array('oauth_verifier' => $oauth_verifier) + $tmp_access);
+        $response = $this->httpRequest('GET', preg_replace('~/[\d\.]+/~', '/', $this->getBaseUrl()) . "oauth/access_token", array(), array(), array('oauth_verifier' => $oauth_verifier) + $tmp_access);
         parse_str($response, $data);
 
         $this->accessToken = $data['oauth_token'];
