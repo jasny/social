@@ -2,7 +2,7 @@
     "name": "jasny/social",
     "description": "Lib for the Twitter and Facebook API",
     "keywords": ["api", "social", "facebook", "twitter"],
-    "version": "v0.1.0",
+    "version": "v0.1.1",
     "license": "MIT",
     "authors": [
         {
