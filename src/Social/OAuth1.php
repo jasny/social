@@ -73,7 +73,7 @@ abstract class OAuth1 extends Connection
      */
     public function asUser($access, $accessSecret=null)
     {
-        return new self($this->appId, $this->appSecret, $access, $accessSecret);
+        return new static($this->appId, $this->appSecret, $access, $accessSecret);
     }
     
     
