@@ -190,37 +190,4 @@ abstract class Connection
         
         return $params;
     }
-    
-
-    /**
-     * Create a new entity
-     * 
-     * @param string $type
-     * @param array  $data
-     * @return Entity
-     */
-    public function create($type, $data=array())
-    {
-        return new Entity($this, $type, (object)$data);
-    }
-    
-    /**
-     * Create a new collection
-     * 
-     * @param array $data 
-     */
-    public function collection(array $data=array())
-    {
-        return new Collection($this, $type, $data);
-    }
-    
-    /**
-     * Create a stub.
-     * 
-     * @param array|string $data  Data or id
-     */
-    public function stub($data)
-    {
-        return new Entity($this, null, (object)$data);
-    }    
 }   

@@ -62,7 +62,7 @@ class Connection extends Base
     
     /**
      * Current user
-     * @var Entity
+     * @var object
      */
     protected $me;
     
@@ -276,30 +276,17 @@ class Connection extends Base
     
     
     /**
-     * Fetch raw data from Facebook.
+     * Fetch an data from Facebook.
      * 
      * @param string $id
-     * @param array  $params  Get parameters
-     * @return array
+     * @param array  $params
+     * @return object|array
      */
-    public function getData($id, array $params=array())
+    public function get($id, array $params=array())
     {
         $response = $this->httpRequest('GET', $id, ($this->accessToken ? array('access_token' => $this->accessToken) : array('client_id' => $this->appId)) + $params);
         $data = json_decode($response);
         return $data ?: $response;
-    }
-
-    /**
-     * Fetch an entity (or other data) from Facebook.
-     * 
-     * @param string $id
-     * @param array  $params
-     * @return Entity
-     */
-    public function get($id, array $params=array())
-    {
-        $data = $this->getData($id, $params);
-        return $this->convertData($data, $params + $this->extractParams($id));
     }
     
     /**
@@ -312,64 +299,9 @@ class Connection extends Base
         if (isset($this->me)) return $this->me;
         if (!$this->isAuth()) throw new Exception("There is no current user. Please set the access token.");
         
-        $data = $this->getData('me');
-        $this->me = new Entity($this, 'user', $data, false);
+        $this->me = $this->getData('me');
         return $this->me;
     }
-    
-    /**
-     * Create a stub.
-     * 
-     * @param array|string $data  Data or id
-     */
-    public function stub($data)
-    {
-        if (is_scalar($data)) $data = array('id' => $data);
-        return new Entity($this, null, (object)$data);
-    }
-    
-    
-    /**
-     * Convert data to Entity, Collection or DateTime.
-     * 
-     * @param mixed $data
-     * @param array $params  Parameters used to get data
-     * @return Entity|Collection|DateTime|mixed
-     */
-    public function convertData($data, array $params=array())
-    {
-        // Don't convert
-        if ($data instanceof Entity || $data instanceof Collection || $data instanceof \DateTime) {
-            return $data;
-        }
-        
-        // Scalar
-        if (is_scalar($data) || is_null($data)) {
-            if (preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$/', $data)) return new \DateTime($data);
-            return $data;
-        }
-
-        // Entity
-        if ($data instanceof \stdClass && isset($data->id)) return new Entity($this, null, $data, true);
-           
-        // Collection
-        if ($data instanceof \stdClass && isset($data->data) && is_array($data->data)) {
-            $nextPage = isset($data->paging->next) ? $data->paging->next = $this->buildUrl($data->paging->next, $params, false) : null; // Make sure the same parameters are used in the next query
-            return new Collection($this, $data->data, $nextPage);
-        }
-        
-        // Array or value object
-        if (is_array($data) || $data instanceof \stdClass) {
-            foreach ($data as &$value) {
-                $value = $this->convertData($value);
-            }
-            return $data;
-        }
-        
-        // Probably some other kind of object
-        return $data;
-    }
-    
     
     /**
      * Serialization

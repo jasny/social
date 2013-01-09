@@ -142,6 +142,7 @@ abstract class OAuth1 extends Connection
     {
         // Extract additional paramaters from the URL
         if (strpos($url, '?') !== false) {
+            $query_params = null;
             list($url, $query) = explode('?', $url, 2);
             parse_str($query, $query_params);
             $params += $query_params;
@@ -168,7 +169,7 @@ abstract class OAuth1 extends Connection
      * @param array  $oauth   Additional/Alternative oAuth values
      * @return string
      */
-    protected function getAuthorizationHeader($type, $url, $params, array $oauth=array())
+    public function getAuthorizationHeader($type, $url, $params, array $oauth=array())
     {
         $oauth += array(
           'oauth_consumer_key' => $this->consumerKey,
@@ -257,6 +258,7 @@ abstract class OAuth1 extends Connection
         if (!isset($tmp_access['oauth_token'])) throw new Exception("Unable to handle authentication response: the temporary access token is unknown.");
         unset($tmp_access['oauth_callback_confirmed']);
         
+        $data = null;
         $response = $this->httpRequest('GET', preg_replace('~/\d+/~', '/', $this->getBaseUrl()) . "oauth/access_token", array(), array(), array('oauth_verifier' => $oauth_verifier) + $tmp_access);
         parse_str($response, $data);
 
