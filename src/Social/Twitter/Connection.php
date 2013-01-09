@@ -26,7 +26,7 @@ class Connection extends OAuth1
     /**
      * Twitter API URL
      */
-    const baseURL = "https://api.twitter.com/1/";
+    const baseURL = "https://api.twitter.com/1.1/";
 
     
     /**
@@ -131,9 +131,9 @@ class Connection extends OAuth1
         $method = $id == 'statuses/filter' ? 'POST' : 'GET';
         
         switch ($id) {
-            case 'user': $url = "https://userstream.twitter.com/2/user.json"; break;
-            case 'site': $url = "https://sitestream.twitter.com/2b/site.json"; break;
-            default:     $url = "https://stream.twitter.com/1/$id.json"; break;
+            case 'user': $url = "https://userstream.twitter.com/1.1/user.json"; break;
+            case 'site': $url = "https://sitestream.twitter.com/1.1/site.json"; break;
+            default:     $url = "https://stream.twitter.com/1.1/$id.json"; break;
         }
         
         $response = $this->httpRequest($method, $url, $params, array(), array(), $writefunction);
