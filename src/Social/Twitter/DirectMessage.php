@@ -15,16 +15,16 @@ namespace Social\Twitter;
 class DirectMessage extends Entity
 {
     /**
-     * Expand if this is a stub.
+     * Fetch data of this direct message (if it's a stub).
      * 
      * @see https://dev.twitter.com/docs/api/1.1/get/direct_messages/show
      * 
-     * @param boolean $force  Fetch new data, even if this isn't a stub
+     * @param boolean $refresh  Fetch new data, even if this isn't a stub
      * @return SavedSearch $this
      */
-    public function expand($force=false)
+    public function fetch($refresh=false)
     {
-        if ($force || $this->isStub()) $this->getConnection()->get('direct_messages/show', array('id'=>$this->id), $this);
+        if ($refresh || $this->isStub()) $this->getConnection()->get('direct_messages/show', array('id'=>$this->id), $this);
         return $this;
     }
     

@@ -176,7 +176,7 @@ class Me extends User
      * @see https://dev.twitter.com/docs/api/1.1/post/statuses/update
      * @see https://dev.twitter.com/docs/api/1.1/post/statuses/update_with_media
      * 
-     * @param string       $message  The status message or an with messages
+     * @param string       $message  The status message or an array with messages
      * @param string|array $media    Image(s) as binary content (not link or filename)
      * @param array        $params   Additional parameters
      * @return Tweet|Collection

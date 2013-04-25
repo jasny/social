@@ -9,6 +9,7 @@ require_once 'Social/Twitter/Me.php';
  * Test class for Social\Twitter\Connection.
  * 
  * Note: This class will post several tweets.
+ * Running this test multiple times in 15 minutes can cause rate limit exceptions.
  */
 class ConnectionTest extends \PHPUnit_Framework_TestCase
 {
@@ -150,10 +151,10 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
 
         $this->assertEquals(Connection::uploadURL, $method->invoke($this->connection, 'statuses/update_with_media'));
 
-        $this->assertEquals(Connection::searchURL, $method->invoke($this->connection, 'search'));
-        $this->assertEquals(Connection::searchURL, $method->invoke($this->connection, 'search.json'));
-        $this->assertEquals(Connection::searchURL, $method->invoke($this->connection, 'search?q=#foo'));
-        $this->assertEquals(Connection::searchURL, $method->invoke($this->connection, 'search.json?q=#foo'));
+        $this->assertEquals(Connection::restURL, $method->invoke($this->connection, 'search'));
+        $this->assertEquals(Connection::restURL, $method->invoke($this->connection, 'search.json'));
+        $this->assertEquals(Connection::restURL, $method->invoke($this->connection, 'search?q=#foo'));
+        $this->assertEquals(Connection::restURL, $method->invoke($this->connection, 'search.json?q=#foo'));
         $this->assertEquals(Connection::restURL, $method->invoke($this->connection, 'users/search'));
 
         $this->assertEquals(Connection::streamUrl, $method->invoke($this->connection, 'statuses/filter'));
@@ -170,7 +171,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     public function testGetUrl()
     {
         $this->assertEquals(Connection::restURL . "statuses/home_timeline.json", $this->connection->getUrl('statuses/home_timeline.json'));
-        $this->assertEquals(Connection::searchURL . 'search.json', $this->connection->getUrl('search.json'));
+        $this->assertEquals(Connection::restURL . 'search.json', $this->connection->getUrl('search.json'));
 
         $this->assertEquals(Connection::restURL . "statuses/home_timeline.json?foo=bar", $this->connection->getUrl('statuses/home_timeline.json', array('foo' => 'bar')));
         $this->assertEquals(Connection::restURL . "statuses/home_timeline.json?dog=fox&foo=bar", $this->connection->getUrl("statuses/home_timeline.json?dog=fox", array('foo' => 'bar')));
@@ -215,7 +216,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     public function testGetDefaultParams()
     {
         $this->assertEquals(array(), $this->connection->getDefaultParams('foo'));
-        $this->assertEquals(array('include_entities' => true, 'max_id' => null), $this->connection->getDefaultParams('statuses/home_timeline'));
+        $this->assertEquals(array('max_id' => null), $this->connection->getDefaultParams('statuses/home_timeline'));
     }
 
     /**
@@ -285,6 +286,14 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
         $this->assertInstanceOf('Social\Twitter\User', $tweet->user);
         $this->assertEquals('JasnyArnold', $tweet->user->screen_name);
     }
+    
+    public function testGet_FollowersEntity()
+    {
+        $followers = $this->connection->get('followers/ids', array('screen_name' => 'JasnyArnold'));
+
+        $this->assertInstanceOf('Social\Twitter\Collection', $followers);
+        $this->assertInstanceOf('Social\Twitter\User', $followers[0]);
+    }
 
     /**
      * Test getting a tweet.
@@ -338,7 +347,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
         $text = "This is a test. #JasnySocialTest " . base_convert(uniqid(), 16, 36);
         $response = $this->connection->post("statuses/update", array('status' => $text), false);
 
-        if (isset($response->id_str)) $this->connection->post('statuses/destroy/' . $response->id_str, false);
+        if (isset($response->id_str)) $this->connection->post('statuses/destroy/' . $response->id_str, array(), false);
 
         $this->assertEquals($text, $response->text);
     }
@@ -355,13 +364,13 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * Test simple multiRequest().
+     * Test simple multi requests.
      * 
      * @depends testConstruct
      */
-    public function testMultiRequest()
+    public function testDoMultiRequest()
     {
-        $response = $this->connection->multiRequest(array(
+        $response = $this->connection->doMultiRequest(array(
             'help/tos',
             'help/privacy',
         ), false);
@@ -379,13 +388,13 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * Test simple multiRequest().
+     * Test simple multi requests.
      * 
      * @depends testConstruct
      */
-    public function testMultiRequest_Error()
+    public function testDoMultiRequest_Error()
     {
-        $response = $this->connection->multiRequest(array(
+        $response = $this->connection->doMultiRequest(array(
             'help/tos',
             'foo/bar',
             'help/privacy',
@@ -402,25 +411,27 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * Test multiRequest().
+     * Test multi requests.
      * 
-     * @depends testMultiRequest
+     * @depends testDoMultiRequest
      */
-    public function testMultiRequest_Complex()
+    public function testDoMultiRequest_Complex()
     {
         $text = "This is a test. #JasnySocialTest " . base_convert(uniqid(), 16, 36);
 
-        $response = $this->connection->multiRequest(array(
+        $response = $this->connection->doMultiRequest(array(
             'help/tos',
-            array('url' => 'statuses/show/:id', 'params' => array(':id' => '231230427510239232')),
-            (object)array('method' => 'GET', 'url' => 'followers/ids', 'params' => array('screen_name' => 'zend')),
-            (object)array('method' => 'GET', 'url' => 'followers/ids', 'params' => array('screen_name' => 'phpc')),
-            (object)array('method' => 'GET', 'url' => 'followers/ids', 'params' => array('screen_name' => 'php_net', 'cursor' => -1)),
-            (object)array('method' => 'POST', 'url' => 'statuses/update', 'params' => array('status' => $text))
+            array('url' => 'statuses/show/:id', 'params' => array(':id' => '231230427510239232'), 'convert'=>false),
+            (object)array('method' => 'GET', 'url' => 'followers/ids', 'params' => array('screen_name' => 'StackExchange'), 'convert'=>false),
+            (object)array('method' => 'GET', 'url' => 'followers/ids', 'params' => array('screen_name' => 'phpc'), 'convert'=>false),
+            (object)array('method' => 'GET', 'url' => 'followers/ids', 'params' => array('screen_name' => 'php_net', 'cursor' => -1), 'convert'=>false),
+            (object)array('method' => 'POST', 'url' => 'statuses/update', 'params' => array('status' => $text), 'convert'=>false)
         ), false);
 
-        if (isset($response[5]->id_str)) $this->connection->post('statuses/destroy/' . $response[5]->id_str, false);
+        if (isset($response[5]->id_str)) $this->connection->post('statuses/destroy/' . $response[5]->id_str, array(), false);
 
+        if ($this->connection->getMultiRequestErrors()) $this->fail(join("\n", $this->connection->getMultiRequestErrors()));
+        
         $this->assertArrayHasKey(0, $response);
         $this->assertStringStartsWith("Terms of Service\n", $response[0]->tos);
 
@@ -431,7 +442,7 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
 
         $this->assertArrayHasKey(2, $response);
         $this->assertObjectHasAttribute('ids', $response[2]);
-        $this->assertGreaterThan(15000, count($response[2]->ids));
+        $this->assertGreaterThan(5500, count($response[2]->ids));
         $this->assertEquals(0, $response[2]->next_cursor);
 
         $this->assertArrayHasKey(3, $response);
@@ -452,17 +463,20 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
     /**
      * Test getting a tweet entity using multiRequest.
      * 
-     * @depends testMultiRequest
+     * @depends testDoMultiRequest
      */
-    public function testMultiRequest_TweetEntity()
+    public function testDoMultiRequest_TweetEntity()
     {
-        $response = $this->connection->multiRequest(array(
+        $response = $this->connection->doMultiRequest(array(
             array('url' => 'statuses/show/:id', 'params' => array(':id' => '231230427510239232')),
-            array('url' => 'users/show', 'params' => array('screen_name' => 'JasnyArnold'))
+            array('url' => 'users/show', 'params' => array('screen_name' => 'JasnyArnold')),
+            array('url' => 'followers/ids', 'params' => array('screen_name' => 'JasnyArnold'))
         ));
 
+        if ($this->connection->getMultiRequestErrors()) $this->fail(join("\n", $this->connection->getMultiRequestErrors()));
+        
         $this->assertInternalType('array', $response);
-        $this->assertCount(2, $response);
+        $this->assertCount(3, $response);
 
         $this->assertInstanceOf('Social\Twitter\Tweet', $response[0]);
         $this->assertEquals('231230427510239232', $response[0]->id);
@@ -472,6 +486,9 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('89494775', $response[1]->id);
         $this->assertEquals("JasnyArnold", $response[1]->screen_name);
         $this->assertEquals("Jasny Test account", $response[1]->name);
+
+        $this->assertInstanceOf('Social\Twitter\Collection', $response[2]);
+        $this->assertInstanceOf('Social\Twitter\User', $response[2][0]);
     }
 
     /**
@@ -484,10 +501,10 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
         $tag = "#facebook";
         $response = $this->connection->search($tag, array(), false);
 
-        $this->assertEquals($tag, urldecode($response->query));
-        $this->assertInternalType('array', $response->results);
-        $this->assertObjectHasAttribute('text', $response->results[0]);
-        $this->assertContains("#facebook", strtolower($response->results[0]->text));
+        $this->assertEquals($tag, urldecode($response->search_metadata->query));
+        $this->assertInternalType('array', $response->statuses);
+        $this->assertObjectHasAttribute('text', $response->statuses[0]);
+        $this->assertContains("#facebook", strtolower($response->statuses[0]->text));
     }
 
     /**
@@ -567,15 +584,14 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
      */
     public function testCollection()
     {
-        $collection = $this->connection->collection('user');
+        $collection = $this->connection->collection('user', array(1, 2));
+        
         $this->assertInstanceOf('Social\Twitter\Collection', $collection);
         $this->assertSame($this->connection, $collection->getConnection());
-        $this->assertSame('user', $collection->getType());
-
-        $collection = $this->connection->collection(array(1, 2));
-        $this->assertInstanceOf('Social\Twitter\Collection', $collection);
-        $this->assertSame($this->connection, $collection->getConnection());
-        $this->assertSame(array(1, 2), $collection->getArrayCopy());
+        $this->assertInstanceOf('Social\Twitter\User', $collection[0]);
+        $this->assertEquals(1, $collection[0]->user_id);
+        $this->assertInstanceOf('Social\Twitter\User', $collection[1]);
+        $this->assertEquals(2, $collection[1]->user_id);
     }
 
     /**

@@ -136,7 +136,7 @@ abstract class Connection
         $this->prepared = null;
         
         $requests = $this->getPreparedRequests($prepared);
-        $results = $this->multiRequest($requests);
+        $results = $this->doMultiRequest($requests);
         return $this->handlePrepared($prepared, $requests, $results);
     }
     
@@ -159,6 +159,8 @@ abstract class Connection
      */
     protected function getPreparedRequests($prepared)
     {
+        $requests = array();
+        
         foreach ($prepared->requests as $request) {
             if (isset($request->requests)) $requests += $this->getPreparedRequests($request);
               else $request[] = $request;
@@ -212,7 +214,7 @@ abstract class Connection
             curl_setopt($ch, CURLOPT_WRITEFUNCTION, $writefunction);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
         }
-        
+
         $result = curl_exec($ch);
         $error = curl_error($ch);
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -350,8 +352,20 @@ abstract class Connection
         
         return $result; // Return the JSON as string (this shouldn't happen)
     }
-    
-    
+
+    /**
+     * Redirect to URL and exit.
+     * 
+     * @param string $url
+     */
+    static protected function redirect($url)
+    {
+        echo 'Redirecting you to <a href="' . htmlentities($url) . '">' . $url . '</a>';
+        header("Location: " . $url);
+        exit();
+    }
+
+
     /**
      * Get the URL of the current script.
      *

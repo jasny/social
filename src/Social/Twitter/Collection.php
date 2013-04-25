@@ -19,28 +19,28 @@ class Collection extends Base
     /**
      * Expand all stubs.
      * 
-     * @param boolean $force  Fetch new data, even if the entity isn't a stub
+     * @param boolean $refresh  Fetch new data, even if the entity isn't a stub
      * @return Collection  $this
      */
-    public function expand($force=false)
+    public function fetch($refresh=false)
     {
-        if ($this->allUsers()) return $this->expandUsers($force);
-        return parent::expand($force);
+        if ($this->allUsers()) return $this->fetchUsers($refresh);
+        return parent::fetch($refresh);
     }
 
     /**
      * Fetch all user entities.
      * We can get the info of up to 100 users per call.
      * 
-     * @param boolean $force  Fetch new data, even if the entity isn't a stub
+     * @param boolean $refresh  Fetch new data, even if the entity isn't a stub
      * @return Collection  $this
      */
-    private function expandUsers($force)
+    private function fetchUsers($refresh)
     {
         $users = $ids = $names = array();
         
         foreach ($this as $entity) {
-            if (!$force && $entity->isStub()) continue;
+            if (!$refresh && $entity->isStub()) continue;
             
             if (isset($entity->id)) {
                 $ids[] = $entity->id;

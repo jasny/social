@@ -15,16 +15,16 @@ namespace Social\Twitter;
 class Tweet extends Entity
 {
     /**
-     * Expand if this is a stub.
+     * Fetch data of this tweet (if it's a stub).
      * 
      * @see https://dev.twitter.com/docs/api/1.1/get/statuses/show/%3Aid
      * 
-     * @param boolean $force  Fetch new data, even if this isn't a stub
+     * @param boolean $refresh  Fetch new data, even if this isn't a stub
      * @return Tweet $this
      */
-    public function expand($force=false)
+    public function fetch($refresh=false)
     {
-        if ($force || $this->isStub()) $this->getConnection()->get('statuses/show/:id', array(':id'=>$this->id), $this);
+        if ($refresh || $this->isStub()) $this->getConnection()->get('statuses/show/:id', array(':id'=>$this->id), $this);
         return $this;
     }
     

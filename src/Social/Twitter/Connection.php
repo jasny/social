@@ -32,11 +32,6 @@ class Connection extends OAuth1
     const uploadURL = "https://upload.twitter.com/1.1/";
     
     /**
-     * Twitter search API URL
-     */
-    const searchURL = "https://search.twitter.com/";
-
-    /**
      * Twitter OAuth API URL
      */
     const oauthURL = "https://api.twitter.com/";
@@ -97,7 +92,6 @@ class Connection extends OAuth1
         '*'                          => self::restURL,
         'oauth'                      => self::oauthURL,
         'statuses/update_with_media' => self::uploadURL,
-        'search'                     => self::searchURL,
         'statuses/filter'            => self::streamUrl,
         'statuses/sample'            => self::streamUrl,
         'statuses/firehose'          => self::streamUrl,
@@ -287,8 +281,7 @@ class Connection extends OAuth1
     /**
      * Run a single prepared HTTP request.
      *
-     * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array }
-     * @param boolean $convert  Convert to entity/collection, false returns raw data
+     * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
      * @return object
      */
     protected static function completeRequestObject($request)
@@ -311,6 +304,8 @@ class Connection extends OAuth1
         if (!isset($request->headers)) $request->headers = array();
         if (self::detectMultipart($request->url)) $request->headers['Content-Type'] = 'multipart/form-data';
         
+        if (!isset($request->convert)) $request->convert = true;
+        
         return $request;
     }
     
@@ -318,11 +313,10 @@ class Connection extends OAuth1
     /**
      * Run a single prepared HTTP request.
      * 
-     * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array }
-     * @param boolean $convert  Convert to entity/collection, false returns raw data
+     * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array, convert: mixed }
      * @return string
      */
-    public function doRequest($request, $convert=true)
+    public function doRequest($request)
     {
         $request = $this->completeRequestObject($request);
         $response = $this->httpRequest($request->method, $request->url, $request->params, $request->headers);
@@ -332,8 +326,7 @@ class Connection extends OAuth1
 
         // Follow the cursor to load all data
         if (is_object($data) && !isset($request->params['cursor']) && !empty($data->next_cursor_str)) {
-            $keys = array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str'));
-            $key = reset($keys);
+            list($key) = array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str'));
             
             while ($data->next_cursor_str) {
                 $request->params['cursor'] = $data->next_cursor_str;
@@ -346,7 +339,7 @@ class Connection extends OAuth1
             }
         }
         
-        if ($convert) {
+        if ($request->convert) {
             $type = $this->detectType($request->url);
             $data = $this->convertData($data, $type, false, $request);
         }
@@ -357,7 +350,7 @@ class Connection extends OAuth1
     /**
      * Run multiple HTTP requests in parallel.
      * 
-     * @param array   $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array }
+     * @param array   $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, convert: mixed }
      * @return array
      */
     public function doMultiRequest(array $requests)
@@ -398,7 +391,7 @@ class Connection extends OAuth1
                     continue;
                 }
                 
-                $key = reset(array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str')));
+                list($key) = array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str'));
                 
                 if (!empty($newdata->$key)) $data->$key = array_merge($data->$key, $newdata->$key);
                 $data->next_cursor = $newdata->next_cursor;
@@ -410,7 +403,7 @@ class Connection extends OAuth1
             if (!$requests[$i]->convert) continue;
             
             $type = $this->detectType($requests[$i]->url);
-            $data = $this->convertData($data, $type, false, $requests[$i]);
+            $data = $this->convertData($data, $type, Entity::NO_STUB, $requests[$i]);
             
             $convert = $requests[$i]->convert;
             if ($convert instanceof \Social\Data) {
@@ -508,11 +501,10 @@ class Connection extends OAuth1
             throw new Exception("Unable to create a Twitter entity: unknown entity type '$type'");
         }
         
-        $type = strtolower(preg_replace('/\W/', '', $type));          // Normalize
-        $type = join('', array_map('ucfirst', explode('_', $type)));  // Camel case
-        $type = __NAMESPACE__ . '\\' . $type;
+        $class = strtolower(preg_replace('/\W/', '', $type));
+        $class = __NAMESPACE__ . '\\' . join('', array_map('ucfirst', explode('_', $class)));
 
-        return new $type($this, $data, $stub);
+        return new $class($this, $data, $stub);
     }
     
     /**
@@ -522,19 +514,13 @@ class Connection extends OAuth1
      * @param array  $data
      * @return Collection
      */
-    public function collection($type=null, $data=array())
+    public function collection($type, array $data=array())
     {
-        if (is_array($type)) {
-            $data = $type;
-            $type = null;
-        }
-        
-        if (isset($type) && $type != 'me' && $type != 'user' && $type != 'tweet' && $type != 'direct_message' && $type != 'user_list' && $type != 'saved_search' && $type != 'place') {
+        if ($type != 'me' && $type != 'user' && $type != 'tweet' && $type != 'direct_message' && $type != 'user_list' && $type != 'saved_search' && $type != 'place') {
             throw new Exception("Unable to create a Twitter collection: unknown entity type '$type'");
         }
         
-        $data = $this->convertData($data, $type, Entity::AUTOEXPAND);
-        return new Collection($this, $type, $data);
+        return $this->convertData($data, $type, Entity::AUTOEXPAND);
     }
 
     /**
@@ -580,19 +566,21 @@ class Connection extends OAuth1
 
         // Collection
         if ($data instanceof \stdClass && array_key_exists('next_cursor', $data)) {
-            $key = reset(array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str')));
+            list($key) = array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str'));
             $request->params['cursor'] = $data->next_cursor_str;
-            
-            return new Collection($this, $type, $data->$key, $data->next_cursor_str ? $request : null);
+
+            foreach ($data->$key as &$value) $value = $this->entity($type, $value, $stub);
+            return new Collection($this, $data->$key, $data->next_cursor_str ? $request : null);
         }
         
         if (is_array($data) && $type) {
-            if (array_key_exists('max_id', $request->params)) {
+            if ($request && array_key_exists('max_id', $request->params)) {
                 $last = end($data);
                 $request->params['max_id'] = $last && isset($last->id) ? self::decrementId(isset($last->id_str) ? $last->id_str : $last->id) : null;
             }
 
-            return new Collection($this, $type, $data, !empty($request->params['max_id']) ? $request : null);
+            foreach ($data as &$value) $value = $this->entity($type, $value, $stub);
+            return new Collection($this, $data, $request && !empty($request->params['max_id']) ? $request : null);
         }
         
         // Value object

@@ -92,6 +92,13 @@ abstract class Entity implements Data
         return $this->_stub;
     }
 
+    /**
+     * Fetch data of this entity (if this is a stub).
+     * 
+     * @param boolean $refresh  Fetch new data, even if this isn't a stub
+     * @return Entity $this
+     */
+    abstract public function fetch($refresh=false);
     
     /**
      * Set properties.

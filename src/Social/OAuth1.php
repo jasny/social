@@ -141,9 +141,12 @@ abstract class OAuth1 extends Connection
         // Extract additional paramaters from the URL
         if (strpos($url, '?') !== false) {
             list($url, $query) = explode('?', $url, 2);
+            $query_params = null;
             parse_str($query, $query_params);
             $params += $query_params;
         }
+        
+        $url = $this->processPlaceholders($url, $params);
 
         // Sign
         $user_secret = isset($params['oauth_token_secret']) ? $params['oauth_token_secret'] : $this->accessSecret;
@@ -235,7 +238,17 @@ abstract class OAuth1 extends Connection
         return parent::httpMultiRequest($requests);
     }
     
-    
+    /**
+     * Get the GET parameter used for authentication.
+     * 
+     * @return string
+     */
+    protected function getAuthParam()
+    {
+        $ns = explode('\\', get_class($this));
+        return strtolower($ns[count($ns) - 2]) . '_auth';
+    }   
+
     /**
      * Get authentication url.
      * Temporary accesss information is automatically stored to a session.
@@ -248,7 +261,7 @@ abstract class OAuth1 extends Connection
     public function getAuthUrl($level='authenticate', $returnUrl=null, &$tmpAccess=null)
     {
         if (!isset($returnUrl)) {
-            $returnUrl = $this->getCurrentUrl($returnUrl, array('twitter_auth' => 'auth'));
+            $returnUrl = $this->getCurrentUrl($returnUrl, array($this->getAuthParam() => 'auth'));
             if (!isset($returnUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         }
 
@@ -289,6 +302,19 @@ abstract class OAuth1 extends Connection
         return $this->getAccessInfo();
     }
     
+    /**
+     * Authenticate using twitter
+     */
+    public function auth()
+    {
+        if (empty($_GET[$this->getAuthParam()])) return;
+        
+        if ($_GET[$this->getAuthParam()] == 'auth') return self::redirect($this->getCurrentUrl());
+        
+        return self::redirect($this->getAuthUrl());
+    }
+
+
     /**
      * Check if a user is authenticated.
      * 

@@ -11,19 +11,7 @@ if (!empty($_GET['logout'])) {
 }
 
 $twitter = new Twitter\Connection($cfg->twitter['consumer_key'], $cfg->twitter['consumer_secret'], isset($_SESSION['twitter']) ? $_SESSION['twitter'] : null);
-
-if (!empty($_GET['twitter_auth'])) {
-    switch ($_GET['twitter_auth']) {
-        case 'login':
-            $url = $twitter->getAuthUrl();
-            header("Location: $url");
-            exit();
-        case 'auth':
-            $_SESSION['twitter'] = $twitter->handleAuthResponse();
-            header("Location: " . $twitter->getCurrentUrl());
-            exit();
-    }
-}
+$twitter->auth();
 
 if ($twitter->isAuth()) {
     if (isset($_POST['tweet'])) {
