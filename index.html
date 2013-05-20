@@ -115,7 +115,7 @@
 &lt;?php
 use Social\Twitter;
 
-$twitter = new Twitter\Connection($key, $secret);
+$twitter = new Twitter\Connection($key, $secret, $_SESSION);
 $twitter-&gt;auth();
 
 echo "&lt;h1&gt;Hi ", $twitter-&gt;me()-&gt;name, "&lt;/h1&gt;";
@@ -125,12 +125,12 @@ $twitter-&gt;me()-&gt;tweet("Hello soci.al world!");
                     </div>
                     
                     <div class="eight columns">
-                        <strong>Display all my pictures from Facebook</strong>
+                        <strong>Display all my photos from Facebook</strong>
 <pre class="prettyprint">
 &lt;?php
 use Social\Facebook;
 
-$facebook = new Facebook\Connection($key, $secret);
+$facebook = new Facebook\Connection($key, $secret, $_SESSION);
 $facebook-&gt;auth();
 
 echo "&lt;h1&gt;Hi ", $facebook-&gt;me()-&gt;name, "&lt;/h1&gt;";
