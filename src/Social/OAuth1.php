@@ -53,6 +53,12 @@ abstract class OAuth1 extends Connection
         $this->consumerKey = $consumerKey;
         $this->consumerSecret = $consumerSecret;
         
+        if ($access === $_SESSION) {
+            $this->authUseSession = true;
+            $key = $this->getAuthParam();
+            $access = @@$_SESSION[$key];
+        }
+        
         if (is_array($access)) $access = (object)$access;
         if (is_object($access)) {
             $this->accessToken = $access->token;
@@ -193,6 +199,7 @@ abstract class OAuth1 extends Connection
         return 'OAuth ' . join(', ', $parts);
     }
     
+    
     /**
      * Do an HTTP request.
      * 
@@ -238,16 +245,13 @@ abstract class OAuth1 extends Connection
         return parent::httpMultiRequest($requests);
     }
     
+    
     /**
      * Get the GET parameter used for authentication.
      * 
      * @return string
      */
-    protected function getAuthParam()
-    {
-        $ns = explode('\\', get_class($this));
-        return strtolower($ns[count($ns) - 2]) . '_auth';
-    }   
+    abstract protected function getAuthParam();
 
     /**
      * Get authentication url.
@@ -268,7 +272,7 @@ abstract class OAuth1 extends Connection
         $response = $this->httpRequest('POST', 'oauth/request_token', array(), array('oauth'=>array('oauth_callback' => $returnUrl)));
         parse_str($response, $tmpAccess);
         
-        $_SESSION[str_replace('\\', '/', get_class($this)) . ':tmp_access'] = $tmpAccess;
+        $_SESSION[$this->getAuthParam() . ':tmp_access'] = $tmpAccess;
         
         return $this->getUrl('oauth/' . $level, array('oauth_token' => $tmpAccess['oauth_token']));
     }
@@ -288,16 +292,18 @@ abstract class OAuth1 extends Connection
             $oauthVerifier = $_GET['oauth_verifier'];
         }
         
-        $sessionkey = str_replace('\\', '/', get_class($this)) . ':tmp_access';
+        $sessionkey = $this->getAuthParam() . ':tmp_access';
         if (!isset($tmpAccess) && isset($_SESSION[$sessionkey])) $tmpAccess = $_SESSION[$sessionkey];
         if (!isset($tmpAccess['oauth_token'])) throw new Exception("Unable to handle authentication response: the temporary access token is unknown.");
         unset($tmpAccess['oauth_callback_confirmed']);
-        
+
         $response = $this->httpRequest('GET', "oauth/access_token", array(), array(), array('oauth_verifier' => $oauthVerifier) + $tmpAccess);
         parse_str($response, $data);
 
         $this->accessToken = $data['oauth_token'];
         $this->accessSecret = $data['oauth_token_secret'];
+        
+        if ($this->authUseSession) $_SESSION[$this->getAuthParam()] = $this->getAccessInfo();
 
         return $this->getAccessInfo();
     }
@@ -305,15 +311,19 @@ abstract class OAuth1 extends Connection
     /**
      * Authenticate using twitter
      */
-    public function auth()
+    public function auth($level='authenticate')
     {
-        if (empty($_GET[$this->getAuthParam()])) return;
+        if ($this->isAuth()) return;
         
-        if ($_GET[$this->getAuthParam()] == 'auth') return self::redirect($this->getCurrentUrl());
+        $param = $this->getAuthParam();
         
-        return self::redirect($this->getAuthUrl());
+        if (!empty($_GET[$this->getAuthParam()]) && $_GET[$this->getAuthParam()] == 'auth') {
+            $this->handleAuthResponse();
+            return self::redirect($this->getCurrentUrl());
+        }
+        
+        return self::redirect($this->getAuthUrl($level));
     }
-
 
     /**
      * Check if a user is authenticated.

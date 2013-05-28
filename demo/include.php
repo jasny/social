@@ -1,17 +1,13 @@
 <?php
 
-ini_set('display_errors', 1);
+set_include_path(dirname(__DIR__) . '/src/' . DIRECTORY_SEPARATOR . get_include_path());
 
-set_include_path(dirname(__DIR__) . '/src/:' . get_include_path());
-
-// Autoloader
-function loadClass($name)
-{
-    require_once strtr($name, '\\_', '//') . '.php';
-}
-spl_autoload_register('loadClass');
+spl_autoload_register(function($name) { require_once strtr($name, '\\_', '//') . '.php'; }); // Autoloader
 
 session_start();
-require_once '../config.php'; // Excluded from GIT
 
-header('Content-type: text/html; charset=utf-8');
+if (!file_exists(__DIR__ . '/config.php')) {
+    echo "Please configure the demo. Copy config.orig.php to config.php and fill in the settings.";
+    exit();
+}
+require_once __DIR__ . '/config.php'; // Excluded from GIT

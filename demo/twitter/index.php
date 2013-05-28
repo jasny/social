@@ -10,7 +10,7 @@ if (!empty($_GET['logout'])) {
     exit();
 }
 
-$twitter = new Twitter\Connection($cfg->twitter['consumer_key'], $cfg->twitter['consumer_secret'], isset($_SESSION['twitter']) ? $_SESSION['twitter'] : null);
+$twitter = new Twitter\Connection($cfg->twitter->consumer_key, $cfg->twitter->consumer_secret, isset($_SESSION['twitter']) ? $_SESSION['twitter'] : null);
 $twitter->auth();
 
 if ($twitter->isAuth()) {

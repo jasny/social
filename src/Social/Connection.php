@@ -21,7 +21,6 @@ abstract class Connection
      */
     protected $curl_opts = array(
         CURLOPT_CONNECTTIMEOUT      => 10,
-        CURLOPT_RETURNTRANSFER      => true,
         CURLOPT_TIMEOUT             => 60,
         CURLOPT_USERAGENT           => 'JasnySocial/1.0',
         CURLOPT_HTTPHEADER          => array('Expect:'),
@@ -43,6 +42,12 @@ abstract class Connection
      */
     private $prepared;
     
+    /**
+     * Use $_SESSION for authentication
+     * @var boolean
+     */
+    protected $authUseSession = false;
+
     
     /**
      * Get API base URL.
@@ -339,7 +344,7 @@ abstract class Connection
      */
     static private function httpError($httpcode, $contenttype, $result)
     {
-        $data = json_decode($result);
+        if (is_string($result)) $data = json_decode($result);
         
         // Not JSON
         if (!isset($data)) return (strpos($contenttype, 'text/html') === false ? $result . ' ' : '') . "($httpcode)";

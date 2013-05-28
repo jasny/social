@@ -172,6 +172,15 @@ class Connection extends OAuth1
         return new static($this->consumerKey, $this->consumerSecret, $access, $accessSecret, $user);
     }
     
+    /**
+     * Get the GET parameter used for authentication.
+     * 
+     * @return string
+     */
+    protected function getAuthParam()
+    {
+        return 'twitter_auth';
+    }
     
     /**
      * Get Twitter API URL based on de resource.
