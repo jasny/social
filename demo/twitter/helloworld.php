@@ -8,4 +8,6 @@ $twitter->auth();
 
 echo "<h1>Hi ", $twitter->me()->name, "</h1>";
 
+var_dump($twitter->me()->name);
+
 $twitter->me()->tweet("Hello social world!");

@@ -351,6 +351,7 @@ class Connection extends OAuth1
         if ($request->convert) {
             $type = $this->detectType($request->url);
             $data = $this->convertData($data, $type, false, $request);
+            if ($request->convert instanceof Entity) $request->convert->setProperties($data);
         }
 
         return $data;
@@ -595,7 +596,7 @@ class Connection extends OAuth1
         // Value object
         if ($data instanceof \stdClass) {
             foreach ($data as $key=>&$value) {
-                $type = $key == 'user' ? 'user' : ($key == 'status' ? 'tweet' : null);
+                $type = $key == 'user' || $key == 'user_mentions' ? 'user' : ($key == 'status' ? 'tweet' : null);
                 $value = $this->convertData($value, $type);
             }
             return $data;

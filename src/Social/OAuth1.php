@@ -297,7 +297,7 @@ abstract class OAuth1 extends Connection
         if (!isset($tmpAccess['oauth_token'])) throw new Exception("Unable to handle authentication response: the temporary access token is unknown.");
         unset($tmpAccess['oauth_callback_confirmed']);
 
-        $response = $this->httpRequest('GET', "oauth/access_token", array(), array(), array('oauth_verifier' => $oauthVerifier) + $tmpAccess);
+        $response = $this->httpRequest('GET', "oauth/access_token", array(), array('oauth'=>array('oauth_verifier' => $oauthVerifier) + $tmpAccess));
         parse_str($response, $data);
 
         $this->accessToken = $data['oauth_token'];
@@ -321,7 +321,7 @@ abstract class OAuth1 extends Connection
             $this->handleAuthResponse();
             return self::redirect($this->getCurrentUrl());
         }
-        
+  
         return self::redirect($this->getAuthUrl($level));
     }
 

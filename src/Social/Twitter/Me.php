@@ -97,9 +97,9 @@ class Me extends User
      * @param boolean $force  Fetch new data, even if this isn't a stub
      * @return Me  $this
      */
-    public function expand($force=false)
+    public function fetch($refresh=false)
     {
-        if ($force || $this->isStub()) $this->getConnection()->get('account/verify_credentials', array(), $this);
+        if ($refresh || $this->isStub()) $this->getConnection()->get('account/verify_credentials', array(), $this);
         return $this;
     }
     
@@ -183,7 +183,7 @@ class Me extends User
      */
     public function tweet($message, $media=null, array $params=array())
     {
-        return $this->postForAll('statuses/update' . (!empty($params['media']) ? '_with_media' : ''), 'status', $message, $params, $media);
+        return $this->postForAll('statuses/update' . (!empty($params['media']) ? '_with_media' : ''), 'status', $message, $params, (array)$media);
     }
 
     /**

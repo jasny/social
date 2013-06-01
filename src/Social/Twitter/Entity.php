@@ -46,7 +46,7 @@ abstract class Entity extends Base
 
         // Data is already converted
         if ($data instanceof self) {
-            parent::setProperties($data, $expanded);
+            parent::setData($data, $expanded);
             return;
         }
         
@@ -56,7 +56,7 @@ abstract class Entity extends Base
         if (isset($data->id_str)) $data->id = $data->id_str;
         
         foreach ($data as $key=>&$value) {
-            $type = $key == 'user' ? 'user' : ($key == 'status' ? 'tweet' : null);
+            $type = $key == 'user' ? 'user' || $key == 'user_mentions' : ($key == 'status' ? 'tweet' : null);
             $this->$key = $conn->convertData($value, $type);
         }
     }
