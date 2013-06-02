@@ -10,4 +10,4 @@ function loadClass($name)
 
 spl_autoload_register('loadClass');
 
-require_once __DIR__ . '/../config.php'; // Excluded from GIT
+require_once __DIR__ . '/config.php'; // Excluded from GIT

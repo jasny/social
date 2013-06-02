@@ -98,17 +98,6 @@ abstract class Connection
     }
     
     /**
-     * Get errors from the last muli request call.
-     * 
-     * @return array
-     */
-    public function getMultiRequestErrors()
-    {
-        return $this->multiRequestErrors;
-    }
-    
-    
-    /**
      * Prepare and buffer all requests.
      * Calling execute() will send all buffered requests.
      * 
@@ -203,23 +192,13 @@ abstract class Connection
     /**
      * Do an HTTP request.
      * 
-     * @param string   $method         GET, POST or DELETE
-     * @param string   $url
-     * @param array    $params         REQUEST parameters
-     * @param array    $headers        Additional HTTP headers
-     * @param callback $writefunction  Stream content to this function, instead of returning it as result
+     * @param object $request  Value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'writefunction': callback }
      * @return string
      */
-    protected function httpRequest($method, $url, $params=null, array $headers=array(), $writefunction=null)
+    protected function httpSingleRequest($request)
     {
-        $ch = $this->curlInit($method, $url, $params, $headers);
+        $ch = $this->curlInit($request);
         
-        if (isset($writefunction)) {
-            curl_setopt($ch, CURLOPT_TIMEOUT, 0); // Don't timeout
-            curl_setopt($ch, CURLOPT_WRITEFUNCTION, $writefunction);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
-        }
-
         $result = curl_exec($ch);
         $error = curl_error($ch);
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -227,7 +206,8 @@ abstract class Connection
         curl_close($ch);
 
         if ($error || $httpcode >= 300) {
-            throw new Exception("HTTP $method request for '" . $this->getUrl($url) . "' failed: " . ($error ?: $this->httpError($httpcode, $contenttype, $result)));
+            if (!$error) $error = $this->httpError($httpcode, $contenttype, $result);
+            throw new Exception("HTTP " . (isset($request->method) ? $request->method : 'GET') . " request for '" . $this->getUrl($request->url) . "' failed: $error");
         }
         
         return $result;
@@ -236,9 +216,7 @@ abstract class Connection
     /**
      * Run multiple HTTP requests in parallel.
      * 
-     * Note this function will not throw an exception if requests, instead you can retrieve errors using `getMultiRequestErrors()`.
-     * 
-     * @param array $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array }
+     * @param array $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'writefunction': callback }
      * @return array
      */
     protected function httpMultiRequest(array $requests)
@@ -254,7 +232,7 @@ abstract class Connection
             if (is_scalar($request)) $request = (object)array('url' => $request);
               elseif (is_array($request)) $request = (object)$request;
             
-            $ch = $this->curlInit(isset($request->method) ? $request->method : 'GET', $request->url, isset($request->params) ? $request->params : array(), isset($request->headers) ? $request->headers : array());
+            $ch = $this->curlInit($request);
             curl_multi_add_handle($mh, $ch);
             $handles[$key] = $ch;
         }
@@ -287,7 +265,8 @@ abstract class Connection
             curl_multi_remove_handle($mh, $ch);
 
             if ($error || $httpcode >= 300) {
-                $this->multiRequestErrors[$key] = "HTTP {$request->method} request for '{$request->url}' failed: " . ($error ?: $this->httpError($httpcode, $contenttype, $result));
+                if (!$error) $error = $this->httpError($httpcode, $contenttype, $result);
+                trigger_error("HTTP " . (isset($request->method) ? $request->method : 'GET') . " request for '{$request->url}' failed: {$error}", E_USER_WARNING);
             } else {
                 $results[$key] = $result;
             }
@@ -300,15 +279,17 @@ abstract class Connection
     /**
      * Initialize a cURL session.
      * 
-     * @param string $method   GET, POST or DELETE
-     * @param string $url
-     * @param array  $params   REQUEST parameters
-     * @param array  $headers  Additional HTTP headers
-     * @return 
+     * @param object  $request
+     * @return resource
      */
-    private function curlInit($method, $url, $params=null, array $headers=array())
+    private function curlInit($request)
     {
-        $url = $this->getUrl($url, $method != 'POST' ? $params : array());
+        $method = isset($request->method) ? $request->method : 'GET';
+        $params = isset($request->params) ? $request->params : array();
+        $headers = isset($request->headers) ? $request->headers : array();
+        $writefunction = isset($request->writefunction) ? $request->writefunction : null;
+
+        $url = $this->getUrl($request->url, $method != 'POST' ? $params : array());
 
         $ch = curl_init($url);
         curl_setopt_array($ch, $this->curl_opts);
@@ -331,6 +312,12 @@ abstract class Connection
             curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
         }
 
+        if (isset($writefunction)) {
+            curl_setopt($ch, CURLOPT_TIMEOUT, 0); // Don't timeout
+            curl_setopt($ch, CURLOPT_WRITEFUNCTION, $writefunction);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+        }
+        
         return $ch;
     }
     
@@ -459,21 +446,13 @@ abstract class Connection
     
     
     /**
-     * Run a single prepared HTTP request.
+     * Run one or more HTTP requests.
      * 
-     * @param object  $request  { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
-     * @return string
-     */
-    abstract public function doRequest($request);
-    
-    /**
-     * Run multiple HTTP requests in parallel.
-     * 
-     * @param array   $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
-     * @param mixed   $convert   Convert to entity/collection (boolean) or callback for all requests
+     * @param object|array $request  One or array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
+     * @param mixed        $convert  Convert to entity/collection (boolean) or callback for all requests
      * @return array
      */
-    abstract public function doMultiRequest(array $requests);
+    abstract public function request($request);
     
 
     /**
@@ -490,7 +469,9 @@ abstract class Connection
 
         if ($this->prepared) return $this->addPreparedRequest($request);
         
-        return $this->doRequest($request);
+        $result = $this->request($request);
+        if ($this->error) throw new Exception($this->error);
+        return $result;
     }
     
     /**
@@ -507,7 +488,9 @@ abstract class Connection
 
         if ($this->prepared) return $this->addPreparedRequest($request);
         
-        return $this->doRequest($request);
+        $result = $this->request($request);
+        if ($this->error) throw new Exception($this->error);
+        return $result;
     }
     
     

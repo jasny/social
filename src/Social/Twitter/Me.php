@@ -29,8 +29,9 @@ class Me extends User
     public function __construct(Connection $connection, $data=array(), $stub=self::NO_STUB)
     {
         $this->_connection = $connection;
-        $this->_type = 'me';
-        $this->_stub = $stub || is_null($data) || is_scalar($data);
+        
+        if (!$stub && (is_null($data) || is_scalar($data))) $stub = self::STUB;
+        $this->_stub = $stub;
         
         if (isset($data)) {
             if (is_scalar($data)) {
@@ -44,7 +45,7 @@ class Me extends User
                 }
             }
             
-            $this->setProperties($data);
+            $this->setData($data);
         }
     }
     
@@ -509,7 +510,7 @@ class Me extends User
      * @param array|string $params  Parameters or list name
      * @return UserList
      */
-    public function createList($params=array())
+    public function createList($params)
     {
         if (!is_array($params)) $params = array('name' => $params);
         return $this->getConnection()->post('lists/create', $params);

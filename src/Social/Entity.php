@@ -29,18 +29,12 @@ abstract class Entity implements Data
      * @var Connection
      */
     protected $_connection;
-
-    /**
-     * Entity type
-     * @var Connection
-     */
-    protected $_type;
     
     /**
      * Entity is a stub
      * @var int
      */
-    protected $_stub = 0;
+    protected $_stub = self::NO_STUB;
     
     
     /**
@@ -49,12 +43,11 @@ abstract class Entity implements Data
      * @param Connection $connection
      * @param string     $type
      * @param object     $data 
-     * @param boolean    $stub
+     * @param int        $stub        Entity::NO_STUB, Entity::STUB or Entity::AUTOEXPAND
      */
-    public function __construct(Connection $connection, $type=null, $data=array(), $stub=false)
+    public function __construct(Connection $connection, $data=array(), $stub=false)
     {
         $this->_connection = $connection;
-        $this->_type = $type;
         $this->_stub = $stub;
         
         $this->setData($data);
@@ -103,28 +96,20 @@ abstract class Entity implements Data
     /**
      * Set properties.
      * 
-     * @param array   $data 
-     * @param boolean $expanded  Entity is no longer a stub
+     * @param array   $data
      * @return Entity $this
      */
-    public function setData($data, $expanded=false)
+    public function setData($data)
     {
-        // Data is already converted
         if ($data instanceof self) {
-            foreach ($data as $key=>$value) {
-                $this->$key = $value;
-            }
-            
-            if (!$data->_stub) $this->_stub = false;
-            return;
+            if (!$data->isStub()) $this->_stub = self::NO_STUB;
+        } else {
+            $data = $this->getConnection()->convertData($data);
         }
         
-        // Raw data
         foreach ($data as $key=>&$value) {
-            $this->$key = $this->getConnection()->convertData($value);
+            $this->$key = $value;
         }
-        
-        if ($expanded) $this->_stub = false;
         
         return $this;
     }
@@ -146,8 +131,8 @@ abstract class Entity implements Data
      */
     public function __get($name)
     {
-        if ($this->isStub() == self::AUTOEXPAND) $this->fetch();
-         elseif ($this->isStub()) trigger_error("This " . get_class() . " is a stub, please call \$entity->fetch() to get all properties.", E_USER_NOTICE);
+        if ($this->_stub == self::AUTOEXPAND) $this->fetch();
+         elseif ($this->_stub) trigger_error("This " . get_class() . " is a stub, please call \$entity->fetch() to get all properties.", E_USER_NOTICE);
 
         return $this->$name;
     }
