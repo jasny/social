@@ -22,13 +22,12 @@ use Social\Collection;
  */
 class Connection extends Base implements \Social\Auth
 {
-    use \Social\OAuth2, \Social\OOMap;
+    use \Social\OAuth2, \Social\EntityMapping;
     
     /**
-     * Paramater used as key for GET and SESSION
+     * Name of the API service
      */
-    const AUTH_PARAM = 'facebook_auth';
-    
+    const apiName = 'facebook';
     
     /**
      * Facebook Open Graph API URL

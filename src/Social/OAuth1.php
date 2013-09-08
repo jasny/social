@@ -112,7 +112,7 @@ trait OAuth1
         
         if (isset($_SESSION) && $access === $_SESSION) {
             $this->authUseSession = true;
-            $access = @$_SESSION[$this->authParam];
+            $access = @$_SESSION[static::apiName . ':access'];
         }
         
         if (is_array($access) && is_int(key($access))) {
@@ -261,7 +261,7 @@ trait OAuth1
      */
     public static function getCurrentUrl($page=null, array $params=[])
     {
-        if (!isset($params[static::AUTH_PARAM])) $params[static::AUTH_PARAM] = null;
+        if (!isset($params[static::apiName . '-auth'])) $params[static::apiName . '-auth'] = null;
         $params['oauth_token'] = null;
         $params['oauth_verifier'] = null;
 
@@ -280,14 +280,14 @@ trait OAuth1
     protected function getAuthUrl($level='authenticate', $returnUrl=null, &$tmpAccess=null)
     {
         if (!isset($returnUrl)) {
-            $returnUrl = $this->getCurrentUrl($returnUrl, array(static::AUTH_PARAM => 'auth'));
+            $returnUrl = $this->getCurrentUrl($returnUrl, array(static::apiName . '-auth' => 'auth'));
             if (!isset($returnUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         }
 
         $response = $this->post('oauth/request_token', ['oauth'=>['oauth_callback' => $returnUrl]]);
         parse_str($response, $tmpAccess);
         
-        $_SESSION[static::AUTH_PARAM . ':tmp_access'] = $tmpAccess;
+        $_SESSION[static::apiName . ':tmp_access'] = $tmpAccess;
         
         return $this->getUrl('oauth/' . $level, array('oauth_token' => $tmpAccess['oauth_token']));
     }
@@ -307,7 +307,7 @@ trait OAuth1
             $oauthVerifier = $_GET['oauth_verifier'];
         }
         
-        $sessionkey = static::AUTH_PARAM . ':tmp_access';
+        $sessionkey = static::apiName . ':tmp_access';
         if (!isset($tmpAccess) && isset($_SESSION[$sessionkey])) $tmpAccess = $_SESSION[$sessionkey];
         if (!isset($tmpAccess['oauth_token'])) throw new Exception("Unable to handle authentication response: the temporary access token is unknown.");
         unset($tmpAccess['oauth_callback_confirmed']);
@@ -318,7 +318,7 @@ trait OAuth1
         $this->accessToken = $data['oauth_token'];
         $this->accessSecret = $data['oauth_token_secret'];
         
-        if ($this->authUseSession) $_SESSION[static::AUTH_PARAM] = $this->getAccessInfo();
+        if ($this->authUseSession) $_SESSION[static::apiName . ':access'] = $this->getAccessInfo();
 
         return $this->getAccessInfo();
     }

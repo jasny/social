@@ -21,12 +21,12 @@ use Social\Connection as Base;
  */
 class Connection extends Base implements \Social\Auth
 {
-    use \Social\OAuth1, \Social\OOMap;
+    use \Social\OAuth1, \Social\EntityMapping;
 
     /**
-     * Paramater used as key for GET and SESSION
+     * Name of the API service
      */
-    const AUTH_PARAM = 'twitter_auth';
+    const apiName = 'twitter';
     
     /**
      * Twitter REST API URL

@@ -11,7 +11,6 @@
 namespace Social\SoundCloud;
 
 use Social\Connection as Base;
-use Social\Collection;
 
 /**
  * SoundCloud  API connection.
@@ -25,9 +24,9 @@ class Connection extends Base implements \Social\Auth
     use \Social\OAuth2;
     
     /**
-     * Paramater used as key for GET and SESSION
+     * Name of the API service
      */
-    const AUTH_PARAM = 'soundcloud_auth';
+    const apiName = 'soundcloud';
     
     
     /**
@@ -68,7 +67,7 @@ class Connection extends Base implements \Social\Auth
     public function getUrl($url=null, array $params=[])
     {
         if ($url == 'oauth/access_token') $url = 'oauth2/token';
-        parent::getUrl($url, $params);
+        return parent::getUrl($url, $params);
     }
 
     /**

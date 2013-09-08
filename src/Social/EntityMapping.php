@@ -13,7 +13,7 @@ namespace Social;
 /**
  * Trait to support converting the API's data to Entity objects
  */
-trait OOMap
+trait EntityMapping
 {
     /**
      * Current user
