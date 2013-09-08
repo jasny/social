@@ -85,6 +85,7 @@ abstract class Entity implements Data
         return $this->_stub;
     }
 
+    
     /**
      * Fetch data of this entity (if this is a stub).
      * 
@@ -115,12 +116,24 @@ abstract class Entity implements Data
     }
 
     /**
+     * Get the unique identifier of the entity.
+     * 
+     * @return mixed
+     */
+    abstract public function getId();
+    
+    /**
      * Check if entity is the same as the provided entity or id.
      * 
      * @param Entity|string $entity
      * @return boolean
      */
-    abstract public function is($entity);
+    public function is($entity)
+    {
+        return is_object($entity) ?
+            get_class($this) == get_class($entity) && $this->getId() == $entity->getId() :
+            $this->getId() == $entity;
+    }
 
     
     /**
@@ -131,9 +144,13 @@ abstract class Entity implements Data
      */
     public function __get($name)
     {
-        if ($this->_stub == self::AUTOEXPAND) $this->fetch();
-         elseif ($this->_stub) trigger_error("This " . get_class() . " is a stub, please call \$entity->fetch() to get all properties.", E_USER_NOTICE);
-
+        if ($this->_stub == self::AUTOEXPAND) {
+            $this->fetch();
+        } elseif ($this->_stub) {
+            $class = preg_replace('/^.+\\\\/', '', get_class($this));
+            trigger_error("This $class is a stub, please call method fetch() to get all properties.", E_USER_NOTICE);
+        }
+        
         return $this->$name;
     }
     

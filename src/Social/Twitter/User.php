@@ -251,6 +251,16 @@ class User extends Entity
     
     
     /**
+     * Get the unique identifier of the entity.
+     * 
+     * @return mixed
+     */
+    public function getId()
+    {
+        return !isset($this->id) && isset($this->screen_name) ? $this->screen_name : $this->id;
+    }
+    
+    /**
      * Check if this user is the same as the given one.
      * 
      * @param User|object|string $user  User entity, id or screen name

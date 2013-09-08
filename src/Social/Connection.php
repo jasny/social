@@ -1,8 +1,9 @@
 <?php
 /**
- * Base connection class.
+ * Jasny Social
+ * World's best PHP library for Social APIs
  * 
- * @license MIT
+ * @license http://www.jasny.net/mit MIT
  * @copyright 2012 Jasny
  */
 
@@ -14,6 +15,11 @@ namespace Social;
  */
 abstract class Connection
 {
+    /**
+     * Default file extension to be added for API calls.
+     */
+    protected $defaultExtension;
+    
     /**
      * Default options for curl.
      * 
@@ -42,37 +48,54 @@ abstract class Connection
      */
     private $prepared;
     
-    /**
-     * Use $_SESSION for authentication
-     * @var boolean
-     */
-    protected $authUseSession = false;
-
     
     /**
      * Get API base URL.
-     * {{ @internal Should end with a slash }
      * 
      * @param string $url  Relative URL
      * @return string
      */
-    abstract protected function getBaseUrl($url=null);
+    protected static function getBaseUrl($resource=null)
+    {
+        return static::apiURL;
+    }
+    
+    /**
+     * Get default parameters for resource.
+     * 
+     * @param string $resource
+     * @return array
+     */
+    protected static function getDefaultParams($resource=null)
+    {
+        return [];
+    }
 
+    /**
+     * Check if resource requires a multipart POST.
+     * 
+     * @param string $resource
+     * @return boolean 
+     */
+    protected static function detectMultipart($resource)
+    {
+        return false;
+    }
+    
+    
     /**
      * Get full URL.
      * 
      * @param string $url     Relative or absolute URL or a request object
      * @param array  $params  Parameters
      */
-    public function getUrl($url=null, array $params=array())
+    public function getUrl($url=null, array $params=[])
     {
         if (is_object($url)) {
             if (isset($url->params)) $params = $url->params + $params;
             $url = $url->url;
         }
 
-        $url = $this->processPlaceholders($url, $params);
-        
         if (strpos($url, '://') === false) $url = $this->getBaseUrl($url) . ltrim($url, '/');
         return $this->buildUrl($url, $params);
     }
@@ -108,7 +131,7 @@ abstract class Connection
      */
     public function prepare($target=null)
     {
-        $prepared = (object)array('target'=>$target, 'requests'=>array(), 'parent'=>$this->prepared);
+        $prepared = (object)['target'=>$target, 'requests'=>[], 'parent'=>$this->prepared];
 
         if ($this->prepared) $this->prepared->requests[] = $prepared;
         $this->prepared = $prepared;
@@ -153,7 +176,7 @@ abstract class Connection
      */
     protected function getPreparedRequests($prepared)
     {
-        $requests = array();
+        $requests = [];
         
         foreach ($prepared->requests as $request) {
             if (isset($request->requests)) $requests += $this->getPreparedRequests($request);
@@ -173,7 +196,7 @@ abstract class Connection
      */
     protected function handlePrepared($prepared, $requests, $results)
     {
-        $ret = array();
+        $ret = [];
         
         foreach ($prepared->requests as $i=>$request) {
             if (isset($request->requests)) {
@@ -188,29 +211,79 @@ abstract class Connection
         return $ret;
     }
     
+    /**
+     * Initialise an HTTP request object.
+     *
+     * @param object|string  $request  url or { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
+     * @return object
+     */
+    protected function initRequest($request)
+    {
+        if (is_scalar($request)) $request = (object)array('url' => $request);
+          elseif (is_array($request)) $request = (object)$request;
+        
+        if (!isset($request->url)) {
+            if (isset($request->resource)) $request->url = $request->resource;
+              else throw new Exception("Invalid request, no URL specified");
+        }
+
+        if (!isset($request->method)) $request->method = 'GET';
+        if (!isset($request->convert)) $request->convert = true;
+        if (!isset($request->headers)) $request->headers = [];
+
+        $request->params = (isset($request->params) ? $request->params : []) + static::getDefaultParams($request->url);
+        $request->url = $this->processPlaceholders($request->url, $request->params);
+
+        list($url, $params) = explode('?', $request->url, 2) + [1=>null];
+        if ($params && $request->method == 'GET') {
+            $request->params + $params;
+            $params = null;
+        }
+        
+        if ($this->defaultExtension && pathinfo($url, PATHINFO_EXTENSION) == '') {
+            $request->url = "$url" . $this->defaultExtension . ($params ? "?$params" : '');
+        }
+        
+        if ($this->detectMultipart($request)) $request->headers['Content-Type'] = 'multipart/form-data';
+        
+        return $request;
+    }
     
     /**
-     * Do an HTTP request.
+     * Run prepared HTTP request(s).
+     * 
+     * @param object|array  $request  Value object or array of objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'writefunction': callback  }
+     * @return string
+     */
+    protected function request($request)
+    {
+        return is_array($request) ? $this->singleRequest($request) : $this->multiRequest($request);
+    }
+    
+    /**
+     * Run a single HTTP request.
      * 
      * @param object $request  Value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'writefunction': callback }
      * @return string
      */
-    protected function httpSingleRequest($request)
+    protected function singleRequest($request)
     {
+        $request = $this->initRequest($request);
+        
         $ch = $this->curlInit($request);
         
         $result = curl_exec($ch);
         $error = curl_error($ch);
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $contenttype = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        list($contenttype) = explode(';', curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
         curl_close($ch);
 
         if ($error || $httpcode >= 300) {
             if (!$error) $error = $this->httpError($httpcode, $contenttype, $result);
-            throw new Exception("HTTP " . (isset($request->method) ? $request->method : 'GET') . " request for '" . $this->getUrl($request->url) . "' failed: $error");
+            throw new Exception("HTTP " . (@$request->method ?: 'GET') . " request for '$request->url' failed: $error");
         }
         
-        return $result;
+        return $contenttype == 'application/json' ? json_decode($result) : $result;
     }
 
     /**
@@ -219,17 +292,21 @@ abstract class Connection
      * @param array $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'writefunction': callback }
      * @return array
      */
-    protected function httpMultiRequest(array $requests)
+    protected function multiRequest(array $requests)
     {
-        $results = array();
-        $this->multiRequestErrors = array();
+        foreach ($requests as &$request) {
+            $request = $this->initRequest($request);
+        }
+        
+        $results = [];
+        $this->multiRequestErrors = [];
         
         // prepare requests and handles
-        $handles = array();
+        $handles = [];
         $mh = curl_multi_init();
         
         foreach ($requests as $key=>&$request) {
-            if (is_scalar($request)) $request = (object)array('url' => $request);
+            if (is_scalar($request)) $request = (object)['url' => $request];
               elseif (is_array($request)) $request = (object)$request;
             
             $ch = $this->curlInit($request);
@@ -257,7 +334,7 @@ abstract class Connection
             $result = curl_multi_getcontent($ch);
             $error = curl_error($ch);
             $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $contenttype = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+            list($contenttype) = explode(';', curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
             
             $request = $requests[$key];
             
@@ -266,9 +343,10 @@ abstract class Connection
 
             if ($error || $httpcode >= 300) {
                 if (!$error) $error = $this->httpError($httpcode, $contenttype, $result);
-                trigger_error("HTTP " . (isset($request->method) ? $request->method : 'GET') . " request for '{$request->url}' failed: {$error}", E_USER_WARNING);
+                $msg = "HTTP " . (@$request->method ?: 'GET') . " request for '{$request->url}' failed: {$error}";
+                trigger_error($msg, E_USER_WARNING);
             } else {
-                $results[$key] = $result;
+                $results[$key] = $contenttype == 'application/json' ? $result : json_decode($result);
             }
         }
         
@@ -282,39 +360,40 @@ abstract class Connection
      * @param object  $request
      * @return resource
      */
-    private function curlInit($request)
+    protected function curlInit($request)
     {
-        $method = isset($request->method) ? $request->method : 'GET';
-        $params = isset($request->params) ? $request->params : array();
-        $headers = isset($request->headers) ? $request->headers : array();
-        $writefunction = isset($request->writefunction) ? $request->writefunction : null;
+        $url = $this->getUrl($request->url, $request->method != 'POST' ? $request->params : []);
 
-        $url = $this->getUrl($request->url, $method != 'POST' ? $params : array());
-
+        // init
         $ch = curl_init($url);
         curl_setopt_array($ch, $this->curl_opts);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $request->method);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-        if ($headers) {
-            foreach ($headers as $key=>$value) {
-                if (is_int($key)) continue;
-                unset($headers[$key]);
-                $headers[] = "$key: $value";
-            }
-            
-            if (isset($this->curl_opts[CURLOPT_HTTPHEADER])) $headers = array_merge($this->curl_opts[CURLOPT_HTTPHEADER], $headers);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        // set headers
+        $headers = [];
+        foreach ($request->headers as $key=>$value) {
+            $headers[] = is_int($key) ? $value : "$key: $value";
         }
+
+        if (isset($this->curl_opts[CURLOPT_HTTPHEADER])) {
+            $headers = array_merge($this->curl_opts[CURLOPT_HTTPHEADER], $headers);
+        }
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         
-        if ($method == 'POST') {
-            if (!isset($headers['Content-Type']) || $headers['Content-Type'] != 'multipart/form-data') $params = self::buildHttpQuery($params);
+        // set post fields
+        if ($request->method == 'POST') {
+            $params = isset($headers['Content-Type']) && $headers['Content-Type'] == 'multipart/form-data' ?
+                $request->params :
+                self::buildHttpQuery($request->params);
+            
             curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
         }
 
-        if (isset($writefunction)) {
+        // set write function
+        if (isset($request->writefunction)) {
             curl_setopt($ch, CURLOPT_TIMEOUT, 0); // Don't timeout
-            curl_setopt($ch, CURLOPT_WRITEFUNCTION, $writefunction);
+            curl_setopt($ch, CURLOPT_WRITEFUNCTION, $request->writefunction);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
         }
         
@@ -329,12 +408,12 @@ abstract class Connection
      * @param string $result
      * @return string
      */
-    static private function httpError($httpcode, $contenttype, $result)
+    static protected function httpError($httpcode, $contenttype, $result)
     {
         if (is_string($result)) $data = json_decode($result);
         
         // Not JSON
-        if (!isset($data)) return (strpos($contenttype, 'text/html') === false ? $result . ' ' : '') . "($httpcode)";
+        if (!isset($data)) return ($contenttype === 'text/html' ? $result . ' ' : '') . "($httpcode)";
         
         // JSON
         if (is_scalar($data)) return $data;
@@ -365,7 +444,7 @@ abstract class Connection
      * @param array  $params  Parameters to overwrite
      * @return string
      */
-    static public function getCurrentUrl($page=null, array $params=array())
+    static public function getCurrentUrl($page=null, array $params=[])
     {
         if (strpos($page, '://') !== false) return self::buildUrl($page, $params);
         
@@ -383,6 +462,7 @@ abstract class Connection
         return self::buildUrl($currentUrl, $params);
     }
     
+    
     /**
      * Build a url, setting parameters.
      * 
@@ -397,7 +477,7 @@ abstract class Connection
         $parts = parse_url($url) + array('path' => '/');
 
         if (isset($parts['query'])) {
-            $query_params = array();
+            $query_params = [];
             parse_str($parts['query'], $query_params);
             $params = $overwrite ? array_merge($query_params, $params) : $query_params + $params;
         }
@@ -436,72 +516,81 @@ abstract class Connection
      */
     static protected function extractParams($url)
     {
-        $params = array();
+        $params = [];
 
         $query = parse_url($url, PHP_URL_QUERY);
         if ($query) parse_str($query, $params);
         
         return $params;
     }
-    
+
     
     /**
-     * Run one or more HTTP requests.
+     * De request for the web service API.
      * 
-     * @param object|array $request  One or array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
-     * @param mixed        $convert  Convert to entity/collection (boolean) or callback for all requests
-     * @return array
+     * @param string  $method
+     * @param string  $resource
+     * @param array   $params
+     * @param mixed   $convert   Convert to entity/collection (boolean), object to be updated or callback
+     * @return Entity|Collection|mixed
      */
-    abstract public function request($request);
-    
+    protected function apiRequest($method, $resource, array $params=[], $convert=true)
+    {
+        $request = (object)['method'=>$method, 'url'=>$resource, 'params'=>$params, 'convert'=>$convert];
+        
+        if ($this->prepared) return $this->addPreparedRequest($request);
+        return $this->request($request);
+    }
 
     /**
-     * Fetch from web service.
+     * GET from the web service API.
      * 
      * @param string  $resource
      * @param array   $params
      * @param mixed   $convert   Convert to entity/collection (boolean), object to be updated or callback
      * @return Entity|Collection|mixed
      */
-    public function get($resource, array $params=array(), $convert=true)
+    public function get($resource, array $params=[], $convert=true)
     {
-        $request = (object)array('method' => 'GET', 'url' => $resource, 'params' => $params, 'convert' => $convert);
-
-        if ($this->prepared) return $this->addPreparedRequest($request);
-        
-        $result = $this->request($request);
-        if ($this->error) throw new Exception($this->error);
-        return $result;
+        return $this->apiRequest('GET', $resource, $params, $convert);
     }
-    
+            
     /**
-     * Post to web service.
+     * POST to the web service API.
      * 
      * @param string  $resource
      * @param array   $params    POST parameters
      * @param mixed   $convert   Convert to entity/collection (boolean), object to be updated or callback
      * @return Entity|Collection|mixed
      */
-    public function post($resource, array $params=array(), $convert=true)
+    public function post($resource, array $params=[], $convert=true)
     {
-        $request = (object)array('method' => 'POST', 'url' => $resource, 'params' => $params, 'convert' => $convert);
-
-        if ($this->prepared) return $this->addPreparedRequest($request);
-        
-        $result = $this->request($request);
-        if ($this->error) throw new Exception($this->error);
-        return $result;
+        return $this->apiRequest('POST', $resource, $params, $convert);
     }
     
+    /**
+     * PUT to the web service API.
+     * 
+     * @param string  $resource
+     * @param array   $params    POST parameters
+     * @param mixed   $convert   Convert to entity/collection (boolean), object to be updated or callback
+     * @return Entity|Collection|mixed
+     */
+    public function put($resource, array $params=[], $convert=true)
+    {
+        return $this->apiRequest('PUT', $resource, $params, $convert);
+    }
     
     /**
-     * Convert data to Entity, Collection or DateTime.
+     * POST to the web service API.
      * 
-     * @param mixed   $data
-     * @param string  $type     Entity type
-     * @param boolean $stub     If an Entity, asume it's a stub
-     * @param object  $request  Request used to get this data
-     * @return Entity|Collection|DateTime|mixed
+     * @param string  $resource
+     * @param array   $params    POST parameters
+     * @param mixed   $convert   Convert to entity/collection (boolean), object to be updated or callback
+     * @return Entity|Collection|mixed
      */
-    abstract public function convertData($data, $type=null, $stub=Entity::NO_STUB, $request=null);
+    public function delete($resource, array $params=[], $convert=true)
+    {
+        return $this->apiRequest('DELETE', $resource, $params, $convert);
+    }
 }
