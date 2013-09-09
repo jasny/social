@@ -55,6 +55,17 @@ trait OAuth2
 
     
     /**
+     * Authentication errors and their code
+     * @var array
+     */
+    protected $authErrors = [
+        'access_denied' => 403,
+        'server_error' => 500,
+        'temporarily_unavailable' => 503
+    ];
+    
+    
+    /**
      * Set the application's client credentials
      * 
      * @param string $clientId
@@ -119,11 +130,11 @@ trait OAuth2
             if (isset($access->user)) $user = $access->user;
         }
         
-        if (isset($user)) {
+        if (isset($user) && method_exists($this, 'entity')) {
             if ($user instanceof Entity) {
                 $this->me = $user->reconnectTo($this);
             } elseif (is_scalar($user)) {
-                $this->me = $this->entity('user', array('id' => $user), Entity::AUTOEXPAND);
+                $this->me = $this->entity('me', ['id'=>$user], Entity::AUTOEXPAND);
             } else {
                 $type = (is_object($user) ? get_class($user) : get_type($user));
                 throw new \Exception("Was expecting an ID (int) or Entity for user, but got a $type");
@@ -150,7 +161,7 @@ trait OAuth2
     protected function getUniqueState()
     {
         $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['SERVER_ADDR'] : $_SERVER['REMOTE_ADDR'];
-        return md5($ip . $this->clientSecret);
+        return static::apiName . ':' . md5($ip . $this->clientSecret);
     }
     
     /**
@@ -207,7 +218,7 @@ trait OAuth2
      */
     public function getAuthUrl($scope=null, $redirectUrl=null, $params=[])
     {
-        $redirectUrl = $this->getCurrentUrl($redirectUrl, [static::apiName . '-auth'=>'auth']);
+        $redirectUrl = $this->getCurrentUrl($redirectUrl);
         if (!isset($redirectUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
 
         $this->scope = $scope;       
@@ -235,34 +246,37 @@ trait OAuth2
      */
     public function handleAuthResponse($code=null, $state=null)
     {
-        if (!isset($code)) {
-            if (!isset($_GET['code'])) {
-		if (isset($_GET['error_description'])) throw new \Exception(static::apiName . " says: " . $_GET['error_description']);
-		if (isset($_GET['error'])) throw new \Exception(static::apiName . " says: " . $_GET['error']);
-                throw new \Exception("Unable to handle authentication response: " . static::apiName . " API didn't return a code.");
-            }
-            
+        if (!isset($code) && isset($_GET['code'])) {
             $code = $_GET['code'];
             if (isset($_GET['state'])) $state = $_GET['state'];
+        }
+        
+        if (!isset($code)) {
+            if (!isset($_GET['error'])) throw new \Exception("Invalid authentication response.");
+
+            $error = $_GET['error'];
+            $code = isset($this->authErrors[$error]) ? $this->authErrors[$error] : 400;
+            
+            $message = isset($_GET['error_description']) ? "{$_GET['error_description']} ($error)" : $error;
+            if (isset($_GET['error_uri'])) $error .= " see {$_GET['error_uri']}";
+            
+            throw new AuthException($message, $code);
         }
         
         $redirectUrl = $this->getCurrentUrl();
         
         if ($state !== false && $this->getUniqueState() != $state) {
-            throw new \Exception('Authentication response not accepted. IP mismatch, possible cross-site request'
+            throw new AuthException('Authentication response not accepted. IP mismatch, possible cross-site request'
                 . 'forgery.');
         }
 
         $data = $this->fetchAccessToken(['client_id'=>$this->clientId, 'client_secret'=>$this->clientSecret,
             'redirect_uri'=>$redirectUrl, 'grant_type'=>'authorization_code', 'code'=>$code]);
 
-        if (!isset($data->access_token)) {
-            $error = isset($data->error) ? $data->error : (is_scalar($data) ? $data : json_encode($data));
-            if (is_scalar($error)) {
-                $error = (array)$error;
-                $error = reset($error);
-	    }
-            throw new \Exception("Failed to retrieve an access token: $error");
+        if ($data->error) {
+            $error = isset($data->error_description) ? "{$data->error_description} ({$data->error})" : $data->error;
+            if (isset($data->error_uri)) $error .= " see {$data->error_uri}";
+            throw new AuthException($error);
         }
 
 	$expires_in = isset($data->expires) ? $data->expires : (isset($data->expires_in) ? $data->expires_in : null);
@@ -289,9 +303,9 @@ trait OAuth2
 
         if ($this->isAuth()) return $this;
         
-        if (!empty($_GET[static::apiName . '-auth']) && $_GET[static::apiName . '-auth'] == 'auth') {
+        if (!empty($_GET['state']) && $_GET['state'] == $this->getUniqueState()) {
             $this->handleAuthResponse();
-            self::redirect($this->getCurrentUrl(null, [static::apiName . '-auth'=>null]));
+            self::redirect($this->getCurrentUrl());
         } else {
             if (isset($this->accessToken)) $params['grant_type'] = 'refresh_token';
             self::redirect($this->getAuthUrl($scope, $redirectUrl, $params));
