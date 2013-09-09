@@ -22,7 +22,7 @@ use Social\Collection;
  */
 class Connection extends Base implements \Social\Auth
 {
-    use \Social\OAuth2, \Social\EntityMapping;
+    use \Social\OAuth2;
     
     /**
      * Name of the API service
@@ -57,6 +57,20 @@ class Connection extends Base implements \Social\Auth
         $this->curl_opts[CURLOPT_HTTPHEADER] = array('Expect:', 'Content-Type:', 'Content-Length:');
     }
 
+
+    /**
+     * Fetch the OAuth2 access token.
+     * 
+     * @param array  $params  Parameters
+     * @return object
+     */
+    protected function fetchAccessToken(array $params)
+    {
+        $response = $this->get('oauth/access_token', $params);
+ 
+        parse_str($response, $data);
+        return $data ? (object)$data : $response;
+    }
     
     /**
      * Request a new access token with an extended lifetime of 60 days from now.
@@ -84,7 +98,34 @@ class Connection extends Base implements \Social\Auth
         
         return $this->getAccessInfo();
     }
+
+    /**
+     * Check if the authenticated user has given the requested permissions.
+     * If the user doesn't have these permissions, redirect him back to the auth dialog.
+     *
+     * @return Connection $this
+     */
+    public function checkScope()
+    {
+        $permissions = array_keys(array_filter((array)$this->get('me/permissions')->data[0]));
+
+        if (array_diff($this->scope, $permissions)) {
+           $this->accessToken = null;
+           return $this->auth($this->scope);
+        }
+
+        return $this; 
+    }
+
     
+    /**
+     * Get the authenticated user
+     */
+    public function me()
+    {
+        return $this->get('me');
+    }
+
     
     /**
      * Convert data to Entity, Collection or DateTime.

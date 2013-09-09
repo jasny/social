@@ -55,7 +55,7 @@ abstract class Connection
      * @param string $url  Relative URL
      * @return string
      */
-    protected static function getBaseUrl($resource=null)
+    protected static function getBaseUrl($url=null)
     {
         return static::apiURL;
     }
@@ -66,7 +66,7 @@ abstract class Connection
      * @param string $resource
      * @return array
      */
-    protected static function getDefaultParams($resource=null)
+    protected static function getDefaultParams($resource)
     {
         return [];
     }
@@ -96,8 +96,8 @@ abstract class Connection
             $url = $url->url;
         }
 
-        if (strpos($url, '://') === false) $url = $this->getBaseUrl($url) . ltrim($url, '/');
-        return $this->buildUrl($url, $params);
+        if (strpos($url, '://') === false) $url = static::getBaseUrl($url) . ltrim($url, '/');
+        return static::buildUrl($url, $params);
     }
     
     /**
@@ -224,7 +224,7 @@ abstract class Connection
         
         if (!isset($request->url)) {
             if (isset($request->resource)) $request->url = $request->resource;
-              else throw new Exception("Invalid request, no URL specified");
+              else throw new \Exception("Invalid request, no URL specified");
         }
 
         if (!isset($request->method)) $request->method = 'GET';
@@ -257,7 +257,7 @@ abstract class Connection
      */
     protected function request($request)
     {
-        return is_array($request) ? $this->singleRequest($request) : $this->multiRequest($request);
+        return !is_array($request) ? $this->singleRequest($request) : $this->multiRequest($request);
     }
     
     /**
@@ -279,8 +279,8 @@ abstract class Connection
         curl_close($ch);
 
         if ($error || $httpcode >= 300) {
-            if (!$error) $error = $this->httpError($httpcode, $contenttype, $result);
-            throw new Exception("HTTP " . (@$request->method ?: 'GET') . " request for '$request->url' failed: $error");
+            if (!$error) $error = static::httpError($httpcode, $contenttype, $result);
+            throw new \Exception("HTTP " . (@$request->method ?: 'GET') . " request for '" . $this->getUrl($request->url). "' failed: $error");
         }
         
         return $contenttype == 'application/json' ? json_decode($result) : $result;
@@ -342,7 +342,7 @@ abstract class Connection
             curl_multi_remove_handle($mh, $ch);
 
             if ($error || $httpcode >= 300) {
-                if (!$error) $error = $this->httpError($httpcode, $contenttype, $result);
+                if (!$error) $error = static::httpError($httpcode, $contenttype, $result);
                 $msg = "HTTP " . (@$request->method ?: 'GET') . " request for '{$request->url}' failed: {$error}";
                 trigger_error($msg, E_USER_WARNING);
             } else {
@@ -409,17 +409,18 @@ abstract class Connection
      * @return string
      */
     static protected function httpError($httpcode, $contenttype, $result)
-    {
-        if (is_string($result)) $data = json_decode($result);
-        
-        // Not JSON
-        if (!isset($data)) return ($contenttype === 'text/html' ? $result . ' ' : '') . "($httpcode)";
-        
+    {        
+        if ($contenttype != 'application/json') {
+            return ($contenttype === 'text/html' ? $result . ' ' : '') . "($httpcode)";
+        }
+
         // JSON
+        $data = json_decode($result, true);
+
         if (is_scalar($data)) return $data;
-          elseif (isset($data->error)) return is_scalar($data->error) ? $data->error : $data->error->message;
-          elseif (isset($data->errors)) return is_scalar($data->errors[0]) ? $data->errors[0] : $data->errors[0]->message;
-          elseif (isset($data->error_msg)) return $data->error_msg;
+          elseif (isset($data['error'])) return is_scalar($data['error']) ? $data['error'] : reset($data['error']);
+          elseif (isset($data['errors'])) return is_scalar($data['errors'][0]) ? $data['errors'][0] : reset($data['errors'][0]);
+          elseif (isset($data['error_msg'])) return $data['error_msg'];
         
         return $result; // Return the JSON as string (this shouldn't happen)
     }

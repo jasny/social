@@ -8,4 +8,6 @@ $soundcloud = new SoundCloud\Connection($cfg->soundcloud->client_id, $cfg->sound
 $soundcloud->auth();
 
 var_dump($soundcloud->me());
-var_dump($soundcloud->get());
+var_dump($soundcloud->get('tracks/13158665'));
+var_dump($soundcloud->get('apps/124'));
+var_dump($soundcloud->resolve("http://soundcloud.com/nickmonaco/alicia-keys-unthinkable-nick"));

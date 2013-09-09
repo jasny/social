@@ -39,6 +39,13 @@ class Connection extends Base implements \Social\Auth
      */
     const authURL = "https://soundcloud.com/connect";
 
+
+    /**
+     * A list of resources for which only client_id should be passed and never access_token
+     */
+    protected $publicResources = [
+       'resolve'
+    ];
     
     /**
      * Class constructor.
@@ -59,15 +66,43 @@ class Connection extends Base implements \Social\Auth
     
     
     /**
-     * Get full URL.
+     * Fetch the OAuth2 access token.
      * 
-     * @param string $url     Relative or absolute URL or a request object
      * @param array  $params  Parameters
+     * @return object
      */
-    public function getUrl($url=null, array $params=[])
+    protected function fetchAccessToken(array $params)
     {
-        if ($url == 'oauth/access_token') $url = 'oauth2/token';
-        return parent::getUrl($url, $params);
+        return $this->post('oauth2/token', $params);
+    }
+
+    /**
+     * Initialise an HTTP request object.
+     *
+     * @param object|string  $request  url or { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
+     * @return object
+     */
+    protected function initRequest($request)
+    {
+        $request = parent::initRequest($request);
+
+        if (isset($request->params['oauth_token']) || isset($request->params['client_id'])) {
+            // do nothing
+        } elseif ($this->accessToken && !in_array($request->url, $this->publicResources)) {
+            $request->params['oauth_token'] = $this->accessToken;
+        } else {
+            $request->params['client_id'] = $this->clientId;
+        }
+
+        return $request;
+    }
+
+    /**
+     * Do a get request using the SoundCloud.com URL
+     */
+    public function resolve($url, array $params=[])
+    {
+        return $this->get('resolve', compact('url') + $params);
     }
 
     /**
