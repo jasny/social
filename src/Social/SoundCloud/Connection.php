@@ -39,6 +39,10 @@ class Connection extends Base implements \Social\Auth
      */
     const authURL = "https://soundcloud.com/connect";
 
+    /**
+     * SoundCloud website URL
+     */
+    const websiteURL = "http://www.soundcloud.com/";
 
     /**
      * A list of resources for which only client_id should be passed and never access_token
@@ -99,9 +103,14 @@ class Connection extends Base implements \Social\Auth
 
     /**
      * Do a get request using the SoundCloud.com URL
+     * 
+     * @param string $url
+     * @param array  $params
+     * @return object|mixed
      */
     public function resolve($url, array $params=[])
     {
+        if (strpos($url, '://') !== false) $url = self::websiteURL . ltrim($url, '/');
         return $this->get('resolve', compact('url') + $params);
     }
 
