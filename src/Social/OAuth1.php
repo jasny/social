@@ -11,7 +11,7 @@
 namespace Social;
 
 /**
- * Trait to be used by a connection to implement OAuth 1.
+ * Trait to be used by a connection to implement OAuth1.
  */
 trait OAuth1
 {
@@ -91,7 +91,7 @@ trait OAuth1
     /**
      * Get the user's access info.
      *
-     * @return object  { 'token': token, 'secret': secret }
+     * @return object  { 'token': string, 'secret': string }
      */
     protected function getAccessInfo()
     {
@@ -104,7 +104,7 @@ trait OAuth1
     /**
      * Set the access info.
      * 
-     * @param array|object $access [ access token, expire timestamp, facebook id ] or { 'token': string, 'expires': unixtime, 'user': facebook id }
+     * @param array|object $access  [ token, secret, me ] or { 'token': string, 'secret': string, 'user': me }
      */
     protected function setAccessInfo($access)
     {
@@ -139,9 +139,9 @@ trait OAuth1
     /**
      * Create a new connection using the specified access token.
      *
-     * Passing a user is not required to act as the user, you're only required to specify the access token and secret.
+     * Passing a user id is not required, you're only required to specify the access token and secret.
      *
-     * @param array|object $access [ access token, expire timestamp, facebook id ] or { 'token': string, 'expires': unixtime, 'user': facebook id }
+     * @param array|object $access          [ token, secret, me ] or { 'token': string, 'secret': string, 'user': me }
      */
     public function asUser($access)
     {
@@ -227,7 +227,7 @@ trait OAuth1
     /**
      * Initialise an HTTP request object.
      *
-     * @param object|string  $request  url or { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
+     * @param object|string  $request  url or value object
      * @return object
      */
     protected function initRequest($request)
@@ -243,7 +243,7 @@ trait OAuth1
 
         $request->headers['Authorization'] = $this->getAuthorizationHeader(
             $request->method,
-            $this->getUrl($url),
+            static::buildUrl($request->url),
             !$multipart ? $request->params : [],
             $oauth
         );
@@ -261,35 +261,53 @@ trait OAuth1
      */
     public static function getCurrentUrl($page=null, array $params=[])
     {
-        if (!isset($params[static::apiName . '-auth'])) $params[static::apiName . '-auth'] = null;
         $params['oauth_token'] = null;
         $params['oauth_verifier'] = null;
 
         return parent::getCurrentUrl($page, $params);
     }
 
+
+    /**
+     * Store temporary access information to session.
+     * 
+     * @param array $access
+     */
+    protected static function storeTmpAccess($access)
+    {
+        $_SESSION[static::apiName . ':tmp_access'] = $access;
+    }
+    
+    /**
+     * Retrieve temporary access information from session.
+     * 
+     * @return array
+     */
+    protected static function retrieveTmpAccess()
+    {
+        return @$_SESSION[static::apiName . ':tmp_access'];
+    }
+    
     /**
      * Get authentication url.
      * Temporary accesss information is automatically stored to a session.
      *
-     * @param int    $level      'authorize', 'authenticate'
      * @param string $returnUrl  The URL to return to after successfully authenticating.
-     * @param object $access     Will be filled with the temporary access information.
      * @return string
      */
-    protected function getAuthUrl($level='authenticate', $returnUrl=null, &$tmpAccess=null)
+    protected function getAuthUrl($returnUrl=null)
     {
         if (!isset($returnUrl)) {
-            $returnUrl = $this->getCurrentUrl($returnUrl, array(static::apiName . '-auth' => 'auth'));
+            $returnUrl = $this->getCurrentUrl($returnUrl);
             if (!isset($returnUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         }
 
         $response = $this->post('oauth/request_token', ['oauth'=>['oauth_callback' => $returnUrl]]);
         parse_str($response, $tmpAccess);
         
-        $_SESSION[static::apiName . ':tmp_access'] = $tmpAccess;
+        $this->storeTmpAccess($tmpAccess);
         
-        return $this->getUrl('oauth/' . $level, array('oauth_token' => $tmpAccess['oauth_token']));
+        return static::buildUrl('oauth/authorize', ['oauth_token' => $tmpAccess['oauth_token']]);
     }
 
     /**
@@ -303,21 +321,21 @@ trait OAuth1
     public function handleAuthResponse($oauthVerifier=null, $tmpAccess=null)
     {
         if (!isset($oauthVerifier)) {
-            if (!isset($_GET['oauth_verifier'])) throw new Exception("Unable to handle authentication response: oauth_verifier wasn't returned by Twitter.");
+            if (!isset($_GET['oauth_verifier']))
+                throw new Exception("Unable to handle authentication response: oauth_verifier wasn't returned.");
             $oauthVerifier = $_GET['oauth_verifier'];
         }
         
-        $sessionkey = static::apiName . ':tmp_access';
-        if (!isset($tmpAccess) && isset($_SESSION[$sessionkey])) $tmpAccess = $_SESSION[$sessionkey];
-        if (!isset($tmpAccess['oauth_token'])) throw new Exception("Unable to handle authentication response: the temporary access token is unknown.");
+        $tmpAccess = $this->retrieveTmpAccess();
+        if (!isset($tmpAccess['oauth_token']))
+            throw new Exception("Unable to handle authentication response: the temporary access token is unknown.");
+        
         unset($tmpAccess['oauth_callback_confirmed']);
-
+        
         $response = $this->get('oauth/access_token', [], ['oauth'=>['oauth_verifier' => $oauthVerifier] + $tmpAccess]);
         parse_str($response, $data);
-
-        $this->accessToken = $data['oauth_token'];
-        $this->accessSecret = $data['oauth_token_secret'];
         
+        $this->setAccessInfo([$data['oauth_token'], $data['oauth_token_secret']]);
         if ($this->authUseSession) $_SESSION[static::apiName . ':access'] = $this->getAccessInfo();
 
         return $this->getAccessInfo();
@@ -325,17 +343,21 @@ trait OAuth1
     
     /**
      * Authenticate
+     * 
+     * @return Connection $this
      */
-    public function auth($level='authenticate')
+    public function auth()
     {
         if ($this->isAuth()) return;
         
-        if (!empty($_GET[self::AUTH_PARAM]) && $_GET[self::AUTH_PARAM] == 'auth') {
+        if (isset($_GET['oauth_verifier'])) {
             $this->handleAuthResponse();
             return self::redirect($this->getCurrentUrl());
         }
   
-        self::redirect($this->getAuthUrl($level));
+        self::redirect($this->getAuthUrl());
+        
+        return $this;
     }
 
     /**

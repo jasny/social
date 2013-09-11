@@ -110,8 +110,8 @@ trait OAuth2
     /**
      * Set the access info.
      * 
-     * @param array|object $access [ user's access token, expire timestamp, user id ] or { 'access_token': string, 'expires': unixtime, 'user': user id }
-     */
+    * @param array|object $access  [ token, expires, me ] or { 'token': string, 'expires': unixtime, 'user': me }
+      */
     protected function setAccessInfo($access)
     {
         if (!isset($access)) return;
@@ -167,8 +167,8 @@ trait OAuth2
     /**
      * Create a new connection using the specified access token.
      * 
-     * @param array|object $access [ user's access token, expire timestamp, user id ] or { 'access_token': string, 'expires': unixtime, 'user': user id }
-     */
+    * @param array|object $access  [ token, expires, me ] or { 'token': string, 'expires': unixtime, 'user': me }
+      */
     public function asUser($access)
     {
         return new static($this->clientId, $this->clientSecret, $access);
@@ -178,7 +178,7 @@ trait OAuth2
     /**
      * Initialise an HTTP request object.
      *
-     * @param object|string $request  url or { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
+     * @param object|string $request  url or value object
      * @return object
      */
     protected function initRequest($request)

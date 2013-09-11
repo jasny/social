@@ -46,9 +46,9 @@ class Connection extends Base implements \Social\Auth
      * 
      * Passing a user id is not required to act as the user, you're only required to specify the access token.
      * 
-     * @param string        $appId          Application's client ID
-     * @param string        $secret         Application's client secret
-     * @param array|object  $access         [ user's access token, expire timestamp, facebook id ] or { 'token': string, 'expires': unixtime, 'user': facebook id }
+     * @param string       $appId   Application's client ID
+     * @param string       $secret  Application's client secret
+     * @param array|object $access  [ token, expires, me ] or { 'token': string, 'expires': unixtime, 'user': me }
      */
     public function __construct($clientId, $clientSecret, $access=null)
     {
@@ -159,8 +159,9 @@ class Connection extends Base implements \Social\Auth
         // Collection
         if ($data instanceof \stdClass && isset($data->data) && is_array($data->data)) {
             if (is_string($source)) $source = $this->extractParams($source);
-            $nextPage = isset($data->paging->next) ? $data->paging->next = $this->buildUrl($data->paging->next, (array)$source, false) : null; // Make sure the same parameters are used in the next query
-            return new Collection($this, $type, $data->data, $nextPage);
+            if (isset($data->paging->next)) // Make sure the same parameters are used in the next query
+                $data->paging->next = $this->buildUrl($data->paging->next, (array)$source, false);
+            return new Collection($this, $type, $data->data, isset($data->paging->next) ? $data->paging->next : null);
         }
         
         // Array or value object

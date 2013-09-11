@@ -16,7 +16,9 @@ namespace Social;
 interface Auth
 {
     /**
-     * Authenticate
+     * Authenticate,
+     * 
+     * @return Connection $this
      */
     public function auth();
     

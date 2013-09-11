@@ -145,9 +145,9 @@ class Connection extends Base implements \Social\Auth
      * Passing a user id is not required to act as the user, you're only required to specify the access token and
      * secret. It can save one API call though.
      * 
-     * @param string          $consumerKey     Application's consumer key
-     * @param string          $consumerSecret  Application's consumer secret
-     * @param string|object   $access          [ user's access token, user's secret, user ] or { 'token': string, 'secret': string, 'user': twitter id }
+     * @param string       $consumerKey     Application's consumer key
+     * @param string       $consumerSecret  Application's consumer secret
+     * @param array|object $access          [ token, secret, me ] or { 'token': string, 'secret': string, 'user': me }
      */
     public function __construct($consumerKey, $consumerSecret, $access=null)
     {
@@ -246,7 +246,7 @@ class Connection extends Base implements \Social\Auth
     /**
      * Run a single prepared HTTP request.
      * 
-     * @param object|string  $request  url or { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed, 'writefunction': callback  }
+     * @param object|string  $request  url or value object
      * @return string
      */
     protected function singleRequest($request)
@@ -256,7 +256,8 @@ class Connection extends Base implements \Social\Auth
 
         // Follow the cursor to load all data
         if (is_object($data) && !isset($request->params['cursor']) && !empty($data->next_cursor_str)) {
-            list($key) = array_diff(array_keys((array)$data), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str'));
+            $cursor_keys = ['next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str'];
+            list($key) = array_diff(array_keys((array)$data), $cursor_keys);
             
             while ($data->next_cursor_str) {
                 $request->params['cursor'] = $data->next_cursor_str;
@@ -274,7 +275,7 @@ class Connection extends Base implements \Social\Auth
     /**
      * Run multiple HTTP requests in parallel.
      * 
-     * @param array $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, convert: mixed }
+     * @param array $requests  array of value objects
      * @return array
      */
     protected function multiRequest(array $requests)
@@ -286,7 +287,8 @@ class Connection extends Base implements \Social\Auth
         do {
             $next = [];
             foreach ($results as $i=>&$data) {
-                if (is_object($data) && (isset($lastResults[$i]) || !isset($requests[$i]->params['cursor'])) && !empty($data->next_cursor_str)) {
+                $has_cursor = isset($lastResults[$i]) || !isset($requests[$i]->params['cursor']);
+                if ($has_cursor && is_object($data) && !empty($data->next_cursor_str)) {
                     $next[$i] = $requests[$i];
                     $next[$i]->params['cursor'] = $data->next_cursor_str;
                 }
@@ -305,7 +307,8 @@ class Connection extends Base implements \Social\Auth
                     continue;
                 }
                 
-                list($key) = array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str'));
+                $cursor_keys = ['next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str'];
+                list($key) = array_diff(array_keys(get_object_vars($data)), $cursor_keys);
                 
                 if (!empty($newdata->$key)) $data->$key = array_merge($data->$key, $newdata->$key);
                 $data->next_cursor = $newdata->next_cursor;
@@ -320,6 +323,48 @@ class Connection extends Base implements \Social\Auth
         return $results;
     }
 
+    
+    /**
+     * Get authentication url.
+     * Temporary accesss information is automatically stored to a session.
+     *
+     * @param string $level      'authorize' or 'authenticate'
+     * @param string $returnUrl  The URL to return to after successfully authenticating.
+     * @return string
+     */
+    protected function getAuthUrl($level, $returnUrl=null)
+    {
+        if (!isset($returnUrl)) {
+            $returnUrl = $this->getCurrentUrl($returnUrl);
+            if (!isset($returnUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
+        }
+
+        $response = $this->post('oauth/request_token', ['oauth'=>['oauth_callback'=>$returnUrl]]);
+        parse_str($response, $tmpAccess);
+        
+        $this->storeTmpAccess($tmpAccess);
+        
+        return static::buildUrl("oauth/$level", ['oauth_token'=>$tmpAccess['oauth_token']]);
+    }
+
+    /**
+     * Authenticate
+     * 
+     * @param string $level   'authorize' or 'authenticate'
+     */
+    public function auth($level='authorize')
+    {
+        if ($this->isAuth()) return;
+        
+        if (isset($_GET['oauth_verifier'])) {
+            $this->handleAuthResponse();
+            return self::redirect($this->getCurrentUrl());
+        }
+  
+        self::redirect($this->getAuthUrl($level));
+    }
+    
+    
     /**
      * Stream content from Twitter.
      * 
@@ -416,7 +461,8 @@ class Connection extends Base implements \Social\Auth
 
             // Collection
             if ($data instanceof \stdClass && array_key_exists('next_cursor', $data)) {
-                list($key) = array_diff(array_keys(get_object_vars($data)), array('next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str'));
+                $cursor_keys = ['next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str'];
+                list($key) = array_diff(array_keys(get_object_vars($data)), $cursor_keys);
                 $request->params['cursor'] = $data->next_cursor_str;
 
                 foreach ($data->$key as &$value) $value = $this->entity($type, $value, $stub);
@@ -426,7 +472,8 @@ class Connection extends Base implements \Social\Auth
             if (is_array($data) && $type) {
                 if ($request && array_key_exists('max_id', $request->params)) {
                     $last = end($data);
-                    $request->params['max_id'] = $last && isset($last->id) ? self::decrementId(isset($last->id_str) ? $last->id_str : $last->id) : null;
+                    $request->params['max_id'] = $last && isset($last->id) ?
+                        self::decrementId(isset($last->id_str) ? $last->id_str : $last->id) : null;
                 }
 
                 foreach ($data as &$value) $value = $this->entity($type, $value, $stub);
