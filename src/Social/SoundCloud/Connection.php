@@ -1,7 +1,7 @@
 <?php
 /**
  * Jasny Social
- * World's best PHP library for Social APIs
+ * World's best PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
  * @copyright 2012 Jasny
@@ -24,9 +24,9 @@ class Connection extends Base implements \Social\Auth
     use \Social\OAuth2;
     
     /**
-     * Name of the API service
+     * Name of the API's service provider
      */
-    const apiName = 'soundcloud';
+    const serviceProvider = 'soundcloud';
     
     
     /**
@@ -58,28 +58,15 @@ class Connection extends Base implements \Social\Auth
      * 
      * @param string        $appId          Application's client ID
      * @param string        $secret         Application's client secret
-     * @param array|object  $access         [ user's, access token, expire timestamp, SoundCloud id ] or { 'token': string, 'expires': unixtime, 'user': SoundCloud id }
+     * @param array|object  $access         [ user's access token, expire timestamp, SoundCloud id ] or { 'token': string, 'expires': unixtime, 'user': SoundCloud id }
      */
     public function __construct($clientId, $clientSecret, $access=null)
     {
         $this->setCredentials($clientId, $clientSecret);
         $this->setAccessInfo($access);
-        
-        $this->curl_opts[CURLOPT_HTTPHEADER] = array('Accept: application/json');
     }
     
     
-    /**
-     * Fetch the OAuth2 access token.
-     * 
-     * @param array  $params  Parameters
-     * @return object
-     */
-    protected function fetchAccessToken(array $params)
-    {
-        return $this->post('oauth2/token', $params);
-    }
-
     /**
      * Initialise an HTTP request object.
      *
@@ -90,13 +77,10 @@ class Connection extends Base implements \Social\Auth
     {
         $request = parent::initRequest($request);
 
-        if (isset($request->params['oauth_token']) || isset($request->params['client_id'])) {
-            // do nothing
-        } elseif ($this->accessToken && !in_array($request->url, $this->publicResources)) {
-            $request->params['oauth_token'] = $this->accessToken;
-        } else {
-            $request->params['client_id'] = $this->clientId;
-        }
+        $glue = strpos($request->url, '?') === false ? '?' : '&';
+        
+        if ($this->accessToken) $request->url .= $glue . "oauth_token={$this->accessToken}";
+         else $request->url .= $glue . "client_id={$this->clientId}";
 
         return $request;
     }

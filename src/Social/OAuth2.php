@@ -1,7 +1,7 @@
 <?php
 /**
  * Jasny Social
- * World's best PHP library for Social APIs
+ * World's best PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
  * @copyright 2012 Jasny
@@ -49,7 +49,7 @@ trait OAuth2
      * The requested permissions
      * Note: It's not certain the authenticated user has given these permissions
      *
-     * @var string|array
+     * @var array|string
      */
     protected $scope;
 
@@ -118,7 +118,7 @@ trait OAuth2
         
         if (isset($_SESSION) && $access === $_SESSION) {
             $this->authUseSession = true;
-            $access = @$_SESSION[static::apiName . ':access'];
+            $access = @$_SESSION[static::serviceProvider . ':access'];
         }
         
         if (is_array($access) && is_int(key($access))) {
@@ -161,7 +161,7 @@ trait OAuth2
     protected function getUniqueState()
     {
         $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['SERVER_ADDR'] : $_SERVER['REMOTE_ADDR'];
-        return static::apiName . ':' . md5($ip . $this->clientSecret);
+        return static::serviceProvider . ':' . md5($ip . $this->clientSecret);
     }
     
     /**
@@ -178,20 +178,16 @@ trait OAuth2
     /**
      * Initialise an HTTP request object.
      *
-     * @param object|string  $request  url or { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
+     * @param object|string $request  url or { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
      * @return object
      */
     protected function initRequest($request)
     {
         $request = parent::initRequest($request);
         
-        if (isset($request->params['oauth_token']) || isset($request->params['client_id'])); // do nothing
-         elseif ($this->accessToken) $request->params['oauth_token'] = $this->accessToken;
-         else $request->params['client_id'] = $this->clientId;
-        
+        if ($this->accessToken) $request->queryParams['oauth_token'] = $this->accessToken;
         return $request;
     }
-    
     
      /**
      * Get the URL of the current script.
@@ -218,23 +214,40 @@ trait OAuth2
      */
     public function getAuthUrl($scope=null, $redirectUrl=null, $params=[])
     {
+        if (!isset($this->clientId))
+            throw new \Exception("This application's client ID (required to use OAuth2) isn't set.");
+
         $redirectUrl = $this->getCurrentUrl($redirectUrl);
         if (!isset($redirectUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
 
-        $this->scope = $scope;       
-        if (is_array($scope)) $scope = join(',', $scope);
- 
-        return $this->getUrl(static::authURL, ['client_id'=>$this->clientId, 'redirect_uri'=>$redirectUrl,
-            'scope'=>$scope, 'state'=>$this->getUniqueState()] + $params + ['response_type'=>'code']);
+        $this->setScope($scope);
+        $params = ['client_id'=>$this->clientId, 'redirect_uri'=>$redirectUrl, 'scope'=>join(',', (array)$this->scope),
+            'state'=>$this->getUniqueState()] + $params + ['response_type'=>'code'];
+        
+        return $this->getUrl(static::authURL, $params);
     }
 
     /**
      * Fetch the OAuth2 access token.
-     *
-     * @params array $params  Parameters
+     * 
+     * @param array  $params  Parameters
      * @return object
      */
-    abstract protected function fetchAccessToken(array $params);
+    protected function fetchAccessToken(array $params)
+    {
+        return $this->post('oauth2/token', $params);
+    }
+    
+    /**
+     * Set the authorization scope.
+     * 
+     * @param array|string $scope
+     */
+    protected function setScope($scope)
+    {
+        $this->scope = $scope;
+    }
+    
     
     /**
      * Handle an authentication response and sets the access token.
@@ -284,7 +297,7 @@ trait OAuth2
         $this->accessToken = $data->access_token;
         $this->accessExpires = isset($expires_in) ? time() + $expires_in : null;
         
-        if ($this->authUseSession) $_SESSION[static::apiName . ':access'] = $this->getAccessInfo();
+        if ($this->authUseSession) $_SESSION[static::serviceProvider . ':access'] = $this->getAccessInfo();
         
         return $this;
     }
@@ -299,7 +312,7 @@ trait OAuth2
      */
     public function auth($scope=null, $redirectUrl=null, $params=[])
     {
-        $this->scope = $scope;
+        $this->setScope($scope);
 
         if ($this->isAuth()) return $this;
         

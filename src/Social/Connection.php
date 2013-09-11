@@ -1,7 +1,7 @@
 <?php
 /**
  * Jasny Social
- * World's best PHP library for Social APIs
+ * World's best PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
  * @copyright 2012 Jasny
@@ -18,7 +18,7 @@ abstract class Connection
     /**
      * Default file extension to be added for API calls.
      */
-    protected $defaultExtension;
+    const defaultExtension = '';
     
     /**
      * Default options for curl.
@@ -28,37 +28,53 @@ abstract class Connection
     protected $curl_opts = array(
         CURLOPT_CONNECTTIMEOUT      => 10,
         CURLOPT_TIMEOUT             => 60,
-        CURLOPT_USERAGENT           => 'JasnySocial/1.0',
-        CURLOPT_HTTPHEADER          => array('Expect:'),
+        CURLOPT_USERAGENT           => 'JasnySocial/2.0',
+        CURLOPT_HTTPHEADER          => ['Accept'=>'application/json, */*'],
+        CURLOPT_ENCODING            => '',
         CURLOPT_FOLLOWLOCATION      => true, 
         CURLOPT_MAXREDIRS           => 3,
         CURLOPT_TIMEOUT             => 10,
     );
-    
-    
-    /**
-     * Errors from doing a multirequest
-     * @var array
-     */
-    private $multiRequestErrors = null;
 
+    /**
+     * HTTP request query paramaters to be added for each request
+     * @var $array
+     */
+    protected $queryParams = [];
+    
     /**
      * Prepared requests stack
      * @var $array
      */
     private $prepared;
-    
+
     
     /**
-     * Get API base URL.
+     * Set an HTTP query parameter to be used in each request
      * 
-     * @param string $url  Relative URL
-     * @return string
+     * @param string|array $param  Paramater key or associated array
+     * @param mixed        $value
+     * @return Connection $this
      */
-    protected static function getBaseUrl($url=null)
+    public function setQueryParam($param, $value=null)
     {
-        return static::apiURL;
+        if (is_array($param)) $this->queryParams = $param = $this->queryParams;
+         else $this->queryParams[$param] = $value;
+         
+        return $this;
     }
+    
+    /**
+     * Get an HTTP query parameter used in each request
+     * 
+     * @param string $param  Paramater key
+     * @return 
+     */
+    public function getQueryParam($param)
+    {
+        return isset($this->queryParams[$param]) ? $this->queryParams[$param] : null;
+    }
+    
     
     /**
      * Get default parameters for resource.
@@ -84,23 +100,6 @@ abstract class Connection
     
     
     /**
-     * Get full URL.
-     * 
-     * @param string $url     Relative or absolute URL or a request object
-     * @param array  $params  Parameters
-     */
-    public function getUrl($url=null, array $params=[])
-    {
-        if (is_object($url)) {
-            if (isset($url->params)) $params = $url->params + $params;
-            $url = $url->url;
-        }
-
-        if (strpos($url, '://') === false) $url = static::getBaseUrl($url) . ltrim($url, '/');
-        return static::buildUrl($url, $params);
-    }
-    
-    /**
      * Replace placeholders with data
      * 
      * @param string $url     Relative or absolute URL or a request object
@@ -119,6 +118,7 @@ abstract class Connection
         
         return $url;
     }
+    
     
     /**
      * Prepare and buffer all requests.
@@ -167,7 +167,6 @@ abstract class Connection
         $this->prepared->requests[] = $request;
     }
 
-
     /**
      * Get all requests from prepare buffer.
      * 
@@ -214,12 +213,12 @@ abstract class Connection
     /**
      * Initialise an HTTP request object.
      *
-     * @param object|string  $request  url or { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
+     * @param object|string $request  value object or url
      * @return object
      */
     protected function initRequest($request)
     {
-        if (is_scalar($request)) $request = (object)array('url' => $request);
+        if (is_scalar($request)) $request = (object)['url'=>$request];
           elseif (is_array($request)) $request = (object)$request;
         
         if (!isset($request->url)) {
@@ -230,18 +229,21 @@ abstract class Connection
         if (!isset($request->method)) $request->method = 'GET';
         if (!isset($request->convert)) $request->convert = true;
         if (!isset($request->headers)) $request->headers = [];
+        if (!isset($request->queryParams)) $request->queryParams = [];
 
         $request->params = (isset($request->params) ? $request->params : []) + static::getDefaultParams($request->url);
         $request->url = $this->processPlaceholders($request->url, $request->params);
 
-        list($url, $params) = explode('?', $request->url, 2) + [1=>null];
-        if ($params && $request->method == 'GET') {
-            $request->params + $params;
-            $params = null;
+        list($url, $query) = explode('?', $request->url, 2) + [1=>null];
+        if ($query) {
+            parse_str($query, $params);
+            $request->queryParams += $params;
+            $query = null;
         }
-        
-        if ($this->defaultExtension && pathinfo($url, PATHINFO_EXTENSION) == '') {
-            $request->url = "$url" . $this->defaultExtension . ($params ? "?$params" : '');
+        $request->queryParams += $this->queryParams;
+
+        if (static::defaultExtension && pathinfo($url, PATHINFO_EXTENSION) == '') {
+            $request->url = $url . '.' . static::defaultExtension;
         }
         
         if ($this->detectMultipart($request)) $request->headers['Content-Type'] = 'multipart/form-data';
@@ -249,10 +251,11 @@ abstract class Connection
         return $request;
     }
     
+    
     /**
      * Run prepared HTTP request(s).
      * 
-     * @param object|array  $request  Value object or array of objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'writefunction': callback  }
+     * @param object|array $request  Values object or array of value objects
      * @return string
      */
     protected function request($request)
@@ -263,7 +266,7 @@ abstract class Connection
     /**
      * Run a single HTTP request.
      * 
-     * @param object $request  Value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'writefunction': callback }
+     * @param object $request  Value object
      * @return string
      */
     protected function singleRequest($request)
@@ -272,24 +275,27 @@ abstract class Connection
         
         $ch = $this->curlInit($request);
         
-        $result = curl_exec($ch);
+        $response = curl_exec($ch);
+        $result = $this->decodeHttpResponse($response);
+        
         $error = curl_error($ch);
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        list($contenttype) = explode(';', curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
+        
         curl_close($ch);
 
         if ($error || $httpcode >= 300) {
-            if (!$error) $error = static::httpError($httpcode, $contenttype, $result);
-            throw new \Exception("HTTP " . (@$request->method ?: 'GET') . " request for '" . $this->getUrl($request->url). "' failed: $error");
+            if (!$error) $error = static::httpError($httpcode, $result);
+            if ($error !== false) throw new \Exception("HTTP " . (@$request->method ?: 'GET') . " request for '" .
+                static::buildUrl($request->url). "' failed: $error");
         }
         
-        return $contenttype == 'application/json' ? json_decode($result) : $result;
+        return $result;
     }
 
     /**
      * Run multiple HTTP requests in parallel.
      * 
-     * @param array $requests  Array of value objects { 'method': string, 'url': string, 'params': array, 'headers': array, 'writefunction': callback }
+     * @param array $requests  Array of value objects
      * @return array
      */
     protected function multiRequest(array $requests)
@@ -331,23 +337,27 @@ abstract class Connection
         
         // get the results and clean up
         foreach ($handles as $key=>$ch) {
-            $result = curl_multi_getcontent($ch);
+            $request = $requests[$key];
+            
+            $response = curl_multi_getcontent($ch);
+            $result = $this->decodeHttpResponse($response);
+            
             $error = curl_error($ch);
             $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            list($contenttype) = explode(';', curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
-            
-            $request = $requests[$key];
             
             curl_close($ch);
             curl_multi_remove_handle($mh, $ch);
 
             if ($error || $httpcode >= 300) {
-                if (!$error) $error = static::httpError($httpcode, $contenttype, $result);
-                $msg = "HTTP " . (@$request->method ?: 'GET') . " request for '{$request->url}' failed: {$error}";
-                trigger_error($msg, E_USER_WARNING);
-            } else {
-                $results[$key] = $contenttype == 'application/json' ? $result : json_decode($result);
+                if (!$error) $error = static::httpError($httpcode, $result);
+                if ($error !== false) {
+                    trigger_error("HTTP " . (@$request->method ?: 'GET') . " request for '" .
+                        static::buildUrl($request->url) . "' failed: {$error}", E_USER_WARNING);
+                    continue;
+                }
             }
+            
+            $results[$key] = $result;
         }
         
         curl_multi_close($mh);
@@ -357,28 +367,29 @@ abstract class Connection
     /**
      * Initialize a cURL session.
      * 
-     * @param object  $request
+     * @param object $request
      * @return resource
      */
     protected function curlInit($request)
     {
-        $url = $this->getUrl($request->url, $request->method != 'POST' ? $request->params : []);
+        $query_params = ($request->method != 'POST' ? $request->params : []) + $this->queryParams;
+        $url = static::buildUrl($request->url, $query_params);
 
         // init
         $ch = curl_init($url);
         curl_setopt_array($ch, $this->curl_opts);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $request->method);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
+        
         // set headers
-        $headers = [];
-        foreach ($request->headers as $key=>$value) {
+        $rawheaders = $request->headers;
+        if (isset($this->curl_opts[CURLOPT_HTTPHEADER])) 
+            $rawheaders = array_merge($this->curl_opts[CURLOPT_HTTPHEADER], $rawheaders);
+        
+        foreach ($rawheaders as $key=>$value) {
             $headers[] = is_int($key) ? $value : "$key: $value";
         }
-
-        if (isset($this->curl_opts[CURLOPT_HTTPHEADER])) {
-            $headers = array_merge($this->curl_opts[CURLOPT_HTTPHEADER], $headers);
-        }
+        
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         
         // set post fields
@@ -399,30 +410,44 @@ abstract class Connection
         
         return $ch;
     }
+
+    /**
+     * Remove the headers and process the body.
+     * 
+     * @param string $contenttype  Mime type
+     * @param string $response     The HTTP response
+     * @return mixed
+     */
+    protected function decodeResponse($contenttype, $response)
+    {
+        if ($contenttype == 'application/json') return json_decode($response);
+        if ($contenttype == 'text/xml') return simplexml_load_string($response);
+        return $response;
+    }
     
     /**
      * Get error from HTTP result.
      * 
-     * @param int    $httpcode
-     * @param string $contenttype
-     * @param string $result
+     * @param int   $httpcode
+     * @param mixed $result
      * @return string
      */
-    static protected function httpError($httpcode, $contenttype, $result)
-    {        
-        if ($contenttype != 'application/json') {
-            return ($contenttype === 'text/html' ? $result . ' ' : '') . "($httpcode)";
+    static protected function httpError($httpcode, $result)
+    {
+        switch ($httpcode) {
+            case 400: return '400 Bad Request';
+            case 401: return '401 Unauthorized';
+            case 402: return '402 Payment Required';
+            case 403: return '403 Forbidden';
+            case 404: return '404 Not Found';
+            case 405: return '405 Method Not Allowed';
+            case 410: return '410 Gone';
+            case 500: return '500 Internal Server Error';
+            case 501: return '501 Not Implemented';
+            case 503: return '503 Not Implemented';
+            case 509: return '509 Bandwidth Limit Exceeded';
+            default:  return $httpcode;
         }
-
-        // JSON
-        $data = json_decode($result, true);
-
-        if (is_scalar($data)) return $data;
-          elseif (isset($data['error'])) return is_scalar($data['error']) ? $data['error'] : reset($data['error']);
-          elseif (isset($data['errors'])) return is_scalar($data['errors'][0]) ? $data['errors'][0] : reset($data['errors'][0]);
-          elseif (isset($data['error_msg'])) return $data['error_msg'];
-        
-        return $result; // Return the JSON as string (this shouldn't happen)
     }
 
     /**
@@ -433,7 +458,7 @@ abstract class Connection
     static protected function redirect($url)
     {
         echo 'Redirecting you to <a href="' . htmlentities($url) . '">' . $url . '</a>';
-        header("Location: " . $url);
+        header("Location: $url");
         exit();
     }
 
@@ -447,7 +472,7 @@ abstract class Connection
      */
     static public function getCurrentUrl($page=null, array $params=[])
     {
-        if (strpos($page, '://') !== false) return self::buildUrl($page, $params);
+        if (strpos($page, '://') !== false) return static::buildUrl($page, $params);
         
         if (!isset($_SERVER['HTTP_HOST'])) return null;
 
@@ -460,19 +485,20 @@ abstract class Connection
         $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on' ? 'https://' : 'http://';
         $currentUrl = $protocol . $_SERVER['HTTP_HOST'] . $page;
         
-        return self::buildUrl($currentUrl, $params);
+        return static::buildUrl($currentUrl, $params);
     }
     
     
     /**
-     * Build a url, setting parameters.
+     * Build a full url.
      * 
-     * @param string  $url
-     * @param array   $params
-     * @param boolean $overwrite  Overwrite existing parameters
+     * @param string $url
+     * @param array  $params
      */
-    static protected function buildUrl($url, array $params, $overwrite=true)
+    protected static function buildUrl($url, array $params)
     {
+        if (strpos($url, '://') === false) $url = static::apiUrl . ltrim($url, '/');
+        
         if (empty($params)) return $url;
         
         $parts = parse_url($url) + array('path' => '/');
@@ -480,12 +506,13 @@ abstract class Connection
         if (isset($parts['query'])) {
             $query_params = [];
             parse_str($parts['query'], $query_params);
-            $params = $overwrite ? array_merge($query_params, $params) : $query_params + $params;
+            $params += $query_params;
         }
 
         $query = self::buildHttpQuery($params);
 
-        return $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '') . $parts['path'] . ($query ? '?' . $query : '');
+        return $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '') .
+            $parts['path'] . ($query ? '?' . $query : '');
     }
     
     /**
@@ -494,7 +521,7 @@ abstract class Connection
      * @param type $params
      * @return string
      */
-    static protected function buildHttpQuery($params)
+    protected static function buildHttpQuery($params)
     {
         foreach ($params as $key=>&$value) {
             if (!isset($value)) {
@@ -510,12 +537,12 @@ abstract class Connection
     }
     
     /**
-     * Parse URL and return parameters
+     * Parse URL and return parameters.
      * 
      * @param string $url
      * @return array
      */
-    static protected function extractParams($url)
+    protected static function extractParams($url)
     {
         $params = [];
 

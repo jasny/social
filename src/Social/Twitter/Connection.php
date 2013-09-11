@@ -1,7 +1,7 @@
 <?php
 /**
  * Jasny Social
- * World's best PHP library for Social APIs
+ * World's best PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
  * @copyright 2012 Jasny
@@ -17,7 +17,8 @@ use Social\Connection as Base;
  * @see https://dev.twitter.com/docs
  * @package Twitter
  * 
- * Before you start, register your application at https://dev.twitter.com/apps and retrieve a custumor key and consumer secret.
+ * Before you start, register your application at https://dev.twitter.com/apps and retrieve a custumor key and
+ *  consumer secret.
  */
 class Connection extends Base implements \Social\Auth
 {
@@ -26,7 +27,7 @@ class Connection extends Base implements \Social\Auth
     /**
      * Name of the API service
      */
-    const apiName = 'twitter';
+    const serviceProvider = 'twitter';
     
     /**
      * Twitter REST API URL
@@ -58,12 +59,16 @@ class Connection extends Base implements \Social\Auth
      */
     const sitestreamUrl = "https://sitestream.twitter.com/1.1/";
     
+    /**
+     * The default file extension for API URLs
+     */
+    const defaultExtension = 'json';
     
     /**
      * Entity type per resource
      * @var array
      */
-    private static $resourceTypes = [
+    protected static $resourceTypes = [
         'statuses'                  => 'tweet',
         'statuses/*/retweeted_by'   => 'user',
         'statuses/oembed'           => null,
@@ -110,7 +115,7 @@ class Connection extends Base implements \Social\Auth
      * Resource that require a multipart POST
      * @var array
      */
-    private static $resourcesMultipart = [
+    protected static $resourcesMultipart = [
         'account/update_profile_background_image' => true,
         'account/update_profile_image'            => true,
         'statuses/update_with_media'              => true,
@@ -120,7 +125,7 @@ class Connection extends Base implements \Social\Auth
      * Default paramaters per resource.
      * @var array
      */
-    private static $defaultParams = [
+    protected static $defaultParams = [
         'statuses/home_timeline'     => array('max_id' => null),
         'statuses/mentions'          => array('max_id' => null),
         'statuses/retweeted_by_me'   => array('max_id' => null),
@@ -148,26 +153,38 @@ class Connection extends Base implements \Social\Auth
     {
         $this->setCredentials($consumerKey, $consumerSecret);
         $this->setAccessInfo($access);
-        
-        $this->defaultExtension = 'json';
     }
 
+    
+    /**
+     * Build a full url.
+     * 
+     * @param string  $url
+     * @param array   $params
+     * @return string
+     */
+    protected static function buildUrl($url, array $params)
+    {
+        if (strpos($url, '://') === false) $url = static::getBaseUrl($url) . ltrim($url, '/');
+        return parent::buildUrl($url, $params);
+    }
+    
     /**
      * Get Twitter API URL based on de resource.
      * 
      * @param string $resource
      * @return string
      */
-    protected static function getBaseUrl($resource=null)
+    protected static function getBaseUrl($url=null)
     {
-        $resource = self::normalizeResource($resource);
+        $resource = self::normalizeResource($url);
         
         if ($resource) do {
-            if (isset(self::$resourceApi[$resource])) return self::$resourceApi[$resource];
+            if (isset(static::$resourceApi[$resource])) return static::$resourceApi[$resource];
             $resource = dirname($resource);
         } while ($resource != '.');
 
-        return self::$resourceApi['*'];
+        return static::$resourceApi['*'];
     }
     
     

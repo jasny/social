@@ -1,7 +1,7 @@
 <?php
 /**
  * Jasny Social
- * World's best PHP library for Social APIs
+ * World's best PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
  * @copyright 2012 Jasny

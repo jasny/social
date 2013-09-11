@@ -1,7 +1,7 @@
 <?php
 /**
  * Jasny Social
- * World's best PHP library for Social APIs
+ * World's best PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
  * @copyright 2012 Jasny
@@ -18,7 +18,8 @@ use Social\Collection;
  * @see http://developers.facebook.com/docs/reference/api/
  * @package Facebook
  * 
- * Before you start register your application at https://developers.facebook.com/apps and retrieve a client ID and secret
+ * Before you start register your application at https://developers.facebook.com/apps and retrieve a client ID and
+ *  secret.
  */
 class Connection extends Base implements \Social\Auth
 {
@@ -27,7 +28,7 @@ class Connection extends Base implements \Social\Auth
     /**
      * Name of the API service
      */
-    const apiName = 'facebook';
+    const serviceProvider = 'facebook';
     
     /**
      * Facebook Open Graph API URL
@@ -47,7 +48,7 @@ class Connection extends Base implements \Social\Auth
      * 
      * @param string        $appId          Application's client ID
      * @param string        $secret         Application's client secret
-     * @param array|object  $access         [ user's, access token, expire timestamp, facebook id ] or { 'token': string, 'expires': unixtime, 'user': facebook id }
+     * @param array|object  $access         [ user's access token, expire timestamp, facebook id ] or { 'token': string, 'expires': unixtime, 'user': facebook id }
      */
     public function __construct($clientId, $clientSecret, $access=null)
     {
