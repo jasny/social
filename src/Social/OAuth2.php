@@ -221,10 +221,10 @@ trait OAuth2
         if (!isset($redirectUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
 
         $this->setScope($scope);
-        $params = ['client_id'=>$this->clientId, 'redirect_uri'=>$redirectUrl, 'scope'=>join(',', (array)$this->scope),
+        $params = ['client_id'=>$this->clientId, 'redirect_uri'=>$redirectUrl, 'scope'=>$this->scope,
             'state'=>$this->getUniqueState()] + $params + ['response_type'=>'code'];
         
-        return $this->getUrl(static::authURL, $params);
+        return static::buildUrl(static::authURL, $params);
     }
 
     /**

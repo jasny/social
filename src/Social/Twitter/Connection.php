@@ -163,10 +163,10 @@ class Connection extends Base implements \Social\Auth
      * @param array   $params
      * @return string
      */
-    protected static function buildUrl($url, array $params)
+    protected function getFullUrl($url, array $params)
     {
         if (strpos($url, '://') === false) $url = static::getBaseUrl($url) . ltrim($url, '/');
-        return parent::buildUrl($url, $params);
+        return self::buildUrl($url, $params);
     }
     
     /**
@@ -177,7 +177,7 @@ class Connection extends Base implements \Social\Auth
      */
     protected static function getBaseUrl($url=null)
     {
-        $resource = self::normalizeResource($url);
+        $resource = static::normalizeResource($url);
         
         if ($resource) do {
             if (isset(static::$resourceApi[$resource])) return static::$resourceApi[$resource];

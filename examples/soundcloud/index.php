@@ -10,4 +10,4 @@ $soundcloud->auth();
 var_dump($soundcloud->me());
 var_dump($soundcloud->get('tracks/13158665'));
 var_dump($soundcloud->get('apps/124'));
-var_dump($soundcloud->resolve("http://soundcloud.com/nickmonaco/alicia-keys-unthinkable-nick"));
+var_dump($soundcloud->resolve("https://soundcloud.com/mayerhawthorne/her-favorite-song-oliver-remix"));

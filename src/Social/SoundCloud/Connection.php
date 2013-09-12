@@ -77,13 +77,28 @@ class Connection extends Base implements \Social\Auth
     {
         $request = parent::initRequest($request);
 
-        $glue = strpos($request->url, '?') === false ? '?' : '&';
-        
-        if ($this->accessToken) $request->url .= $glue . "oauth_token={$this->accessToken}";
-         else $request->url .= $glue . "client_id={$this->clientId}";
+        if ($this->accessToken && !in_array($request->url, $this->publicResources)) {
+            $request->queryParams['oauth_token'] = $this->accessToken;
+        } else {
+            $request->queryParams['client_id'] = $this->clientId;
+        }
 
         return $request;
     }
+
+    /**
+     * Get error from HTTP result.
+     * 
+     * @param int   $httpcode
+     * @param mixed $result  
+     * @return string
+     */
+    static protected function httpError($httpcode, $result)
+    {
+        if (is_object($result) && $result->errors) return $result->errors[0]->error_message;
+        return parent::httpError($httpcode, $result);
+    }
+
 
     /**
      * Do a get request using the SoundCloud.com URL
@@ -94,7 +109,7 @@ class Connection extends Base implements \Social\Auth
      */
     public function resolve($url, array $params=[])
     {
-        if (strpos($url, '://') !== false) $url = self::websiteURL . ltrim($url, '/');
+        if (strpos($url, '://') === false) $url = self::websiteURL . ltrim($url, '/');
         return $this->get('resolve', compact('url') + $params);
     }
 

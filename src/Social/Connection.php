@@ -19,7 +19,7 @@ abstract class Connection
      * Default file extension to be added for API calls.
      */
     const defaultExtension = '';
-    
+
     /**
      * Default options for curl.
      * 
@@ -98,6 +98,18 @@ abstract class Connection
         return false;
     }
     
+    
+    /**
+     * Build an absolute url, relative to the api url.
+     * 
+     * @param string $url
+     * @param array  $params
+     */
+    protected function getFullUrl($url, array $params=[])
+    {
+        if (strpos($url, '://') === false) $url = static::apiURL . ltrim($url, '/');
+        return self::buildUrl($url, $params);
+    }
     
     /**
      * Replace placeholders with data
@@ -275,18 +287,19 @@ abstract class Connection
         
         $ch = $this->curlInit($request);
         
-        $response = curl_exec($ch);
-        $result = $this->decodeHttpResponse($response);
-        
+        $response = curl_exec($ch);        
         $error = curl_error($ch);
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        list($contenttype) = explode(';', curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
         
         curl_close($ch);
+
+        $result = $this->decodeResponse($contenttype, $response);
 
         if ($error || $httpcode >= 300) {
             if (!$error) $error = static::httpError($httpcode, $result);
             if ($error !== false) throw new \Exception("HTTP " . (@$request->method ?: 'GET') . " request for '" .
-                static::buildUrl($request->url). "' failed: $error");
+                $this->getFullUrl($request->url). "' failed: $error");
         }
         
         return $result;
@@ -339,20 +352,21 @@ abstract class Connection
         foreach ($handles as $key=>$ch) {
             $request = $requests[$key];
             
-            $response = curl_multi_getcontent($ch);
-            $result = $this->decodeHttpResponse($response);
-            
+            $response = curl_multi_getcontent($ch);            
             $error = curl_error($ch);
             $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            list($contenttype) = explode(';', curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
             
             curl_close($ch);
             curl_multi_remove_handle($mh, $ch);
+
+            $result = $this->decodeResponse($contenttype, $response);
 
             if ($error || $httpcode >= 300) {
                 if (!$error) $error = static::httpError($httpcode, $result);
                 if ($error !== false) {
                     trigger_error("HTTP " . (@$request->method ?: 'GET') . " request for '" .
-                        static::buildUrl($request->url) . "' failed: {$error}", E_USER_WARNING);
+                        $this->getFullUrl($request->url) . "' failed: {$error}", E_USER_WARNING);
                     continue;
                 }
             }
@@ -372,8 +386,9 @@ abstract class Connection
      */
     protected function curlInit($request)
     {
-        $query_params = ($request->method != 'POST' ? $request->params : []) + $this->queryParams;
-        $url = static::buildUrl($request->url, $query_params);
+        $query_params = $request->method != 'POST' ? $request->params : [];
+        $query_params += $request->queryParams + $this->queryParams;
+        $url = $this->getFullUrl($request->url, $query_params);
 
         // init
         $ch = curl_init($url);
@@ -472,7 +487,7 @@ abstract class Connection
      */
     static public function getCurrentUrl($page=null, array $params=[])
     {
-        if (strpos($page, '://') !== false) return static::buildUrl($page, $params);
+        if (strpos($page, '://') !== false) return $this->getFullUrl($page, $params);
         
         if (!isset($_SERVER['HTTP_HOST'])) return null;
 
@@ -488,17 +503,14 @@ abstract class Connection
         return static::buildUrl($currentUrl, $params);
     }
     
-    
     /**
-     * Build a full url.
+     * Build a url adding query paramaters.
      * 
      * @param string $url
      * @param array  $params
      */
     protected static function buildUrl($url, array $params)
     {
-        if (strpos($url, '://') === false) $url = static::apiUrl . ltrim($url, '/');
-        
         if (empty($params)) return $url;
         
         $parts = parse_url($url) + array('path' => '/');
@@ -509,7 +521,7 @@ abstract class Connection
             $params += $query_params;
         }
 
-        $query = self::buildHttpQuery($params);
+        $query = static::buildHttpQuery($params);
 
         return $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '') .
             $parts['path'] . ($query ? '?' . $query : '');

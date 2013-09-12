@@ -68,24 +68,18 @@ class Connection extends Base implements \Social\Auth
     /**
      * Class constructor.
      * 
-     * If the clientSecret is omited, it's assumed the first argument is the API key.
      * Passing a user id is not required to act as the user, you're only required to specify the access token.
      * 
-     * @param string        $clientId       Application's client ID (for OAuth2)
-     * @param string        $clientSecret   Application's client secret (for OAuth2)
-     * @param array|object  $access         [ user's access token, expire timestamp, google user id ] or { 'token': string, 'expires': unixtime, 'user': google user id }
-     * @param string        $apiKey         Applications's API key
+     * @param string       $apiKey        Applications's API key
+     * @param string       $clientId      Application's client ID (for OAuth2)
+     * @param string       $clientSecret  Application's client secret (for OAuth2)
+     * @param array|object $access        [ token, expires, me ] or { 'token': string, 'expires': unixtime, 'user': me }
      */
-    public function __construct($clientId, $clientSecret=null, $access=null, $apiKey=null)
+    public function __construct($apiKey, $clientId=null, $clientSecret=null, $access=null)
     {
-        if (!isset($clientSecret) && !isset($access) && !isset($apiKey)) {
-            $apiKey = $clientId;
-            $clientId = null;
-        }
-        
+        $this->apiKey = $apiKey;
         $this->setCredentials($clientId, $clientSecret);
         $this->setAccessInfo($access);
-        $this->apiKey = $apiKey;
         
         // See https://developers.google.com/discovery/v1/performance#gzip
         $this->curl_opts[CURLOPT_USERAGENT] .= ' (gzip)';
@@ -109,13 +103,13 @@ class Connection extends Base implements \Social\Auth
      * @param array  $params  Parameters
      * @return string
      */
-    protected static function getUrl($url, array $params=[])
+    protected function getFullUrl($url, array $params=[])
     {
         if ($url == 'oauth2/token') return dirname(self::authURL) . '/token';
         
         if (strpos($url, '://') === false) {
             $path = isset($this->apiName) ? "{$this->apiName}/{$this->apiVersion}/" : '';
-            $url = static::apiUrl . $path . ltrim($url, '/');
+            $url = static::apiURL . $path . ltrim($url, '/');
         }
         
         return static::buildUrl($url, $params);
@@ -124,21 +118,59 @@ class Connection extends Base implements \Social\Auth
     /**
      * Initialise an HTTP request object.
      *
-     * @param object|string  $request  url or { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
+     * @param object|string  $request  url or value object
      * @return object
      */
     protected function initRequest($request)
     {
         $request = parent::initRequest($request);
 
-        $glue = strpos($request->url, '?') === false ? '?' : '&';
-        
-        if ($this->accessToken) $request->url .= $glue . "oauth_token={$this->accessToken}";
-         elseif (!isset($this->clientSecret)) $request->url .= $glue . "key={$this->clientId}";
+        $request->queryParams['oauth_token'] = $this->accessToken;
+        $request->queryParams['key'] = $this->apiKey;
 
+        if (isset($request->params['fields'])) $request->queryParams['fields'] = $request->params['fields'];
+        unset($request->params['fields']);
+       
+        
         return $request;
     }
+
+    /**
+     * Get error from HTTP result.
+     * 
+     * @param int   $httpcode
+     * @param mixed $result  
+     * @return string
+     */
+    static protected function httpError($httpcode, $result)
+    {
+        if (is_object($result) && $result->error) return $result->error->code . ' - ' . $result->error->message;
+        return parent::httpError($httpcode, $result);
+    }
     
+    /**
+     * Build a HTTP query, converting arrays to a comma seperated list and removing null parameters.
+     * 
+     * @param type $params
+     * @return string
+     */
+    protected static function buildHttpQuery($params)
+    {
+        foreach ($params as $key=>&$value) {
+            if (!isset($value)) {
+                unset($params[$key]);
+                continue;
+            }
+
+            if (is_array($value)) $value = join(',', $value);
+            $value = rawurlencode($key) . '=' .
+                (is_bool($value) ? ($value ? 'true' : 'false') : rawurlencode($value));
+        }
+       
+        return join('&', $params);
+    }  
+
+
     /**
      * Set the authorization scope.
      * 
@@ -151,12 +183,14 @@ class Connection extends Base implements \Social\Auth
             foreach ($scope as &$item) {
                 if (strpos($item, '://') === false) $item = static::apiURL . "auth/$item";
             }
+        } else {
+            $scope = [static::apiURL . 'auth/userinfo.profile'];
         }
         
         $this->scope = $scope;
-    }
-    
-    
+    }    
+    	
+
     /**
      * Get current user profile.
      * 
@@ -165,7 +199,7 @@ class Connection extends Base implements \Social\Auth
     public function me()
     {
         // Use absolute URL, so this will also work when a different API is selected.
-        return $this->get(static::apiUrl . 'oauth2/v2/userinfo');
+        return $this->get(static::apiURL . 'oauth2/v2/userinfo');
     }
     
     
@@ -178,19 +212,22 @@ class Connection extends Base implements \Social\Auth
      * 
      * @param string $name     API name
      * @param string $version  API version
+     * @param string $auth     Authentication method 'key' or 'oauth2'
      * @return Connection
      */
-    public function api($name, $version=null)
+    public function api($name, $version=null, $auth='oauth2')
     {
         if (!isset($version)) {
-            $apis = $this->get(self::discoveryURL . "apis", 
-                ['name'=>$name, 'preferred'=>true, "fields"=>'items/version'], false);
+            $apis = $this->get(self::discoveryURL . 'apis', 
+                ['name'=>$name, 'preferred'=>true, 'fields'=>'items/version'], false);
             
             if (empty($apis->items)) throw new \Exception("This Google $name API is not available");
             $version = $apis->items[0]->version;
         }
         
-        $connection = new static($this->clientId, $this->clientSecret, $this->getAccessInfo(), $this->apiKey);
+        $connection = strtolower($auth) == 'key' ?
+            new static($this->apiKey) :
+            new static($this->apiKey, $this->clientId, $this->clientSecret, $this->getAccessInfo());
         $connection->apiName = $name;
         $connection->apiVersion = $version;
         
@@ -226,8 +263,8 @@ class Connection extends Base implements \Social\Auth
      */
     public function plus()
     {
-        return new \Social\GooglePlus\Connection($this->clientId, $this->clientSecret, $this->getAccessInfo(),
-            $this->apiKey);
+        return new \Social\GooglePlus\Connection($this->apiKey, $this->clientId, $this->clientSecret,
+            $this->getAccessInfo());
     }
     
     /**
@@ -237,7 +274,7 @@ class Connection extends Base implements \Social\Auth
      */
     public function youtube()
     {
-        return new \Social\YouTube\Connection($this->clientId, $this->clientSecret, $this->getAccessInfo(),
-            $this->apiKey);
+        return new \Social\YouTube\Connection($this->apiKey, $this->clientId, $this->clientSecret,
+            $this->getAccessInfo());
     }
 }
