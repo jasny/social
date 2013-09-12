@@ -93,18 +93,18 @@ trait OAuth1
      *
      * @return object  { 'token': string, 'secret': string }
      */
-    protected function getAccessInfo()
+    public function getAccessInfo()
     {
         if (!isset($this->accessToken)) return null;
         
-        $access = (object)array('token' => $this->accessToken, 'secret' => $this->accessSecret);
+        $access = (object)['token'=>$this->accessToken, 'secret'=>$this->accessSecret];
         return $access;
     }
     
     /**
      * Set the access info.
      * 
-     * @param array|object $access  [ token, secret, me ] or { 'token': string, 'secret': string, 'user': me }
+     * @param array|object $access  [ token, secret ] or { 'token': string, 'secret': string }
      */
     protected function setAccessInfo($access)
     {
@@ -112,26 +112,20 @@ trait OAuth1
         
         if (isset($_SESSION) && $access === $_SESSION) {
             $this->authUseSession = true;
-            $access = @$_SESSION[static::apiName . ':access'];
+            $access = @$_SESSION[static::serviceProvider . ':access'];
         }
         
         if (is_array($access) && is_int(key($access))) {
             list($this->accessToken, $this->accessExpires, $user) = $access + array(null, null, null);
         } elseif (isset($access)) {
             $access = (object)$access;
-            $this->accessToken = $access->token;
-            if (isset($access->expires)) $this->accessExpires = $access->expires;
-            if (isset($access->user)) $user = $access->user;
-        }
-        
-        if (isset($user)) {
-            if ($user instanceof Entity) {
-                $this->me = $user->reconnectTo($this);
-            } elseif (is_scalar($user)) {
-                $this->me = $this->entity('user', array('id' => $user), Entity::AUTOEXPAND);
+            if (isset($access->oauth_token)) {
+                $this->accessToken = $access->oauth_token;
+                $this->accessSecret = $access->oauth_token_secret;
             } else {
-                $type = (is_object($user) ? get_class($user) : get_type($user));
-                throw new \Exception("Was expecting an ID (int) or Entity for user, but got a $type");
+                $this->accessToken = $access->token;
+                $this->accessSecret = $access->secret;
+                if (isset($access->user)) $user = $access->user;
             }
         }
     }
@@ -141,7 +135,7 @@ trait OAuth1
      *
      * Passing a user id is not required, you're only required to specify the access token and secret.
      *
-     * @param array|object $access          [ token, secret, me ] or { 'token': string, 'secret': string, 'user': me }
+     * @param array|object $access          [ token, secret ] or { 'token': string, 'secret': string }
      */
     public function asUser($access)
     {
@@ -168,14 +162,6 @@ trait OAuth1
      */
     protected function getOAuthSignature($method, $url, array $params)
     {
-        // Extract additional paramaters from the URL
-        if (strpos($url, '?') !== false) {
-            list($url, $query) = explode('?', $url, 2);
-            $query_params = null;
-            parse_str($query, $query_params);
-            $params += $query_params;
-        }
-        
         $url = $this->processPlaceholders($url, $params);
 
         // Sign
@@ -232,19 +218,20 @@ trait OAuth1
      */
     protected function initRequest($request)
     {
+        if (is_array($request)) $request = (object)$request;
+        if (preg_match('~^oauth/~', is_object($request) ? $request->url : $request)) $request->no_ext = true;
+        
         $request = parent::initRequest($request);
 
         $multipart = $request->method == 'POST' && isset($request->headers['Content-Type'])
             && $request->headers['Content-Type'] == 'multipart/form-data';
-        if ($multipart) $request->url = preg_replace('/\?.*$/', '', $request->url);
 
-        $oauth = isset($request->headers['oauth']) ? $request->headers['oauth'] : [];
-        unset($request->headers['oauth']);
+        $oauth = isset($request->oauth) ? $request->oauth : [];
 
         $request->headers['Authorization'] = $this->getAuthorizationHeader(
             $request->method,
-            static::buildUrl($request->url),
-            !$multipart ? $request->params : [],
+            $this->getFullUrl($request->url),
+            (!$multipart ? $request->params : []) + $request->queryParams + $this->queryParams,
             $oauth
         );
         
@@ -275,7 +262,7 @@ trait OAuth1
      */
     protected static function storeTmpAccess($access)
     {
-        $_SESSION[static::apiName . ':tmp_access'] = $access;
+        $_SESSION[static::serviceProvider . ':tmp_access'] = $access;
     }
     
     /**
@@ -285,7 +272,7 @@ trait OAuth1
      */
     protected static function retrieveTmpAccess()
     {
-        return @$_SESSION[static::apiName . ':tmp_access'];
+        return @$_SESSION[static::serviceProvider . ':tmp_access'];
     }
     
     /**
@@ -302,41 +289,56 @@ trait OAuth1
             if (!isset($returnUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         }
 
-        $response = $this->post('oauth/request_token', ['oauth'=>['oauth_callback' => $returnUrl]]);
+	$oauth = ['oauth_callback'=>$returnUrl];
+        $request = $this->initRequest(['method'=>'POST', 'url'=>'oauth/request_token', 'oauth'=>$oauth]);
+        $response = $this->request($request);
         parse_str($response, $tmpAccess);
         
         $this->storeTmpAccess($tmpAccess);
         
-        return static::buildUrl('oauth/authorize', ['oauth_token' => $tmpAccess['oauth_token']]);
+        return $this->getFullUrl('oauth/authorize', ['oauth_token' => $tmpAccess['oauth_token']]);
     }
 
     /**
      * Handle an authentication response and sets the access token.
+
+     * If $oauthToken is omitted, it is taken from $_GET.
      * If $oauthVerifier is omitted, it is taken from $_GET.
-     * If $tmpAccess is omitted, it is taken from the session.
      * 
+     * @param string $oauthToken     Returned oauth_token.
      * @param string $oauthVerifier  Returned oauth_verifier.
      * @param object $tmpAccess      Temp access information.
      */
-    public function handleAuthResponse($oauthVerifier=null, $tmpAccess=null)
+    public function handleAuthResponse($oauthToken=null, $oauthVerifier=null)
     {
+        if (!isset($oauthToken)) {
+            if (!isset($_GET['oauth_token']))
+                throw new AuthException("Unable to handle authentication response: oauth_token wasn't returned.");
+            $oauthToken = $_GET['oauth_token'];
+        }
+
         if (!isset($oauthVerifier)) {
             if (!isset($_GET['oauth_verifier']))
-                throw new Exception("Unable to handle authentication response: oauth_verifier wasn't returned.");
+                throw new AuthException("Unable to handle authentication response: oauth_verifier wasn't returned.");
             $oauthVerifier = $_GET['oauth_verifier'];
         }
         
-        $tmpAccess = $this->retrieveTmpAccess();
-        if (!isset($tmpAccess['oauth_token']))
-            throw new Exception("Unable to handle authentication response: the temporary access token is unknown.");
+        $oauth = $this->retrieveTmpAccess();
+        if (!isset($oauth['oauth_token']))
+            throw new AuthException("Unable to handle authentication response: the temporary access token is unknown.");
+        if ($oauthToken != $oauth['oauth_token'])
+            throw new AuthException("Unable to handle authentication response: the temporary access token doesn't match.");
         
-        unset($tmpAccess['oauth_callback_confirmed']);
+        $oauth += ['oauth_verifier' => $oauthVerifier];
+        unset($oauth['oauth_callback_confirmed']);
         
-        $response = $this->get('oauth/access_token', [], ['oauth'=>['oauth_verifier' => $oauthVerifier] + $tmpAccess]);
+        $request = $this->initRequest(['method'=>'GET', 'url'=>'oauth/access_token', 'oauth'=>$oauth]);
+
+        $response = $this->request($request);
         parse_str($response, $data);
         
-        $this->setAccessInfo([$data['oauth_token'], $data['oauth_token_secret']]);
-        if ($this->authUseSession) $_SESSION[static::apiName . ':access'] = $this->getAccessInfo();
+        $this->setAccessInfo($data);
+        if ($this->authUseSession) $_SESSION[static::serviceProvider . ':access'] = $this->getAccessInfo();
 
         return $this->getAccessInfo();
     }
@@ -368,5 +370,15 @@ trait OAuth1
     public function isAuth()
     {
         return isset($this->accessToken);
+    }
+
+    /**
+     * Get the current user.
+     * 
+     * @return object
+     */
+    public function me()
+    {
+        return $this->get('account/verify_credentials');
     }
 }

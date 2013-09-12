@@ -22,7 +22,7 @@ use Social\Connection as Base;
  */
 class Connection extends Base implements \Social\Auth
 {
-    use \Social\OAuth1, \Social\EntityMapping;
+    use \Social\OAuth1;
 
     /**
      * Name of the API service
@@ -155,6 +155,36 @@ class Connection extends Base implements \Social\Auth
         $this->setAccessInfo($access);
     }
 
+    /**
+     * Set the access info.
+     * 
+     * @param array|object $access  [ token, secret, me ] or { 'token': string, 'secret': string, 'user': me }
+     */
+    protected function setAccessInfo_entity($access)
+    {
+        $this->OAuth1_setAccessInfo($access);
+        
+        if (is_array($access) && !is_int(key($access))) $access = (object)$access;
+
+        if ((isset($access->user_id) && (!isset($this->me) || isset($this->me->user_id)
+            && $this->me->user_id != $access->user_id)) ||
+            (isset($access->screen_name) && (!isset($this->me) || isset($this->me->screen_name)
+            && $this->me->screen_name != $access->screen_name))
+        ) {
+            $user = ['id'=>@$access->user_id, 'screen_name'=>@$access->screen_name];
+        }
+
+        if (isset($user)) {
+            if ($user instanceof Entity) {
+                $this->me = $user->reconnectTo($this);
+            } elseif (is_scalar($user)) {
+                $this->me = $this->entity('user', array('id' => $user), Entity::AUTOEXPAND);
+            } else {
+                $type = (is_object($user) ? get_class($user) : get_type($user));
+                throw new \Exception("Was expecting an ID (int) or Entity for user, but got a $type");
+            }
+        }
+    }
     
     /**
      * Build a full url.
@@ -163,7 +193,7 @@ class Connection extends Base implements \Social\Auth
      * @param array   $params
      * @return string
      */
-    protected function getFullUrl($url, array $params)
+    protected function getFullUrl($url, array $params=[])
     {
         if (strpos($url, '://') === false) $url = static::getBaseUrl($url) . ltrim($url, '/');
         return self::buildUrl($url, $params);
@@ -233,12 +263,12 @@ class Connection extends Base implements \Social\Auth
     /**
      * Check if resource requires a multipart POST.
      * 
-     * @param string $resource
+     * @param object $request
      * @return boolean 
      */
-    protected static function detectMultipart($resource)
+    protected static function detectMultipart($request)
     {
-        $resource = self::normalizeResource($resource);
+        $resource = self::normalizeResource($request->url);
         return !empty(self::$resourcesMultipart[$resource]);
     }
     
@@ -269,7 +299,7 @@ class Connection extends Base implements \Social\Auth
             }
         }
         
-        return $this->convertResponse($request, $data);
+        return $data;
     }
     
     /**
@@ -316,10 +346,6 @@ class Connection extends Base implements \Social\Auth
             }
         } while (true); // breaks above
         
-        foreach ($results as $i=>&$data) {
-            $data = $this->convertResponse($requests[$i], $data);
-        }
-        
         return $results;
     }
 
@@ -339,12 +365,14 @@ class Connection extends Base implements \Social\Auth
             if (!isset($returnUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         }
 
-        $response = $this->post('oauth/request_token', ['oauth'=>['oauth_callback'=>$returnUrl]]);
+	$oauth = ['oauth_callback'=>$returnUrl];
+        $request = $this->initRequest(['method'=>'POST', 'url'=>'oauth/request_token', 'oauth'=>$oauth]);
+        $response = $this->request($request);
         parse_str($response, $tmpAccess);
         
         $this->storeTmpAccess($tmpAccess);
         
-        return static::buildUrl("oauth/$level", ['oauth_token'=>$tmpAccess['oauth_token']]);
+        return $this->getFullUrl("oauth/$level", ['oauth_token'=>$tmpAccess['oauth_token']]);
     }
 
     /**
@@ -362,6 +390,19 @@ class Connection extends Base implements \Social\Auth
         }
   
         self::redirect($this->getAuthUrl($level));
+    }
+    
+    /**
+     * Get error from HTTP result.
+     * 
+     * @param int   $httpcode
+     * @param mixed $result
+     * @return string
+     */
+    static protected function httpError($httpcode, $result)
+    {
+        if (is_scalar($result)) return $httpcode . ' - ' . $result;
+        return parent::httpError($httpcode, $result);
     }
     
     

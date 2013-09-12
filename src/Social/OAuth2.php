@@ -110,8 +110,8 @@ trait OAuth2
     /**
      * Set the access info.
      * 
-    * @param array|object $access  [ token, expires, me ] or { 'token': string, 'expires': unixtime, 'user': me }
-      */
+     * @param array|object $access  [ token, expires ] or { 'token': string, 'expires': unixtime }
+     */
     protected function setAccessInfo($access)
     {
         if (!isset($access)) return;
@@ -126,19 +126,8 @@ trait OAuth2
         } elseif (isset($access)) {
             $access = (object)$access;
             $this->accessToken = $access->access_token;
-            if (isset($access->expires)) $this->accessExpires = $access->expires;
+            $this->accessExpires = isset($access->expires) ? $access->expires : null;
             if (isset($access->user)) $user = $access->user;
-        }
-        
-        if (isset($user) && method_exists($this, 'entity')) {
-            if ($user instanceof Entity) {
-                $this->me = $user->reconnectTo($this);
-            } elseif (is_scalar($user)) {
-                $this->me = $this->entity('me', ['id'=>$user], Entity::AUTOEXPAND);
-            } else {
-                $type = (is_object($user) ? get_class($user) : get_type($user));
-                throw new \Exception("Was expecting an ID (int) or Entity for user, but got a $type");
-            }
         }
     }
     
@@ -167,8 +156,8 @@ trait OAuth2
     /**
      * Create a new connection using the specified access token.
      * 
-    * @param array|object $access  [ token, expires, me ] or { 'token': string, 'expires': unixtime, 'user': me }
-      */
+     * @param array|object $access  [ token, expires ] or { 'token': string, 'expires': unixtime }
+     */
     public function asUser($access)
     {
         return new static($this->clientId, $this->clientSecret, $access);

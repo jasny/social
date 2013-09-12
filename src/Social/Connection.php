@@ -254,7 +254,7 @@ abstract class Connection
         }
         $request->queryParams += $this->queryParams;
 
-        if (static::defaultExtension && pathinfo($url, PATHINFO_EXTENSION) == '') {
+        if (static::defaultExtension && pathinfo($url, PATHINFO_EXTENSION) == '' && empty($request->no_ext)) {
             $request->url = $url . '.' . static::defaultExtension;
         }
         

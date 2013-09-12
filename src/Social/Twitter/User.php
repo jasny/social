@@ -47,7 +47,6 @@ class User extends Entity
      */
     public function fetch($refresh=false)
     {
-	var_dump($this, $this->asParams());
         if ($refresh || $this->isStub()) $this->getConnection()->get('users/show', $this->asParams(), $this);
         return $this;
     }
