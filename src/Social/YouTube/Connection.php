@@ -29,6 +29,8 @@ use Social\Google\Connection as Google;
  */
 class Connection extends Google
 {
+    use \Social\OEmbed;
+    
     /**
      * Google API name
      * @var string 

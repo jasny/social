@@ -46,7 +46,7 @@ abstract class Connection
      * Prepared requests stack
      * @var $array
      */
-    private $prepared;
+    protected $prepared;
 
     
     /**

@@ -22,6 +22,7 @@ use Social\Connection as Base;
 class Connection extends Base implements \Social\Auth
 {
     use \Social\OAuth2;
+    use \Social\OEmbed;
     
     /**
      * Name of the API's service provider
