@@ -59,3 +59,13 @@ $cfg->soundcloud = (object)[
     'client_id' => '',
     'client_secret' => '',
 ];
+
+/* 
+ * Postcode API key
+ * 
+ * 1.) Register you application at http://www.postcodeapi.nu/#request
+ * 2.) Copy/paste your received API key
+ */
+$cfg->postcode_api = (object)[
+    'api_key' => ''
+];
