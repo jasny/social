@@ -28,7 +28,7 @@ abstract class Connection
     protected $curl_opts = array(
         CURLOPT_CONNECTTIMEOUT      => 10,
         CURLOPT_TIMEOUT             => 60,
-        CURLOPT_USERAGENT           => 'JasnySocial/2.0',
+        CURLOPT_USERAGENT           => 'JasnySocial/0.2',
         CURLOPT_HTTPHEADER          => ['Accept'=>'application/json, */*'],
         CURLOPT_ENCODING            => '',
         CURLOPT_FOLLOWLOCATION      => true, 
@@ -239,7 +239,6 @@ abstract class Connection
         }
 
         if (!isset($request->method)) $request->method = 'GET';
-        if (!isset($request->convert)) $request->convert = true;
         if (!isset($request->headers)) $request->headers = [];
         if (!isset($request->queryParams)) $request->queryParams = [];
 
@@ -571,12 +570,11 @@ abstract class Connection
      * @param string  $method
      * @param string  $resource
      * @param array   $params
-     * @param mixed   $convert   Convert to entity/collection (boolean), object to be updated or callback
      * @return Entity|Collection|mixed
      */
-    protected function apiRequest($method, $resource, array $params=[], $convert=true)
+    protected function apiRequest($method, $resource, array $params=[])
     {
-        $request = (object)['method'=>$method, 'url'=>$resource, 'params'=>$params, 'convert'=>$convert];
+        $request = (object)['method'=>$method, 'url'=>$resource, 'params'=>$params];
         
         if ($this->prepared) return $this->addPreparedRequest($request);
         return $this->request($request);
@@ -586,13 +584,12 @@ abstract class Connection
      * GET from the web service API.
      * 
      * @param string  $resource
-     * @param array   $params
-     * @param mixed   $convert   Convert to entity/collection (boolean), object to be updated or callback
+     * @param array   $params    Query parameters
      * @return Entity|Collection|mixed
      */
-    public function get($resource, array $params=[], $convert=true)
+    public function get($resource, array $params=[])
     {
-        return $this->apiRequest('GET', $resource, $params, $convert);
+        return $this->apiRequest('GET', $resource, $params);
     }
             
     /**
@@ -600,37 +597,34 @@ abstract class Connection
      * 
      * @param string  $resource
      * @param array   $params    POST parameters
-     * @param mixed   $convert   Convert to entity/collection (boolean), object to be updated or callback
      * @return Entity|Collection|mixed
      */
-    public function post($resource, array $params=[], $convert=true)
+    public function post($resource, array $params=[])
     {
-        return $this->apiRequest('POST', $resource, $params, $convert);
+        return $this->apiRequest('POST', $resource, $params);
     }
     
     /**
      * PUT to the web service API.
      * 
      * @param string  $resource
-     * @param array   $params    POST parameters
-     * @param mixed   $convert   Convert to entity/collection (boolean), object to be updated or callback
+     * @param array   $params    Query parameters
      * @return Entity|Collection|mixed
      */
-    public function put($resource, array $params=[], $convert=true)
+    public function put($resource, array $params=[])
     {
-        return $this->apiRequest('PUT', $resource, $params, $convert);
+        return $this->apiRequest('PUT', $resource, $params);
     }
     
     /**
-     * POST to the web service API.
+     * DELETE from the web service API.
      * 
      * @param string  $resource
-     * @param array   $params    POST parameters
-     * @param mixed   $convert   Convert to entity/collection (boolean), object to be updated or callback
+     * @param array   $params    Query parameters
      * @return Entity|Collection|mixed
      */
-    public function delete($resource, array $params=[], $convert=true)
+    public function delete($resource, array $params=[])
     {
-        return $this->apiRequest('DELETE', $resource, $params, $convert);
+        return $this->apiRequest('DELETE', $resource, $params);
     }
 }

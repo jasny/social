@@ -42,10 +42,9 @@ class Connection extends Base
      * 
      * @param string|array $resource  One or more postcodes, addresses or lat/lng
      * @param array        $params
-     * @param boolean      $convert
      * @return object|array
      */
-    public function get($resource, array $params=[], $convert=true)
+    public function get($resource, array $params=[])
     {
         if (is_array($resource) && is_int(key($resource))) {
             $requests = [];
