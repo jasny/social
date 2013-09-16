@@ -4,7 +4,7 @@
 	<!-- Basic Page Needs
   ================================================== -->
 	<meta charset="utf-8">
-	<title>Social &middot; World's best PHP library for Facebook and Twitter APIs</title>
+	<title>Jasny Social &middot; PHP library for Facebook, Twitter and Google APIs</title>
 	<meta name="description" content="">
 	<meta name="author" content="">
 
@@ -18,7 +18,7 @@
 	<link rel="stylesheet" href="fancybox/jquery.fancybox.css">
 	<link rel="stylesheet" href="css/base.css">
 	<link rel="stylesheet" href="css/skeleton.css">
-        <link rel="stylesheet" href="js/google-code-prettify/prettify.css">
+	<link rel="stylesheet" href="js/google-code-prettify/prettify.css">
 
 	<!--[if lt IE 9]>
 		<script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
@@ -45,7 +45,7 @@
 		<nav id="navigation" class="sixteen group">
 			<ul class="six columns left main-nav">
 				<li><a href="#getting-started">Getting started</a></li>
-				<li><a href="#">Documentation</a></li>										
+				<li><a href="#" style="color:#bbb">Documentation</a></li>										
 			</ul><!-- /nav.left -->
 			<p class="four columns"></p>
 			<ul class="six columns right main-nav">
@@ -60,8 +60,8 @@
 <div id="services-wrap">
 	<section id="services" class="container">
 		<div class="header">
-                    <h2>World's best PHP library for Social APIs</h2>
-                    <a href="https://github.com/jasny/Social/archive/master.zip" class="btn-download">Download <small>v0.1.0</small></a>
+                    <h2>World's best PHP library for webservice APIs</h2>
+                    <a href="https://github.com/jasny/Social/archive/master.zip" class="btn-download">Download <small>v0.2.0</small></a>
 		</div>
 
 		<div class="section-title section-light"></div>
@@ -69,7 +69,7 @@
 			<li class="four columns alpha">
 				<img src="dummy/icon_apis.png" class="scale-with-grid dummy" alt="" />
 				<h2>Consistent interface</h2>
-				<p>Have a consistent way to develop for <strong>Facebook</strong>, <strong>Twitter</strong> and <strong>Google+</strong>*.<br><small>*Google+ not available yet.</small></p>
+				<p>Have a consistent way to develop for <strong>Facebook</strong>, <strong>Twitter</strong>, <strong>Google</strong> and other webservice APIs.<br></p>
 			</li>
 			<li class="four columns">
 				<img src="dummy/icon_parallel.png" class="scale-with-grid dummy" alt="" />
@@ -121,7 +121,7 @@ $twitter-&gt;auth();
 
 echo "&lt;h1&gt;Hi ", $twitter-&gt;me()-&gt;name, "&lt;/h1&gt;";
 
-$twitter-&gt;me()-&gt;tweet("Hello social world!");
+$twitter-&gt;post("status/update", ["status"=&gt;"Hello world!"]);
 </pre>
                     </div>
                     
@@ -136,9 +136,16 @@ $facebook-&gt;auth();
 
 echo "&lt;h1&gt;Hi ", $facebook-&gt;me()-&gt;name, "&lt;/h1&gt;";
 
-$result = $facebook-&gt;me()-&gt;getAlbums()-&gt;getPhotos();
-foreach ($result as $album=&gt;$photos) {
-    echo "&lt;h2&gt;", $album->name, "&lt;/h2&gt;";
+$albums = $facebook-&gt;get('me/albums');
+
+$facebook->prepare();
+foreach ($albums as $album) {
+    $facebook->get("{$album->id}/photos");
+}
+$results = $facebook->execute();
+
+foreach ($results as $i=&gt;$photos) {
+    echo "&lt;h2&gt;", $albums[$i]->name, "&lt;/h2&gt;";
     foreach ($photos as $photo) {
         echo "&lt;img src='", $photo->picture, "'&gt;";
     }
@@ -167,7 +174,7 @@ foreach ($result as $album=&gt;$photos) {
             Copyright <a href="http://www.jasny.net" target="_blank">Arnold Daniels</a><br>
             <a href="https://www.catincan.com/projects/close/social" target="_blank">Sponsor a new feature</a>
         </div>
-        <div class="statement">Social is free, open source and always will be.</div>
+        <div class="statement">Jasny Social is free, open source and always will be.</div>
         <div class="links">
             <a class="twitter" href="http://twitter.com/ArnoldDaniels" target="_blank">Twitter</a>
             <a class="github" href="https://github.com/jasny" target="_blank">GitHub</a>
