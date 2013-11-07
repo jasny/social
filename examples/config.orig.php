@@ -49,6 +49,20 @@ $cfg->google = (object)[
     'api_key' => '',
 ];
 
+/* 
+ * LinkedIn OAuth settings and API key
+ * 
+ * 1.) Register your application at https://www.linkedin.com/secure/developer
+ * 2.) From the next screen, copy/paste the 'API key' as 'client_id' and 'Secret key' as 'client_secret'
+ * 3.) Also copy/paste the 'User token' as 'access_token' and 'User secret' as 'access_secret' 
+ */
+$cfg->linkedin = (object)[
+    'client_id' => '',
+    'client_secret' => '',
+    'access_token' => '',
+    'access_secret' => ''
+];
+
 /*
  * SoundCloud OAuth settings
  * 
