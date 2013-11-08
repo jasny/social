@@ -77,7 +77,7 @@ class Connection extends Base implements \Social\Auth
      * @param string       $clientSecret  Application's client secret (for OAuth2)
      * @param array|object $access        [ token, expires, me ] or { 'token': string, 'expires': unixtime, 'user': me }
      */
-    public function __construct($apiKey, $clientId=null, $clientSecret=null, $access=null)
+    public function __construct($apiKey=null, $clientId=null, $clientSecret=null, $access=null)
     {
         $this->apiKey = $apiKey;
         $this->setCredentials($clientId, $clientSecret);
