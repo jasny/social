@@ -31,12 +31,12 @@ class Connection extends Base implements \Social\Auth
     /**
      * LinkedIn API URL
      */
-    const apiURL = "https://api.linkedin.com/";
+    const apiURL = "https://api.linkedin.com/v1/";
     
     /**
      * LinkedIn authentication URL
      */
-    const authURL = "https://www.linkedin.com/uas/";
+    const authURL = "https://www.linkedin.com/uas/oauth2/authorization";
     
     
     /**
@@ -57,6 +57,20 @@ class Connection extends Base implements \Social\Auth
     }
 
     /**
+     * Initialise an HTTP request object.
+     *
+     * @param object|string $request  url or value object
+     * @return object
+     */
+    protected function initRequest($request)
+    {
+        $request = parent::initRequest($request);
+        
+        if ($this->accessToken) $request->queryParams['oauth2_access_token'] = $this->accessToken;
+        return $request;
+    }
+
+    /**
      * Get error from HTTP result.
      * 
      * @param int   $httpcode
@@ -65,6 +79,8 @@ class Connection extends Base implements \Social\Auth
      */
     static protected function httpError($httpcode, $result)
     {
+	var_dump($result);
+
         if (is_object($result) && isset($result->message)) return $result->message;
         return parent::httpError($httpcode, $result);
     }
@@ -77,7 +93,7 @@ class Connection extends Base implements \Social\Auth
      */
     protected function fetchAccessToken(array $params)
     {
-        return $this->post(static::authURL . 'oauth2/accessToken', $params);
+        return $this->post(dirname(static::authURL) . '/accessToken', $params);
     }
     
 
@@ -88,6 +104,6 @@ class Connection extends Base implements \Social\Auth
      */
     public function me()
     {
-        return $this->get('~');
+        return $this->get('people/~');
     }
 }
