@@ -173,10 +173,17 @@ abstract class Connection
      * Add a request to the prepare buffer.
      * 
      * @param object $request
+     * @return Connection $this
      */
     protected function addPreparedRequest($request)
     {
-        $this->prepared->requests[] = $request;
+        if (is_array($request) && is_int(key($request))) {
+            $this->prepared->requests = array_merge($this->prepared->requests, $request);
+        } else {
+            $this->prepared->requests[] = $request;
+        }
+        
+        return $this;
     }
 
     /**
@@ -267,10 +274,12 @@ abstract class Connection
      * Run prepared HTTP request(s).
      * 
      * @param object|array $request  Values object or array of value objects
-     * @return string
+     * @return mixed
      */
     protected function request($request)
     {
+        if ($this->prepared) return $this->addPreparedRequest($request);
+        
         return !is_array($request) ? $this->singleRequest($request) : $this->multiRequest($request);
     }
     
@@ -446,7 +455,7 @@ abstract class Connection
      * @param mixed $result
      * @return string
      */
-    static protected function httpError($httpcode, $result)
+    protected static function httpError($httpcode, $result)
     {
         switch ($httpcode) {
             case 400: return '400 Bad Request';
@@ -469,7 +478,7 @@ abstract class Connection
      * 
      * @param string $url
      */
-    static protected function redirect($url)
+    protected static function redirect($url)
     {
         echo 'Redirecting you to <a href="' . htmlentities($url) . '">' . $url . '</a>';
         header("Location: $url");
@@ -484,7 +493,7 @@ abstract class Connection
      * @param array  $params  Parameters to overwrite
      * @return string
      */
-    static public function getCurrentUrl($page=null, array $params=[])
+    protected static function getCurrentUrl($page=null, array $params=[])
     {
         if (strpos($page, '://') !== false) return $this->getFullUrl($page, $params);
         
@@ -565,22 +574,6 @@ abstract class Connection
 
     
     /**
-     * De request for the web service API.
-     * 
-     * @param string  $method
-     * @param string  $resource
-     * @param array   $params
-     * @return Entity|Collection|mixed
-     */
-    protected function apiRequest($method, $resource, array $params=[])
-    {
-        $request = (object)['method'=>$method, 'url'=>$resource, 'params'=>$params];
-        
-        if ($this->prepared) return $this->addPreparedRequest($request);
-        return $this->request($request);
-    }
-
-    /**
      * GET from the web service API.
      * 
      * @param string  $resource
@@ -589,7 +582,7 @@ abstract class Connection
      */
     public function get($resource, array $params=[])
     {
-        return $this->apiRequest('GET', $resource, $params);
+        return $this->request((object)['method'=>'GET', 'url'=>$resource, 'params'=>$params]);
     }
             
     /**
@@ -601,7 +594,7 @@ abstract class Connection
      */
     public function post($resource, array $params=[])
     {
-        return $this->apiRequest('POST', $resource, $params);
+        return $this->request((object)['method'=>'POST', 'url'=>$resource, 'params'=>$params]);
     }
     
     /**
@@ -613,7 +606,7 @@ abstract class Connection
      */
     public function put($resource, array $params=[])
     {
-        return $this->apiRequest('PUT', $resource, $params);
+        return $this->request((object)['method'=>'PUT', 'url'=>$resource, 'params'=>$params]);
     }
     
     /**
@@ -625,6 +618,6 @@ abstract class Connection
      */
     public function delete($resource, array $params=[])
     {
-        return $this->apiRequest('DELETE', $resource, $params);
+        return $this->request((object)['method'=>'DELETE', 'url'=>$resource, 'params'=>$params]);
     }
 }

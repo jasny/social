@@ -20,7 +20,7 @@ use Social\Google\Connection as Google;
  * Before you start register your application at https://code.google.com/apis/console/#access and retrieve a client ID
  *  and secret.
  * 
- * Scopes:
+ * OAuth2 scopes:
  *   - plus.login
  *   - plus.me
  */

@@ -19,6 +19,8 @@ use Social\Connection as Base;
  * 
  * Before you start register your application at https://code.google.com/apis/console/#access and retrieve a client ID
  *  and secret. You might also need to enable services at https://code.google.com/apis/console/ and retrieve an API key.
+ * 
+ * @todo Batch request. See https://developers.google.com/freebase/v1/reconciliation-overview#bulk
  */
 class Connection extends Base implements \Social\Auth
 {
@@ -105,8 +107,6 @@ class Connection extends Base implements \Social\Auth
      */
     protected function getFullUrl($url, array $params=[])
     {
-        if ($url == 'oauth2/token') return dirname(self::authURL) . '/token';
-        
         if (strpos($url, '://') === false) {
             $path = isset($this->apiName) ? "{$this->apiName}/{$this->apiVersion}/" : '';
             $url = static::apiURL . $path . ltrim($url, '/');
@@ -171,6 +171,17 @@ class Connection extends Base implements \Social\Auth
     }  
 
 
+    /**
+     * Fetch the OAuth2 access token.
+     * 
+     * @param array  $params  Parameters
+     * @return object
+     */
+    protected function fetchAccessToken(array $params)
+    {
+        return $this->post(dirname(static::authURL) . '/token', $params);
+    }
+    
     /**
      * Set the authorization scope.
      * 
@@ -276,5 +287,15 @@ class Connection extends Base implements \Social\Auth
     {
         return new \Social\YouTube\Connection($this->apiKey, $this->clientId, $this->clientSecret,
             $this->getAccessInfo());
+    }
+    
+    /**
+     * Get the Freebase API
+     * 
+     * @return \Social\YouTube\Connection
+     */
+    public function freebase()
+    {
+        
     }
 }

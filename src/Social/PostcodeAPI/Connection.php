@@ -46,18 +46,17 @@ class Connection extends Base
      */
     public function get($resource, array $params=[])
     {
+        // Multiple requests
         if (is_array($resource) && is_int(key($resource))) {
             $requests = [];
             foreach ($resource as $r) {
-                $request = (object)['method'=>'GET', 'url'=>$r, 'params'=>$params];
-
-                if ($this->prepared) $this->addPreparedRequest($request);
-                 else $requests[] = $request;
+                $requests[] = (object)['method'=>'GET', 'url'=>$r, 'params'=>$params];
             }
             
-            return !empty($requests) ? $this->multiRequest($requests) : null; 
+            return $this->request($requests);
         }
         
+        // Single request
         return parent::get($resource, $params);
     }
 }
