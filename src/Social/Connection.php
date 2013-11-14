@@ -140,6 +140,7 @@ abstract class Connection
      * that you call execute() the appropriate number of times.
      * 
      * @param Collection $target  Call $target->setData($results) after execute.
+     * @param Connection $this
      */
     public function prepare($target=null)
     {
@@ -147,6 +148,8 @@ abstract class Connection
 
         if ($this->prepared) $this->prepared->requests[] = $prepared;
         $this->prepared = $prepared;
+        
+        return $this;
     }
     
     /**
@@ -165,7 +168,7 @@ abstract class Connection
         $this->prepared = null;
         
         $requests = $this->getPreparedRequests($prepared);
-        $results = $this->doMultiRequest($requests);
+        $results = $this->multiRequest($requests);
         return $this->handlePrepared($prepared, $requests, $results);
     }
     
@@ -177,8 +180,9 @@ abstract class Connection
      */
     protected function addPreparedRequest($request)
     {
-        if (is_array($request) && is_int(key($request))) {
-            $this->prepared->requests = array_merge($this->prepared->requests, $request);
+        if (is_array($request)) {
+            $prepared = (object)['target'=>null, 'requests'=>$request, 'parent'=>$this->prepared];
+            $this->prepared->requests[] = $prepared;
         } else {
             $this->prepared->requests[] = $request;
         }
@@ -198,7 +202,7 @@ abstract class Connection
         
         foreach ($prepared->requests as $request) {
             if (isset($request->requests)) $requests += $this->getPreparedRequests($request);
-              else $request[] = $request;
+              else $requests[] = $request;
         }
         
         return $requests;

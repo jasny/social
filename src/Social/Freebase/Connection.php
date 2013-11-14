@@ -10,7 +10,7 @@
 /** */
 namespace Social\Freebase;
 
-use Social\Google\Connection as Google;
+use Social\Google\Base as Google;
 
 /**
  * Freebase API connection
@@ -24,7 +24,7 @@ use Social\Google\Connection as Google;
  *   - freebase
  *   - freebase.readonly
  */
-class Connection extends Google implements \Social\Auth
+class Connection extends Google
 {
     /**
      * Api name
@@ -40,7 +40,7 @@ class Connection extends Google implements \Social\Auth
     
     
     /**
-     * Search Freebase using a free text query
+     * Search Freebase using a free text query.
      * @see https://developers.google.com/freebase/v1/search
      * 
      * <code>
@@ -59,7 +59,7 @@ class Connection extends Google implements \Social\Auth
         if (is_array($query)) {
             $requests = [];
             foreach ($query as $q) {
-                $requests[] = (object)['method'=>'GET', 'url'=>'reconcile', 'params'=>['query'=>$q] + $params];
+                $requests[] = (object)['method'=>'GET', 'url'=>'search', 'params'=>['query'=>$q] + $params];
             }
             
             return $this->request($requests); 
@@ -67,6 +67,34 @@ class Connection extends Google implements \Social\Auth
         
         // Single request
         return $this->get('search', ['query'=>$query] + $params);
+    }
+    
+    /**
+     * Search Freebase using a filter.
+     * @see https://developers.google.com/freebase/v1/search
+     * 
+     * <code>
+     *   $freebase->filter("(all type:film /film/film/directed_by:Ridley+Scott)");
+     * </code>
+     * 
+     * @param string|array $filter  Search filter
+     * @param array        $params  Other paramaters
+     * @return array
+     */
+    public function filter($filter, $params=[])
+    {
+        // Multiple requests
+        if (is_array($filter)) {
+            $requests = [];
+            foreach ($filter as $f) {
+                $requests[] = (object)['method'=>'GET', 'url'=>'search', 'params'=>['filter'=>$f] + $params];
+            }
+            
+            return $this->request($requests); 
+        }
+        
+        // Single request
+        return $this->get('search', ['filter'=>$filter] + $params);
     }
     
     /**

@@ -10,7 +10,7 @@
 /** */
 namespace Social\GooglePlus;
 
-use Social\Google\Connection as Google;
+use Social\Google\Base as Google;
 
 /**
  * Google+ API connection
@@ -24,7 +24,7 @@ use Social\Google\Connection as Google;
  *   - plus.login
  *   - plus.me
  */
-class Connection extends Google implements \Social\Auth
+class Connection extends Google
 {
     /**
      * Api name
