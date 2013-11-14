@@ -151,7 +151,7 @@ abstract class Connection
         
         return $this;
     }
-    
+
     /**
      * Execute buffered requests.
      * 
@@ -164,16 +164,55 @@ abstract class Connection
             return null;
         }
         
-        $prepared = $this->prepared;
-        $this->prepared = null;
-        
+        $prepared = $this->resetPrepared();
         $requests = $this->getPreparedRequests($prepared);
         $results = $this->multiRequest($requests);
+        
         return $this->handlePrepared($prepared, $requests, $results);
     }
-    
+
     /**
-     * Add a request to the prepare buffer.
+     * Run HTTP requests for multiple connections in parallel.
+     * 
+     * @param Connection $connection  Social connection with prepared requests
+     * @param ...
+     * @return \SplObjectStorage
+     */
+    static public function execAll(Connection $connection)
+    {
+        $connections = func_get_args();
+        $prepared = [];
+        $requests = [];
+        $handles = [];
+        $ret = new \SplObjectStorage();
+        
+        $mh = curl_multi_init();
+        
+        foreach ($connections as $i=>$connection) {
+            if (!$connection instanceof self) trigger_error("Incorrect use of " . __NAMESPACE__ . "\\" . __CLASS__
+                . ": Argument $i is not a Connection object", E_USER_ERROR);
+            
+            if (!isset($connection->prepared)) continue;
+
+            $prepared[$i] = $connection->resetPrepared();
+            $requests[$i] = $connection->getPreparedRequests($prepared[$i]);
+            $handles[$i] = $connection->mulitRequestInit($mh, $requests[$i]);
+        }
+        
+        self::multiRequestExec($mh, 10); // Timeout is always 10 seconds
+        
+        foreach ($connections as $i=>$connection) {
+            $results = $connection->multiRequestHandle($mh, $requests[$i], $handles[$i]);
+            $ret[$connection] = $connection->handlePrepared($prepared[$i], $requests[$i], $results);
+        }
+        
+        curl_multi_close($mh);
+        return $ret;
+    }
+    
+
+    /**
+     * Add a request to the prepare stack.
      * 
      * @param object $request
      * @return Connection $this
@@ -191,12 +230,12 @@ abstract class Connection
     }
 
     /**
-     * Get all requests from prepare buffer.
+     * Get all requests from prepare stack.
      * 
-     * @param array $prepared  Prepared buffer
+     * @param array $prepared  Prepare stack
      * @return array
      */
-    protected function getPreparedRequests($prepared)
+    private function getPreparedRequests($prepared)
     {
         $requests = [];
         
@@ -209,6 +248,21 @@ abstract class Connection
     }
     
     /**
+     * Reset the prepare stack.
+     * 
+     * @return array  old prepare stack
+     */
+    private function resetPrepared()
+    {
+        if ($this->prepared->parent) throw new \Exception("Connection has multiple stacked preparations");
+        
+        $prepared = $this->prepared;
+        $this->prepared = null;
+        
+        return $prepared;
+    }
+
+    /**
      * Process results from prepared requests.
      * 
      * @param array $prepared
@@ -216,7 +270,7 @@ abstract class Connection
      * @param array $results
      * @return array|Collection|Result
      */
-    protected function handlePrepared($prepared, $requests, $results)
+    private function handlePrepared($prepared, $requests, $results)
     {
         $ret = [];
         
@@ -232,6 +286,7 @@ abstract class Connection
         if ($prepared->target) $ret = $prepared->target->setData($ret);
         return $ret;
     }
+    
     
     /**
      * Initialise an HTTP request object.
@@ -317,24 +372,22 @@ abstract class Connection
         return $result;
     }
 
+    
     /**
-     * Run multiple HTTP requests in parallel.
+     * Initialise a curl multi request handler
      * 
-     * @param array $requests  Array of value objects
+     * @param resource $mh
+     * @param array    $requests
      * @return array
      */
-    protected function multiRequest(array $requests)
+    private function mulitRequestInit($mh, array &$requests)
     {
         foreach ($requests as &$request) {
             $request = $this->initRequest($request);
         }
         
-        $results = [];
-        $this->multiRequestErrors = [];
-        
         // prepare requests and handles
         $handles = [];
-        $mh = curl_multi_init();
         
         foreach ($requests as $key=>&$request) {
             if (is_scalar($request)) $request = (object)['url' => $request];
@@ -344,21 +397,42 @@ abstract class Connection
             curl_multi_add_handle($mh, $ch);
             $handles[$key] = $ch;
         }
-        unset($request);
         
-        // execute the handles
+        return $handles;
+    }
+    
+    /**
+     * Execute a curl multi requests
+     * 
+     * @param resource $mh
+     * @param int      $timeout
+     */
+    private static function multiRequestExec($mh, $timeout)
+    {
         $active = null; 
         do {
             $mrc = curl_multi_exec($mh, $active);
         } while ($mrc == CURLM_CALL_MULTI_PERFORM);
 
         while ($active && $mrc == CURLM_OK) {
-            if (curl_multi_select($mh, $this->curl_opts[CURLOPT_TIMEOUT]) != -1) {
+            if (curl_multi_select($mh, $timeout) != -1) {
                 do {
                     $mrc = curl_multi_exec($mh, $active);
                 } while ($mrc == CURLM_CALL_MULTI_PERFORM);
             }
         }
+    }
+    
+    /**
+     * Handle curl multi request responses
+     * 
+     * @param resource $mh
+     * @param array $requests
+     * @param array $handles
+     */
+    private function multiRequestHandle($mh, array $requests, array $handles)
+    {
+        $results = [];
         
         // get the results and clean up
         foreach ($handles as $key=>$ch) {
@@ -386,7 +460,25 @@ abstract class Connection
             $results[$key] = $result;
         }
         
+        return $results;
+    }
+    
+    /**
+     * Run multiple HTTP requests in parallel.
+     * 
+     * @param array $requests  Array of value objects
+     * @return array
+     */
+    protected function multiRequest(array $requests)
+    {
+        $mh = curl_multi_init();
+        
+        $handles = $this->mulitRequestInit($mh, $requests);
+        self::multiRequestExec($mh, $this->curl_opts[CURLOPT_TIMEOUT]);
+        $results = $this->multiRequestHandle($mh, $requests, $handles);
+        
         curl_multi_close($mh);
+        
         return $results;
     }
     
