@@ -207,7 +207,8 @@ class Connection extends Google
             if (is_object($value) || is_array($value)) {
                 $value = rawurlencode($key) . '=' . rawurlencode(json_encode($value));
             } else {
-                $value = rawurlencode($key) . '=' . rawurlencode($value);
+                $value = rawurlencode($key) . '=' .
+                    (is_bool($value) ? ($value ? 'true' : 'false') : rawurlencode($value));
             }
         }
        
