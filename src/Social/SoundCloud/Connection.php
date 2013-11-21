@@ -57,9 +57,9 @@ class Connection extends Base implements \Social\Auth
      * 
      * Passing a user id is not required to act as the user, you're only required to specify the access token.
      * 
-     * @param string        $appId          Application's client ID
-     * @param string        $secret         Application's client secret
-     * @param array|object  $access         [ user's access token, expire timestamp, SoundCloud id ] or { 'token': string, 'expires': unixtime, 'user': SoundCloud id }
+     * @param string $clientId      Application's client ID
+     * @param string $clientSecret  Application's client secret
+     * @param array  $access        [ user's access token, expire timestamp, SoundCloud id ] or { 'token': string, 'expires': unixtime, 'user': SoundCloud id }
      */
     public function __construct($clientId, $clientSecret, $access=null)
     {

@@ -42,7 +42,7 @@ class Connection extends Base implements \Social\Auth
     /**
      * Twitter OAuth API URL
      */
-    const oauthURL = "https://api.twitter.com/";
+    const authURL = "https://api.twitter.com/";
     
     /**
      * Twitter streaming API URL
@@ -102,7 +102,7 @@ class Connection extends Base implements \Social\Auth
      */
     public static $resourceApi = [
         '*'                          => self::restURL,
-        'oauth'                      => self::oauthURL,
+        'oauth'                      => self::authURL,
         'statuses/update_with_media' => self::uploadURL,
         'statuses/filter'            => self::streamUrl,
         'statuses/sample'            => self::streamUrl,
