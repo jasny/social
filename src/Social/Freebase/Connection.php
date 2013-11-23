@@ -119,7 +119,7 @@ class Connection extends Google
      * @param array        $params  Other paramaters
      * @return object|array
      */
-    public function reconcile($name, $kind=null, $prop=null, $params=null)
+    public function reconcile($name, $kind=null, $prop=null, $params=[])
     {
         // Multiple requests
         if (is_array($name)) {
@@ -145,7 +145,7 @@ class Connection extends Google
      * @param array               $params  Other paramaters
      * @return object|array
      */
-    public function mqlread($query, $params=null)
+    public function mqlread($query, $params=[])
     {
         return $this->get('mqlread', compact('query') + $params);
     }
@@ -160,7 +160,7 @@ class Connection extends Google
      * @param array               $params  Other paramaters
      * @return object|array
      */
-    public function mqlwrite($query, $params=null)
+    public function mqlwrite($query, $params=[])
     {
         return $this->get('mqlwrite', compact('query') + $params);
     }
@@ -169,11 +169,17 @@ class Connection extends Google
      * Return all the known facts for a given topic including images and text blurbs.
      * @see https://developers.google.com/freebase/v1/topic
      * 
+     * Multiple filters may be passed as array.
+     * 
+     * <code>
+     *   $freebase->topic("/m/02mjmr", ['filter'=>['/common', '/person']]);
+     * </code>
+     * 
      * @param string|array $id      Freebase ID or multiple IDs
      * @param array        $params  Other paramaters
      * @return object|array
      */
-    public function topic($id, $params)
+    public function topic($id, $params=[])
     {
         // Multiple requests
         if (is_array($id)) {
@@ -198,20 +204,29 @@ class Connection extends Google
      */
     protected static function buildHttpQuery($params)
     {
+        $query = "";
+        
         foreach ($params as $key=>&$value) {
             if (!isset($value)) {
                 unset($params[$key]);
                 continue;
             }
 
-            if (is_object($value) || is_array($value)) {
-                $value = rawurlencode($key) . '=' . rawurlencode(json_encode($value));
-            } else {
-                $value = rawurlencode($key) . '=' .
-                    (is_bool($value) ? ($value ? 'true' : 'false') : rawurlencode($value));
+            // Special case allowing multiple filters for topic
+            if ($key === 'filter' && is_array($value)) {
+                foreach ($value as $val) $query .= "&filter=" . rawurlencode($val);
+                continue;
             }
+            
+            if (is_object($value) || is_array($value)) {
+                $value = rawurlencode(json_encode($value));
+            } else {
+                $value = (is_bool($value) ? ($value ? 'true' : 'false') : rawurlencode($value));
+            }
+            
+            $query .= '&' . rawurlencode($key) . '=' . $value;
         }
-       
-        return join('&', $params);
+        
+        return substr($query, 1);
     }
 }
