@@ -36,7 +36,7 @@ class Connection extends Base
     /**
      * Google Maps API URL
      */
-    const apiURL = "https://maps.googleapis.com/api/";
+    const apiURL = "https://maps.googleapis.com/maps/api/";
     
     
     /**
@@ -77,5 +77,87 @@ class Connection extends Base
         }
         
         return $request;
+    }
+    
+    /**
+     * Build a HTTP query, converting arrays to a comma seperated list and removing null parameters.
+     * 
+     * @param type $params
+     * @return string
+     */
+    protected static function buildHttpQuery($params)
+    {
+        if (isset($params['components']) && is_array($params['components'])) {
+            $components = [];
+            foreach ($params['components'] as $key=>$value) $components[] = "$key:$value";
+            $params['components'] = join('|', $components);
+        }
+        
+        return parent::buildHttpQuery($params);
+    }
+    
+    
+    /**
+     * Calculate directions between locations.
+     * 
+     * @param string $origin       Address or object with lat/lon
+     * @param string $destination  Address or object with lat/lon
+     * @param array  $params       Additional parameters
+     * @return object
+     */
+    public function directions($origin, $destination, array $params=[])
+    {
+        if (!is_scalar($origin)) {
+            $latlng = (array)$origin;
+            $latitude = @$latlng['lat'] ?: $latlng['latitude'];
+            $longitute = @$latlng['lon'] ?: @$latlng['lng'] ?: $latlng['longitute'];            
+            $origin = "$latitude,$longitute";
+        }
+        
+        if (!is_scalar($destination)) {
+            $latlng = (array)$destination;
+            $latitude = @$latlng['lat'] ?: $latlng['latitude'];
+            $longitute = @$latlng['lon'] ?: @$latlng['lng'] ?: $latlng['longitute'];            
+            $destination = "$latitude,$longitute";
+        }
+        
+        $this->get('directions', compact('origin', 'destination') + $params);
+    }
+    
+    /**
+     * Find latitude, longitude and address components based on address.
+     * @see https://developers.google.com/maps/documentation/geocoding/
+     * 
+     * @param string|array $address  Address or associated array with address components  
+     * @param array        $params   Additional parameters
+     * @return object
+     */
+    public function geocode($address, array $params=[])
+    {
+        if (is_array($address)) {
+            $params['components'] = (array)$address;
+            $address = @$components['address'];
+            unset($params['components']['address']);
+        }
+        
+        return $this->get('geocode', compact('address') + $params);
+    }
+    
+    /**
+     * Find address components based on latitude and longitude
+     * 
+     * @param string|array|object $latlng  Array with keys 'lat' or 'latitide' and 'lon', 'lng' or 'longitute'.
+     * @param array               $params
+     */
+    public function reverseGeocode($latlng, array $params=[])
+    {
+        if (!is_scalar($latlng)) {
+            $latlng = (array)$latlng;
+            $latitude = @$latlng['lat'] ?: $latlng['latitude'];
+            $longitute = @$latlng['lon'] ?: @$latlng['lng'] ?: $latlng['longitute'];
+            $latlng = "$latitude,$longitute";
+        }
+        
+        return $this->get('geocode', compact('latlng') + $params);
     }
 }
