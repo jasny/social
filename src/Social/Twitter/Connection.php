@@ -22,6 +22,7 @@ use Social\Connection as Base;
  */
 class Connection extends Base implements \Social\Auth
 {
+    use \Social\EntityMapping;
     use \Social\OAuth1;
 
     /**
@@ -464,5 +465,98 @@ class Connection extends Base implements \Social\Auth
     public function user($data, $stub=Entity::AUTOEXPAND)
     {
         return $this->entity('user', $data, $stub);
+    }
+    
+    /**
+     * Convert data to Entity, Collection or DateTime.
+     * 
+     * @param mixed    $data
+     * @param string   $type     Entity type, true is autodetect
+     * @param boolean  $stub     If an Entity, asume it's a stub
+     * @param object   $request  Request used to get this data
+     * @return Entity|Collection|DateTime|mixed
+     */
+    public function convert($data, $type=null, $stub=Entity::NO_STUB, $request=null)
+    {
+        if ($type === true) $type = $this->detectType($request->url);
+        
+        // Don't convert
+        if ($data instanceof Entity || $data instanceof Collection || $data instanceof \DateTime) {
+            return $data;
+        }
+        
+        // Scalar
+        if (is_scalar($data) || is_null($data)) {
+            if (preg_match('/^\w{3}\s\w{3}\s\d+\s\d+:\d+:\d+\s\+\d{4}\s\d{4}$/', $data)) return new \DateTime($data);
+            if (isset($type)) return $this->entity($type, $data, ENTITY::STUB);
+            return $data;
+        }
+
+        if (isset($type)) {
+            // Entity
+            if ($data instanceof \stdClass && isset($data->id)) {
+                return $this->entity($type, $data, $stub);
+            }
+
+            // Collection
+            if ($data instanceof \stdClass && array_key_exists('next_cursor', $data)) {
+                $cursor_keys = ['next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str'];
+                list($key) = array_diff(array_keys(get_object_vars($data)), $cursor_keys);
+                $request->params['cursor'] = $data->next_cursor_str;
+
+                foreach ($data->$key as &$value) $value = $this->entity($type, $value, $stub);
+                return new Collection($this, $data->$key, $data->next_cursor_str ? $request : null);
+            }
+
+            if (is_array($data) && $type) {
+                if ($request && array_key_exists('max_id', $request->params)) {
+                    $last = end($data);
+                    $request->params['max_id'] = $last && isset($last->id) ?
+                        self::decrementId(isset($last->id_str) ? $last->id_str : $last->id) : null;
+                }
+
+                foreach ($data as &$value) $value = $this->entity($type, $value, $stub);
+                return new Collection($this, $data, $request && !empty($request->params['max_id']) ? $request : null);
+            }
+        }
+        
+        // Value object
+        if ($data instanceof \stdClass) {
+            foreach ($data as $key=>&$value) {
+                $type = $key == 'user' || $key == 'user_mentions' ? 'user' : ($key == 'status' ? 'tweet' : null);
+                $value = $this->convert($value, $type);
+            }
+            return $data;
+        }
+        
+        // Array
+        if (is_array($data)) {
+            foreach ($data as &$value) {
+                $value = $this->convert($value);
+            }
+            return $data;
+        }
+        
+        // Probably some other kind of object
+        return $data;
+    }
+    
+    /**
+     * Subtract 1 from ID.
+     * 
+     * @param string $id  A big integer
+     * @return string
+     */
+    static private function decrementId($id)
+    {
+        // We have bcsub :)
+        if (function_exists('bcsub')) return bcsub($id, 1);
+        
+        // No bcsub :/
+        $i = strlen($id) - 1;
+        while ($id[$i] == 0) $id[$i++] = 9;
+        $id[$i]--;
+        
+        return $id;
     }
 }

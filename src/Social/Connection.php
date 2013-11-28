@@ -139,7 +139,7 @@ abstract class Connection
      * Request buffers are stackable, that is, you may call prepare() while another prepare() is active. Just make sure
      * that you call execute() the appropriate number of times.
      * 
-     * @param Collection $target  Call $target->setData($results) after execute.
+     * @param Entity|Result $target  Sets data of target by calling $target->processResult()
      * @param Connection $this
      */
     public function prepare($target=null)
@@ -160,8 +160,9 @@ abstract class Connection
     public function execute()
     {
         if ($this->prepared->parent) {
+            $target = $this->prepared->target;
             $this->prepared = $this->prepared->parent;
-            return null;
+            return $target;
         }
         
         $prepared = $this->resetPrepared();
@@ -172,7 +173,7 @@ abstract class Connection
     }
 
     /**
-     * Run HTTP requests for multiple connections in parallel.
+     * Execute buffered requests for different Social connenctions.
      * 
      * @param Connection $connection  Social connection with prepared requests
      * @param ...
@@ -276,15 +277,17 @@ abstract class Connection
         
         foreach ($prepared->requests as $i=>$request) {
             if (isset($request->requests)) {
-                $ret[$i] = $this->handlePrepared($request, $requests, $results);
+                $result = $this->handlePrepared($request, $requests, $results);
             } else {
                 $key = array_search($request, $requests, true);
-                if (isset($results[$key])) $ret[$i] = $results[$key];
+                $result = isset($results[$key]) ? $results[$key] : null;
             }
+
+            if ($prepared->target) $prepared->target->processResult($result, $i);
+             else $ret[$i] = $result;
         }
         
-        if ($prepared->target) $ret = $prepared->target->setData($ret);
-        return $ret;
+        return $prepared->target ?: $ret;
     }
     
     
