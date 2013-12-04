@@ -452,17 +452,15 @@ class Connection extends Base implements \Social\Auth
         $params['q'] = $query;
         return $this->get('users/search', $params);
     }
-    
+
     
     /**
-     * Short notation for $twitter->entity('user', $data, $stub);
+     * Get the current user.
      * 
-     * @param array|int|string $data  Properties or Twitter ID/username
-     * @param int              $stub  Entity::NO_STUB, Entity::STUB or Entity::AUTOEXPAND
-     * @return User
+     * @return Me
      */
-    public function user($data, $stub=Entity::AUTOEXPAND)
+    public function me()
     {
-        return $this->entity('user', $data, $stub);
+        return new Me($this->get('account/verify_credentials'));
     }
 }

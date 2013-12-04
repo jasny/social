@@ -121,6 +121,8 @@ class Connection extends Base implements \Social\Auth
     
     /**
      * Get the authenticated user
+     * 
+     * @return Me
      */
     public function me()
     {

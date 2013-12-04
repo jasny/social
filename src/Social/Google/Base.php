@@ -198,11 +198,11 @@ abstract class Base extends \Social\Connection implements \Social\Auth
     /**
      * Get current user profile.
      * 
-     * @return object
+     * @return Me
      */
     public function me()
     {
         // Use absolute URL, so this will also work when a different API is selected.
-        return $this->get(static::apiURL . 'oauth2/v2/userinfo');
+        return new Me($this->get(static::apiURL . 'oauth2/v2/userinfo'));
     }
 }
