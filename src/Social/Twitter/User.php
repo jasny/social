@@ -106,6 +106,8 @@ class User implements \Social\User, \Social\Profile
      */
     public function getPicture($size=null)
     {
+        if (!empty($this->default_profile_image)) return null; // Don't return twitter's default image
+        
         if (!isset($this->profile_image_url) && !isset($this->profile_image_url_https)) return null;
         
         $url = isset($this->profile_image_url_https) && !empty($_SERVER['HTTPS']) ?
