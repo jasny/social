@@ -1,7 +1,7 @@
 <?php
 /**
  * Jasny Social
- * World's best PHP library for webservice APIs
+ * A PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
  * @copyright 2012 Jasny
@@ -100,10 +100,10 @@ class Connection extends Base implements \Social\Auth
     /**
      * Get current user profile.
      * 
-     * @return object
+     * @return Me
      */
     public function me()
     {
-        return $this->get('people/~');
+        return new Me($this->get('people/~:(' . join(',', Me::$fields) . ')'));
     }
 }
