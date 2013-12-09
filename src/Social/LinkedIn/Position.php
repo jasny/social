@@ -52,6 +52,8 @@ class Position implements \Social\Employment
             $this->_headline = $data;
             list($this->title, $this->company) = explode(' at ', $this->_headline);
         }
+
+        $this->cast();
     }
     
     /**

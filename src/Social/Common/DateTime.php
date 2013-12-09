@@ -13,7 +13,7 @@ namespace Social\Common;
 /**
  * Value representing a date/time
  */
-class DateTime implements \DateTime
+class DateTime extends \DateTime
 {
     protected $_in;
     
@@ -26,6 +26,8 @@ class DateTime implements \DateTime
     {
         if (!is_scalar($date)) {
             foreach ($date as $key=>$value) $this->$key = $value;
+
+            parent::__construct();
             parent::setDate(isset($this->year) ? $this->year : 1900, isset($this->month) ? $this->month : 1,
                 isset($this->day) ? $this->day : 1);
         } else {

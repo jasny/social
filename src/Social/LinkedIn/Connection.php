@@ -104,6 +104,6 @@ class Connection extends Base implements \Social\Auth
      */
     public function me()
     {
-        return new Me($this->get('people/~'));
+        return new Me($this->get('people/~:(' . join(',', Me::$fields) . ')'));
     }
 }

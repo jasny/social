@@ -72,9 +72,11 @@ class Company implements \Social\Company, \Social\Profile
      */
     protected function cast()
     { 
-        foreach ($this->locations as &$location) {
-            $location->address = new Address($location->address);
-            if (!isset($this->_address) || !empty($location->isHeadquarters)) $this->_address = $location->address;
+        if (isset($this->locations)) {
+            foreach ($this->locations as &$location) {
+                $location->address = new Address($location->address);
+                if (!isset($this->_address) || !empty($location->isHeadquarters)) $this->_address = $location->address;
+            }
         }
     }
     

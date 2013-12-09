@@ -80,11 +80,6 @@ class Person implements \Social\Person, \Social\User, \Social\Profile
         // r_contactinfo
         'phone-numbers',
         'bound-account-types',
-        'account-type',
-        'binding-status',
-        'is-primary',
-        'provider-account-id',
-        'provider-account-name',
         'im-accounts',
         'main-address',
         'twitter-accounts',
@@ -116,7 +111,9 @@ class Person implements \Social\Person, \Social\User, \Social\Profile
         if (isset($this->location)) $this->location = new Address($this->location);
         
         if (isset($this->positions)) {
-            foreach ($this->positions as &$position) $position = new Position($position);
+            foreach ($this->positions->values as &$position) {
+               $position = new Position($position);
+            }
         }
     }
     
@@ -293,7 +290,7 @@ class Person implements \Social\Person, \Social\User, \Social\Profile
      */
     public function getEmployment()
     {
-        if (!empty($this->positions)) return $this->positions[0];
+        if (!empty($this->positions->values)) return $this->positions->values[0];
         return isset($this->headline) ? new Position($this->headline) : null;
     }
     
