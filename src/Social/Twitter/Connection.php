@@ -365,6 +365,8 @@ class Connection extends Base implements \Social\Auth
             if (!isset($returnUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         }
 
+        $level = $level ?: 'authorize';
+
 	$oauth = ['oauth_callback'=>$returnUrl];
         $request = $this->initRequest(['method'=>'POST', 'url'=>'oauth/request_token', 'oauth'=>$oauth]);
         $response = $this->request($request);
@@ -378,12 +380,12 @@ class Connection extends Base implements \Social\Auth
     /**
      * Authenticate
      * 
-     * @param string $level   'authorize' or 'authenticate'
+     * @param string $level   'authorize' (default) or 'authenticate'
      */
-    public function auth($level='authorize')
+    public function auth($level=null)
     {
         if ($this->isAuth()) return;
-        
+
         if (isset($_GET['oauth_verifier'])) {
             $this->handleAuthResponse();
             return self::redirect($this->getCurrentUrl());
