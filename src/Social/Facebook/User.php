@@ -21,6 +21,9 @@ class User implements \Social\Person, \Social\User, \Social\Profile
 {
     use Profile;
     
+    /** @var Employment */
+    protected $_employment;
+
     /**
      * Class constructor
      * 
@@ -46,8 +49,15 @@ class User implements \Social\Person, \Social\User, \Social\Profile
         if (isset($this->work->location) && !$this->work->location instanceof Location)
             $this->work->location = new Location($this->work->location);
         
-        if (isset($this->work->employer) && !$this->work->employer instanceof Company)
-            $this->work->employer = new Company((array)$this->work->employer + ['location'=>$this->work->location]);
+        if (isset($this->work) && !empty($this->work)) {
+            $this->_employment = new Employment(['job_title'=>$this->work[0]->description,
+                 'address'=>$this->work[0]->location, 'company'=>$this->getCompany()]);
+
+            foreach ($this->work as $work) {
+                if (isset($work->employer) && !$work->employer instanceof Company)
+                    $work->employer = new Company((array)$work->employer + ['location'=>$work->location]);
+            }
+        }
     }
     
     
@@ -153,7 +163,7 @@ class User implements \Social\Person, \Social\User, \Social\Profile
      */
     public function getWebsite()
     {
-        return isset($this->website) ? preg_replace('/\r?\n.*$/', '', $this->website) : null;
+        return isset($this->website) ? preg_replace('/^([^\r\n]++).*$/s', '$1', $this->website) : null;
     }
     
     /**
@@ -163,7 +173,7 @@ class User implements \Social\Person, \Social\User, \Social\Profile
      */
     public function getLocation()
     {
-        return isset($this->location) ? new Location($this->location) : null;
+        return isset($this->location) ? $this->location : null;
     }
     
     
@@ -174,7 +184,7 @@ class User implements \Social\Person, \Social\User, \Social\Profile
      */
     public function getDescription()
     {
-        return null;
+        return isset($this->bio) ? $this->bio : null;
     }
     
     /**
@@ -184,10 +194,7 @@ class User implements \Social\Person, \Social\User, \Social\Profile
      */
     public function getEmployment()
     {
-        if (!isset($this->work)) return null;
-        
-        return new Employment(['job_title'=>@$this->work->description, 'address'=>$this->work->location,
-            'company'=>$this->getCompany()]);
+        return $this->_employment;
     }
     
     /**
@@ -197,7 +204,7 @@ class User implements \Social\Person, \Social\User, \Social\Profile
      */
     public function getCompany()
     {
-        return isset($this->work->company) ? $this->work->company : null;
+        return isset($this->work[0]->employer) ? $this->work[0]->employer : null;
     }
     
     

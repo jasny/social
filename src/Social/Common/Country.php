@@ -60,7 +60,7 @@ class Country implements \Social\Country
     public function getName()
     {
         $in = $this->_in ?: (isset($this->code) ? $this->code : $this->name);
-        return Countries::getName($in);
+        return Countries::getName($in) ?: $in;
     }
     
     

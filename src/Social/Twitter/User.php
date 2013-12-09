@@ -27,6 +27,17 @@ class User implements \Social\User, \Social\Profile
         foreach ($data as $key=>$value) {
             $this->$key = $value;
         }
+
+        $this->cast();
+    }
+
+    /**
+     * Cast some of the data to entities
+     */
+    protected function cast()
+    {
+        if (isset($this->location) && !$this->location instanceof Location)
+            $this->location = new Location($this->location);
     }
     
     
@@ -132,11 +143,13 @@ class User implements \Social\User, \Social\Profile
      * Get user's website.
      * Return the main (or first) website, if multiple are known.
      * 
+     * @todo Expand t.co url
+     *
      * @return string
      */
     public function getWebsite()
     {
-        return null;
+        return isset($this->url) ? $this->url : null;
     }
     
     /**
@@ -146,7 +159,7 @@ class User implements \Social\User, \Social\Profile
      */
     public function getLocation()
     {
-        return null;
+        return isset($this->location) ? $this->location : null;
     }
     
     
@@ -157,7 +170,7 @@ class User implements \Social\User, \Social\Profile
      */
     public function getDescription()
     {
-        return null;
+        return isset($this->description) ? $this->description : null;
     }
     
     /**

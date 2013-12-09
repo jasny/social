@@ -2,7 +2,8 @@
 
 set_include_path(dirname(__DIR__) . '/src/' . DIRECTORY_SEPARATOR . get_include_path());
 
-spl_autoload_register(function($name) { require_once strtr($name, '\\_', '//') . '.php'; }); // Autoloader
+$loader = require_once(dirname(__DIR__) . "/vendor/autoload.php");
+$loader->setUseIncludePath(true);
 
 session_start();
 

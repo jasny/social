@@ -231,10 +231,12 @@ trait OAuth2
      * Set the authorization scope.
      * 
      * @param array|string $scope
+     * @return string
      */
     protected function setScope($scope)
     {
-        $this->scope = $scope;
+        $this->scope = is_string($scope) ? explode(',', $scope) : $scope;
+        return is_string($scope) ? join(',', $scope) : $scope;
     }
     
     
@@ -301,7 +303,7 @@ trait OAuth2
      */
     public function auth($scope=null, $redirectUrl=null, $params=[])
     {
-        $this->setScope($scope);
+        $scope = $this->setScope($scope);
 
         if ($this->isAuth()) return $this;
         

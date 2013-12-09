@@ -8,7 +8,7 @@
  */
 
 /** */
-namespace Social\Common;
+namespace Social\Twitter;
 
 /**
  * Data representing a location.

@@ -16,6 +16,8 @@ $me = $twitter->me();
 
 //if ($me->screen_name != 'ArnoldDaniels' && !$me->isFollowing('ArnoldDaniels')) $arnold = $me->follow('ArnoldDaniels'); // Everybody who runs this demo will follow me.. ghne ghne
 
+var_dump($twitter->get('statuses/user_timeline'));
+
 ?>
 <!DOCTYPE html>
 <html>

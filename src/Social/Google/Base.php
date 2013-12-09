@@ -179,6 +179,7 @@ abstract class Base extends \Social\Connection implements \Social\Auth
      * Set the authorization scope.
      * 
      * @param array|string $scope
+     * @return string
      */
     protected function setScope($scope)
     {
@@ -192,7 +193,8 @@ abstract class Base extends \Social\Connection implements \Social\Auth
         }
         
         $this->scope = $scope;
-    }    
+        return join(' ', $scope);
+    }
     	
 
     /**
