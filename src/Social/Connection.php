@@ -199,7 +199,9 @@ abstract class Connection
             $handles[$i] = $connection->mulitRequestInit($mh, $requests[$i]);
         }
         
-        self::multiRequestExec($mh, 10); // Timeout is always 10 seconds
+        do {
+            curl_multi_exec($mh, $running);
+        } while ($running);
         
         foreach ($connections as $i=>$connection) {
             $results = $connection->multiRequestHandle($mh, $requests[$i], $handles[$i]);
@@ -402,28 +404,6 @@ abstract class Connection
     }
     
     /**
-     * Execute a curl multi requests
-     * 
-     * @param resource $mh
-     * @param int      $timeout
-     */
-    private static function multiRequestExec($mh, $timeout)
-    {
-        $active = null; 
-        do {
-            $mrc = curl_multi_exec($mh, $active);
-        } while ($mrc == CURLM_CALL_MULTI_PERFORM);
-
-        while ($active && $mrc == CURLM_OK) {
-            if (curl_multi_select($mh, $timeout) != -1) {
-                do {
-                    $mrc = curl_multi_exec($mh, $active);
-                } while ($mrc == CURLM_CALL_MULTI_PERFORM);
-            }
-        }
-    }
-    
-    /**
      * Handle curl multi request responses
      * 
      * @param resource $mh
@@ -474,7 +454,11 @@ abstract class Connection
         $mh = curl_multi_init();
         
         $handles = $this->mulitRequestInit($mh, $requests);
-        self::multiRequestExec($mh, $this->curl_opts[CURLOPT_TIMEOUT]);
+        
+        do {
+            curl_multi_exec($mh, $running);
+        } while ($running);
+        
         $results = $this->multiRequestHandle($mh, $requests, $handles);
         
         curl_multi_close($mh);
