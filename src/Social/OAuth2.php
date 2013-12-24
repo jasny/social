@@ -205,7 +205,6 @@ trait OAuth2
     {
         if (!isset($this->clientId))
             throw new \Exception("This application's client ID (required to use OAuth2) isn't set.");
-
         $redirectUrl = $this->getCurrentUrl($redirectUrl);
         if (!isset($redirectUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
 
