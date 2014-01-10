@@ -131,8 +131,8 @@ class Connection extends Base
      */
     public function avatarExists($email)
     {
-        $url = 'avatar/' . $this->hash($email) . "?d=404";
-        $info = $this->request((object)['method'=>'HEAD', 'url'=>$url, 'expect'=>[404]]);
+        $url = 'avatar/' . $this->hash($email);
+        $info = $this->request((object)['method'=>'HEAD', 'url'=>$url, 'params'=>['d'=>404], 'expect'=>[404]]);
         
         return $info->http_code != 404;
     }
