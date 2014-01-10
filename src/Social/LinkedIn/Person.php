@@ -44,6 +44,7 @@ class Person implements \Social\Person, \Social\User, \Social\Profile
         'specialties',
         'positions',
         'picture-url',
+        'picture-urls::(original)',
         'site-standard-profile-request',
         'api-standard-profile-request',
         'public-profile-url',
@@ -223,12 +224,18 @@ class Person implements \Social\Person, \Social\User, \Social\Profile
     /**
      * Get url to profile picture.
      * 
-     * @param string $size  Not used
+     * @param string $size  'original' (default) or 'small'
      * @return string
      */
     public function getPicture($size=null)
     {
-        return isset($this->pictureUrl) ? $this->pictureUrl : null;
+        if (preg_match('/^\d*x\d*$/', $size)) {
+            list($width, $height) = explode('x', $size);
+            if ($width <= 80 && $height <= 80) $size = 'small';
+        }
+
+        if (!$this->pictureUrl && !isset($this->pictureUrls->values[0])) return null;
+        return $size === 'small' || !isset($this->pictureUrls->values[0]) ? $this->pictureUrl : $this->pictureUrls->values[0];
     }
     
     
