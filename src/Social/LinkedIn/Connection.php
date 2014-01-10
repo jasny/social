@@ -14,7 +14,7 @@ use Social\Connection as Base;
 
 /**
  * LinkedIn API connection.
- * @see http://developers.linkedin.com/docs/api/reference
+ * @link http://developers.linkedin.com/docs/api/reference
  * @package LinkedIn
  * 
  * Before you start register your application at http://linkedin.com/you/apps/ and retrieve a client ID and secret

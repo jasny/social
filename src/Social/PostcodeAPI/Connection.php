@@ -14,7 +14,7 @@ use Social\Connection as Base;
 
 /**
  * Postcode API Connection (for Dutch postalcodes).
- * @see http://www.postcodeapi.nu
+ * @link http://www.postcodeapi.nu
  * @package PostcodeAPI
  * 
  * Before you start request an API key at http://www.postcodeapi.nu/#request.

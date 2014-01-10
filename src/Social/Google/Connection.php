@@ -12,7 +12,7 @@ namespace Social\Google;
 
 /**
  * Connection for the Google API's.
- * @see http://developers.Google.com/docs/api/reference
+ * @link http://developers.Google.com/docs/api/reference
  * @package Google
  * 
  * Before you start register your application at https://code.google.com/apis/console/#access and retrieve a client ID
@@ -22,7 +22,7 @@ class Connection extends Base
 {
     /**
      * Get a connection to one of the Google APIs.
-     * @see https://developers.google.com/apis-explorer/
+     * @link https://developers.google.com/apis-explorer/
      * 
      * Specifying the version is recommended. If you omit the version, the preferred version will be fetched using the
      * discovery service.
@@ -53,7 +53,7 @@ class Connection extends Base
     
     /**
      * Discover this API.
-     * @see https://developers.google.com/discovery/
+     * @link https://developers.google.com/discovery/
      * 
      * @return object
      */

@@ -21,7 +21,7 @@ use Social\Connection as Base;
  *  - Time Zone API
  *  - Places API
  * 
- * @see https://developers.google.com/maps/documentation/webservices/
+ * @link https://developers.google.com/maps/documentation/webservices/
  * @package GoogleMaps
  * 
  * For the Places API you need to enable the service at https://code.google.com/apis/console/ and retrieve an API key.
@@ -126,7 +126,7 @@ class Connection extends Base
     
     /**
      * Find latitude, longitude and address components based on address.
-     * @see https://developers.google.com/maps/documentation/geocoding/
+     * @link https://developers.google.com/maps/documentation/geocoding/
      * 
      * @param string|array $address  Address or associated array with address components  
      * @param array        $params   Additional parameters

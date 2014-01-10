@@ -14,7 +14,7 @@ use Social\Connection as Base;
 
 /**
  * Gravatar Graph API connection.
- * @see http://developers.facebook.com/docs/reference/api/
+ * @link http://developers.facebook.com/docs/reference/api/
  * @package Gravatar
  * 
  * Before you start register your application at https://developers.facebook.com/apps and retrieve a client ID and

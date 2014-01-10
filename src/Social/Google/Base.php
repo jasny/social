@@ -12,7 +12,7 @@ namespace Social\Google;
 
 /**
  * Base class for a Google API connection.
- * @see http://developers.Google.com/docs/api/reference
+ * @link http://developers.Google.com/docs/api/reference
  * @package Google
  */
 abstract class Base extends \Social\Connection implements \Social\Auth

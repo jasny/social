@@ -14,7 +14,7 @@ use Social\Google\Connection as Google;
 
 /**
  * YouTube API connection.
- * @see https://developers.google.com/youtube/v3
+ * @link https://developers.google.com/youtube/v3
  * @package YouTube
  * 
  * Before you start register your application at https://code.google.com/apis/console/#access and retrieve a client ID

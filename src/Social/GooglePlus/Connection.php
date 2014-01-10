@@ -14,7 +14,7 @@ use Social\Google\Base as Google;
 
 /**
  * Google+ API connection
- * @see https://developers.google.com/+/api/
+ * @link https://developers.google.com/+/api/
  * @package GooglePlus
  * 
  * Before you start register your application at https://code.google.com/apis/console/#access and retrieve a client ID

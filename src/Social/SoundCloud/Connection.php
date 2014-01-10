@@ -14,7 +14,7 @@ use Social\Connection as Base;
 
 /**
  * SoundCloud  API connection.
- * @see http://developers.soundcloud.com/docs/api/reference
+ * @link http://developers.soundcloud.com/docs/api/reference
  * @package SoundCloud
  * 
  * Before you start register your application at http://soundcloud.com/you/apps/ and retrieve a client ID and secret

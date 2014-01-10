@@ -15,7 +15,7 @@ use Social\Collection;
 
 /**
  * Facebook Graph API connection.
- * @see http://developers.facebook.com/docs/reference/api/
+ * @link http://developers.facebook.com/docs/reference/api/
  * @package Facebook
  * 
  * Before you start register your application at https://developers.facebook.com/apps and retrieve a client ID and
@@ -75,7 +75,7 @@ class Connection extends Base implements \Social\Auth
     
     /**
      * Request a new access token with an extended lifetime of 60 days from now.
-     * @see https://developers.facebook.com/docs/facebook-login/access-tokens/#extending
+     * @link https://developers.facebook.com/docs/facebook-login/access-tokens/#extending
      *
      * @return object  { 'token': string, 'expires': unixtime }
      */

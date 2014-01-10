@@ -14,7 +14,7 @@ use Social\Google\Base as Google;
 
 /**
  * Freebase API connection
- * @see https://developers.google.com/freebase/v1
+ * @link https://developers.google.com/freebase/v1
  * @package Freebase
  * 
  * Before you start register your application at https://code.google.com/apis/console/#access and retrieve an API key.
@@ -41,7 +41,7 @@ class Connection extends Google
     
     /**
      * Search Freebase using a free text query.
-     * @see https://developers.google.com/freebase/v1/search
+     * @link https://developers.google.com/freebase/v1/search
      * 
      * <code>
      *   $freebase->search("Obama"); // 1 request
@@ -71,7 +71,7 @@ class Connection extends Google
     
     /**
      * Search Freebase using a filter.
-     * @see https://developers.google.com/freebase/v1/search
+     * @link https://developers.google.com/freebase/v1/search
      * 
      * <code>
      *   $freebase->filter("(all type:film /film/film/directed_by:Ridley+Scott)");
@@ -99,7 +99,7 @@ class Connection extends Google
     
     /**
      * Uniquely match an entity in Freebase with some structured data about that entity.
-     * @see https://developers.google.com/freebase/v1/reconcile
+     * @link https://developers.google.com/freebase/v1/reconcile
      * 
      * <code>
      *   $freebase->reconcile("Prometheus"); // 1 request
@@ -138,8 +138,8 @@ class Connection extends Google
     
     /**
      * Query Freebase using the Metaweb query language (MQL).
-     * @see https://developers.google.com/freebase/v1/mqlread
-     * @see http://mql.freebaseapps.com/
+     * @link https://developers.google.com/freebase/v1/mqlread
+     * @link http://mql.freebaseapps.com/
      * 
      * @param array|object|string $query   MQL query
      * @param array               $params  Other paramaters
@@ -153,8 +153,8 @@ class Connection extends Google
     /**
      * Write to Freebase using the Metaweb query language (MQL).
      * 
-     * @see https://developers.google.com/freebase/v1/mqlwrite
-     * @see http://mql.freebaseapps.com/
+     * @link https://developers.google.com/freebase/v1/mqlwrite
+     * @link http://mql.freebaseapps.com/
      * 
      * @param array|object|string $query   MQL query
      * @param array               $params  Other paramaters
@@ -167,7 +167,7 @@ class Connection extends Google
     
     /**
      * Return all the known facts for a given topic including images and text blurbs.
-     * @see https://developers.google.com/freebase/v1/topic
+     * @link https://developers.google.com/freebase/v1/topic
      * 
      * Multiple filters may be passed as array.
      * 

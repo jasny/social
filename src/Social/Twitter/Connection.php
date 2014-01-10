@@ -14,7 +14,7 @@ use Social\Connection as Base;
 
 /**
  * Twitter API connection.
- * @see https://dev.twitter.com/docs
+ * @link https://dev.twitter.com/docs
  * @package Twitter
  * 
  * Before you start, register your application at https://dev.twitter.com/apps and retrieve a custumor key and

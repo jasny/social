@@ -14,7 +14,7 @@ use Social\Connection as Base;
 
 /**
  * Yahoo! API connection.
- * @see http://developers.soundcloud.com/docs/api/reference
+ * @link http://developers.soundcloud.com/docs/api/reference
  * @package Yahoo
  * 
  * Before you start register your application at https://developer.apps.yahoo.com/projects and retrieve a consumer
@@ -97,7 +97,7 @@ class Connection extends Base implements \Social\Auth
     
     /**
      * Query Yahoo! using YQL.
-     * @see http://developer.yahoo.com/yql/
+     * @link http://developer.yahoo.com/yql/
      * 
      * You may use placeholders in the query using `:placeholder`.
      * <code>
