@@ -110,7 +110,7 @@ interface Person
     public function getCompany();
     
     /**
-     * Get person's / bio
+     * Get person's bio
      * 
      * @return string
      */

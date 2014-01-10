@@ -309,7 +309,8 @@ abstract class Connection
         if (!isset($request->method)) $request->method = 'GET';
         if (!isset($request->headers)) $request->headers = [];
         if (!isset($request->queryParams)) $request->queryParams = [];
-
+        if (!isset($request->expect)) $request->expect = [];
+        
         $request->params = (isset($request->params) ? $request->params : []) + static::getDefaultParams($request->url);
         $request->url = $this->processPlaceholders($request->url, $request->params);
 
@@ -358,15 +359,15 @@ abstract class Connection
         
         $response = curl_exec($ch);        
         $error = curl_error($ch);
-        $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        list($contenttype) = explode(';', curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
+        $info = (object)curl_getinfo($ch);
+        list($contenttype) = explode(';', $info->content_type);
         
         curl_close($ch);
+        
+        $result = $request->method === 'HEAD' ? $info : $this->decodeResponse($contenttype, $response);
 
-        $result = $this->decodeResponse($contenttype, $response);
-
-        if ($error || $httpcode >= 300) {
-            if (!$error) $error = static::httpError($httpcode, $result);
+        if ($error || ($info->http_code >= 300 && !in_array($info->http_code, $request->expect))) {
+            if (!$error) $error = static::httpError($info->http_code, $result, $request);
             if ($error !== false) throw new \Exception("HTTP " . (@$request->method ?: 'GET') . " request for '" .
                 $this->getFullUrl($request->url). "' failed: $error");
         }
@@ -420,16 +421,16 @@ abstract class Connection
             
             $response = curl_multi_getcontent($ch);            
             $error = curl_error($ch);
-            $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            list($contenttype) = explode(';', curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
+            $info = (object)curl_getinfo($ch);
+            list($contenttype) = explode(';', $info->content_type);
             
             curl_close($ch);
             curl_multi_remove_handle($mh, $ch);
 
-            $result = $this->decodeResponse($contenttype, $response);
+            $result = $request->method === 'HEAD' ? $info : $this->decodeResponse($contenttype, $response);
 
-            if ($error || $httpcode >= 300) {
-                if (!$error) $error = static::httpError($httpcode, $result);
+            if ($error || ($info->http_code >= 300 && !in_array($info->http_code, $request->expect))) {
+                if (!$error) $error = static::httpError($info->http_code, $result, $request);
                 if ($error !== false) {
                     trigger_error("HTTP " . (@$request->method ?: 'GET') . " request for '" .
                         $this->getFullUrl($request->url) . "' failed: {$error}", E_USER_WARNING);
@@ -482,6 +483,7 @@ abstract class Connection
         $ch = curl_init($url);
         curl_setopt_array($ch, $this->curl_opts);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $request->method);
+        if ($request->method == 'HEAD') curl_setopt($ch, CURLOPT_NOBODY, true);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         
         // set headers
@@ -531,11 +533,12 @@ abstract class Connection
     /**
      * Get error from HTTP result.
      * 
-     * @param int   $httpcode
-     * @param mixed $result
+     * @param int    $httpcode
+     * @param mixed  $result
+     * @param object $request
      * @return string
      */
-    protected static function httpError($httpcode, $result)
+    protected static function httpError($httpcode, $result, $request)
     {
         switch ($httpcode) {
             case 400: return '400 Bad Request';
