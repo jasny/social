@@ -28,7 +28,14 @@ interface Profile
      * @return Profile
      */
     public function atProvider($service);
+
     
+    /**
+     * Get profile identifier
+     * 
+     * @return string
+     */
+    public function getId();
     
     /**
      * Get URL to profile

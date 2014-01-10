@@ -138,6 +138,16 @@ class Person implements \Social\Person, \Social\User, \Social\Profile
     
     
     /**
+     * Return person's ID
+     * 
+     * @return string
+     */
+    public function getId()
+    {
+        return $this->id;
+    }
+    
+    /**
      * Get person's full name
      * 
      * @return string

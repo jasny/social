@@ -43,6 +43,16 @@ class User implements \Social\Person, \Social\User, \Social\Profile
     
 
     /**
+     * Return user ID
+     * 
+     * @return string
+     */
+    public function getId()
+    {
+        return $this->id;
+    }
+    
+    /**
      * Get user's full name
      * 
      * @return string
