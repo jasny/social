@@ -360,11 +360,10 @@ abstract class Connection
         $response = curl_exec($ch);        
         $error = curl_error($ch);
         $info = (object)curl_getinfo($ch);
-        list($contenttype) = explode(';', $info->content_type);
         
         curl_close($ch);
         
-        $result = $request->method === 'HEAD' ? $info : $this->decodeResponse($contenttype, $response);
+        $result = $request->method === 'HEAD' ? $info : $this->decodeResponse($info, $response);
 
         if ($error || ($info->http_code >= 300 && !in_array($info->http_code, $request->expect))) {
             if (!$error) $error = static::httpError($info->http_code, $result, $request);
@@ -422,12 +421,11 @@ abstract class Connection
             $response = curl_multi_getcontent($ch);            
             $error = curl_error($ch);
             $info = (object)curl_getinfo($ch);
-            list($contenttype) = explode(';', $info->content_type);
             
             curl_close($ch);
             curl_multi_remove_handle($mh, $ch);
 
-            $result = $request->method === 'HEAD' ? $info : $this->decodeResponse($contenttype, $response);
+            $result = $request->method === 'HEAD' ? $info : $this->decodeResponse($info, $response);
 
             if ($error || ($info->http_code >= 300 && !in_array($info->http_code, $request->expect))) {
                 if (!$error) $error = static::httpError($info->http_code, $result, $request);
@@ -517,14 +515,16 @@ abstract class Connection
     }
 
     /**
-     * Remove the headers and process the body.
+     * Process the body.
      * 
-     * @param string $contenttype  Mime type
+     * @param object $info         Curl info
      * @param string $response     The HTTP response
      * @return mixed
      */
-    protected function decodeResponse($contenttype, $response)
+    protected function decodeResponse($info, $response)
     {
+        list($contenttype) = explode(';', $info->content_type);
+        
         if ($contenttype == 'application/json') return json_decode($response);
         if ($contenttype == 'text/xml') return simplexml_load_string($response);
         return $response;

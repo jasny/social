@@ -8,4 +8,5 @@ var_dump($gravatar->avatarExists('ab@defdfd.net'));
 
 echo '<img src="' . $gravatar->avatar('arnold@jasny.net', 100) . '">';
 
+var_dump($gravatar->user('john.doe@example.com'));
 var_dump($gravatar->user('arnold@jasny.net'));

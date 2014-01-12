@@ -72,7 +72,23 @@ class Connection extends Base
             $request->url .= '.json';
         }
         
+        $request->expect[] = 404;
+        
         return $request;
+    }
+    
+    /**
+     * Process the body.
+     * 
+     * @param string $contenttype  Mime type
+     * @param string $response     The HTTP response
+     * @param object $info         Curl info
+     * @return mixed
+     */
+    protected function decodeResponse($info, $response)
+    {
+        if ($info->http_code === 404) return null;
+        return parent::decodeResponse($info, $response);
     }
     
     
@@ -132,24 +148,9 @@ class Connection extends Base
     public function avatarExists($email)
     {
         $url = 'avatar/' . $this->hash($email);
-        $info = $this->request((object)['method'=>'HEAD', 'url'=>$url, 'params'=>['d'=>404], 'expect'=>[404]]);
+        $info = $this->request((object)['method'=>'HEAD', 'url'=>$url, 'params'=>['d'=>404]]);
         
         return $info->http_code != 404;
-    }
-    
-    /**
-     * GET from the web service API.
-     * 
-     * @param string $resource
-     * @param array  $params
-     * @return object
-     */
-    public function get($resource, array $params = [])
-    {
-        $result = parent::get($resource, $params);
-        if ($result) $result->entry[0] = new Profile($result->entry[0]);
-        
-        return $result;
     }
     
     /**
@@ -164,6 +165,6 @@ class Connection extends Base
         if (strpos($resource, '@')) $resource = $this->hash($resource);
         
         $result = $this->get($resource, $params);
-        return $result ? $result->entry[0] : null;
+        return $result ? new Profile($result->entry[0]) : null;
     }
 }
