@@ -485,10 +485,11 @@ abstract class Connection
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         
         // set headers
+        $headers = array();
         $rawheaders = $request->headers;
         if (isset($this->curl_opts[CURLOPT_HTTPHEADER])) 
             $rawheaders = array_merge($this->curl_opts[CURLOPT_HTTPHEADER], $rawheaders);
-        
+       
         foreach ($rawheaders as $key=>$value) {
             $headers[] = is_int($key) ? $value : "$key: $value";
         }
@@ -497,9 +498,13 @@ abstract class Connection
         
         // set post fields
         if ($request->method == 'POST') {
-            $params = isset($headers['Content-Type']) && $headers['Content-Type'] == 'multipart/form-data' ?
-                $request->params :
-                self::buildHttpQuery($request->params);
+            if (isset($rawheaders['Content-Type']) && $rawheaders['Content-Type'] == 'multipart/form-data') {
+                $params = $request->params;
+            } else if (isset($rawheaders['Content-Type']) && $rawheaders['Content-Type'] == 'application/json') {
+                $params = json_encode($request->params);
+            } else {
+                $params = self::buildHttpQuery($request->params);
+            }
             
             curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
         }
@@ -578,7 +583,7 @@ abstract class Connection
      */
     protected static function getCurrentUrl($page=null, array $params=[])
     {
-        if (strpos($page, '://') !== false) return $this->getFullUrl($page, $params);
+        if (strpos($page, '://') !== false) return self::getFullUrl($page, $params);
         
         if (!isset($_SERVER['HTTP_HOST'])) return null;
 
@@ -673,11 +678,12 @@ abstract class Connection
      * 
      * @param string  $resource
      * @param array   $params    POST parameters
+     * @param array   $headers   Optional headers
      * @return Entity|Collection|mixed
      */
-    public function post($resource, array $params=[])
+    public function post($resource, array $params=[], array $headers=[])
     {
-        return $this->request((object)['method'=>'POST', 'url'=>$resource, 'params'=>$params]);
+        return $this->request((object)['method'=>'POST', 'url'=>$resource, 'params'=>$params, 'headers'=>$headers ]);
     }
     
     /**
