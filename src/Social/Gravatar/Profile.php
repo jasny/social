@@ -75,8 +75,8 @@ class Profile implements \Social\Person, \Social\Profile, \Social\User
      */
     public function getPicture($size=null, $default='404', $rating=null)
     {
-        if (!is_numeric($size)) {
-            list($width, $height) = explode('x', $size);
+        if (isset($size) && !is_numeric($size)) {
+            list($width, $height) = explode('x', $size) + [1=>null];
             $size = max((int)$width, (int)$height);
         }
         if (!isset($size)) $size = 800;

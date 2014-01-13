@@ -90,16 +90,17 @@ class Connection extends Base implements \Social\Auth
     /**
      * Get error from HTTP result.
      * 
-     * @param int   $httpcode
-     * @param mixed $result  
+     * @param object $info
+     * @param mixed  $result
+     * @param object $request
      * @return string
      */
-    static protected function httpError($httpcode, $result)
+    protected static function httpError($info, $result=null, $request=null)
     {
         if (is_object($result) && $result->errors) return $result->errors[0]->error_message;
-        return parent::httpError($httpcode, $result);
+        return parent::httpError($info, $result, $request);
     }
-
+    
 
     /**
      * Do a get request using the SoundCloud.com URL

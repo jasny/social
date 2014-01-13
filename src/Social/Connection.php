@@ -309,7 +309,6 @@ abstract class Connection
         if (!isset($request->method)) $request->method = 'GET';
         if (!isset($request->headers)) $request->headers = [];
         if (!isset($request->queryParams)) $request->queryParams = [];
-        if (!isset($request->expect)) $request->expect = [];
         
         $request->params = (isset($request->params) ? $request->params : []) + static::getDefaultParams($request->url);
         $request->url = $this->processPlaceholders($request->url, $request->params);
@@ -365,8 +364,8 @@ abstract class Connection
         
         $result = $request->method === 'HEAD' ? $info : $this->decodeResponse($info, $response);
 
-        if ($error || ($info->http_code >= 300 && !in_array($info->http_code, $request->expect))) {
-            if (!$error) $error = static::httpError($info->http_code, $result, $request);
+        if ($error || $info->http_code >= 300) {
+            if (!$error) $error = static::httpError($info, $result, $request);
             if ($error !== false) throw new \Exception("HTTP " . (@$request->method ?: 'GET') . " request for '" .
                 $this->getFullUrl($request->url). "' failed: $error");
         }
@@ -427,8 +426,8 @@ abstract class Connection
 
             $result = $request->method === 'HEAD' ? $info : $this->decodeResponse($info, $response);
 
-            if ($error || ($info->http_code >= 300 && !in_array($info->http_code, $request->expect))) {
-                if (!$error) $error = static::httpError($info->http_code, $result, $request);
+            if ($error || $info->http_code >= 300) {
+                if (!$error) $error = static::httpError($info, $result, $request);
                 if ($error !== false) {
                     trigger_error("HTTP " . (@$request->method ?: 'GET') . " request for '" .
                         $this->getFullUrl($request->url) . "' failed: {$error}", E_USER_WARNING);
@@ -538,14 +537,14 @@ abstract class Connection
     /**
      * Get error from HTTP result.
      * 
-     * @param int    $httpcode
+     * @param object $info
      * @param mixed  $result
      * @param object $request
      * @return string
      */
-    protected static function httpError($httpcode, $result, $request)
+    protected static function httpError($info, $result=null, $request=null)
     {
-        switch ($httpcode) {
+        switch ($info->http_code) {
             case 400: return '400 Bad Request';
             case 401: return '401 Unauthorized';
             case 402: return '402 Payment Required';
@@ -557,7 +556,7 @@ abstract class Connection
             case 501: return '501 Not Implemented';
             case 503: return '503 Not Implemented';
             case 509: return '509 Bandwidth Limit Exceeded';
-            default:  return $httpcode;
+            default:  return $info->http_code;
         }
     }
 

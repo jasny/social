@@ -72,8 +72,6 @@ class Connection extends Base
             $request->url .= '.json';
         }
         
-        $request->expect[] = 404;
-        
         return $request;
     }
     
@@ -91,6 +89,22 @@ class Connection extends Base
         return parent::decodeResponse($info, $response);
     }
     
+    /**
+     * Get error from HTTP result.
+     * 
+     * @param object $info
+     * @param mixed  $result
+     * @param object $request
+     * @return string
+     */
+    protected static function httpError($info, $result=null, $request=null)
+    {
+        if ($info->http_code === 404) return false;
+        
+        if (is_scalar($result)) return $info->http_code . ' - ' . $result;
+        return parent::httpError($info, $result, $request);
+    }
+   
     
     /**
      * Get the hash for an e-mail address
