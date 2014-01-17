@@ -3,7 +3,7 @@
  * Twitter direct message entity
  * 
  * @license MIT
- * @copyright 2012 Jasny
+ * @copyright 2012-2014 Jasny
  */
 
 /** */

@@ -4,7 +4,7 @@
  * A PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
- * @copyright 2012 Jasny
+ * @copyright 2012-2014 Jasny
  */
 
 /** */
@@ -386,16 +386,12 @@ abstract class Connection
      */
     private function mulitRequestInit($mh, array &$requests)
     {
-        foreach ($requests as &$request) {
-            $request = $this->initRequest($request);
-        }
-        
         // prepare requests and handles
         $handles = [];
         
         foreach ($requests as $key=>&$request) {
-            if (is_scalar($request)) $request = (object)['url' => $request];
-              elseif (is_array($request)) $request = (object)$request;
+            if (!isset($request)) continue;
+            $request = $this->initRequest($request);
             
             $ch = $this->curlInit($request);
             curl_multi_add_handle($mh, $ch);
@@ -670,7 +666,7 @@ abstract class Connection
      * @param array   $params    Query parameters
      * @return Entity|Collection|mixed
      */
-    public function get($resource, array $params=[])
+    public function get($resource, $params=[])
     {
         return $this->request((object)['method'=>'GET', 'url'=>$resource, 'params'=>$params]);
     }
@@ -680,12 +676,11 @@ abstract class Connection
      * 
      * @param string  $resource
      * @param array   $params    POST parameters
-     * @param array   $headers   Optional headers
      * @return Entity|Collection|mixed
      */
-    public function post($resource, array $params=[], array $headers=[])
+    public function post($resource, $params=[])
     {
-        return $this->request((object)['method'=>'POST', 'url'=>$resource, 'params'=>$params, 'headers'=>$headers ]);
+        return $this->request((object)['method'=>'POST', 'url'=>$resource, 'params'=>$params]);
     }
     
     /**
@@ -695,7 +690,7 @@ abstract class Connection
      * @param array   $params    Query parameters
      * @return Entity|Collection|mixed
      */
-    public function put($resource, array $params=[])
+    public function put($resource, $params=[])
     {
         return $this->request((object)['method'=>'PUT', 'url'=>$resource, 'params'=>$params]);
     }
@@ -707,8 +702,16 @@ abstract class Connection
      * @param array   $params    Query parameters
      * @return Entity|Collection|mixed
      */
-    public function delete($resource, array $params=[])
+    public function delete($resource, $params=[])
     {
         return $this->request((object)['method'=>'DELETE', 'url'=>$resource, 'params'=>$params]);
+    }
+    
+    /**
+     * Do nothing, but do increment the prepared request counter.
+     */
+    public function nop()
+    {
+        if ($this->prepared) return $this->addPreparedRequest(null);
     }
 }

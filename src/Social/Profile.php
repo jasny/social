@@ -4,7 +4,7 @@
  * A PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
- * @copyright 2012 Jasny
+ * @copyright 2012-2014 Jasny
  */
 
 /** */
@@ -29,13 +29,6 @@ interface Profile
      */
     public function atProvider($service);
 
-    
-    /**
-     * Get profile identifier
-     * 
-     * @return string
-     */
-    public function getId();
     
     /**
      * Get URL to profile

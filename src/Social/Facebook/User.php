@@ -4,7 +4,7 @@
  * A PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
- * @copyright 2012 Jasny
+ * @copyright 2012-2014 Jasny
  */
 
 /** */
@@ -17,7 +17,7 @@ use \Social\Common\Employment;
  * 
  * @package Facebook
  */
-class User implements \Social\Person, \Social\User, \Social\Profile
+class User extends Entity implements \Social\Person, \Social\User, \Social\Profile
 {
     use Profile;
     
@@ -216,16 +216,5 @@ class User implements \Social\Person, \Social\User, \Social\Profile
     public function getCompany()
     {
         return isset($this->work[0]->employer) ? $this->work[0]->employer : null;
-    }
-    
-    
-    /**
-     * Cast object to string
-     * 
-     * @return string
-     */
-    public function __toString()
-    {
-        return $this->getFullName() ?: (string)$this->getUsername();
     }
 }

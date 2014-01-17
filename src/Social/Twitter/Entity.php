@@ -3,7 +3,7 @@
  * Twitter Entity
  * 
  * @license MIT
- * @copyright 2012 Jasny
+ * @copyright 2012-2014 Jasny
  */
 
 /** */
@@ -19,16 +19,15 @@ abstract class Entity extends Base
     /**
      * Class constructor
      * 
-     * @param Connection   $connection
-     * @param string       $type
      * @param object|mixed $data        Data or ID
      * @param boolean      $stub
+     * @param Connection   $connection
      */
-    public function __construct(Connection $connection, $data=[], $stub=self::NO_STUB)
+    public function __construct($data=[], $stub=self::STUB, $connection=null)
     {
         if (!$stub && (is_null($data) || is_scalar($data))) $stub = self::STUB;
-        if (is_scalar($data)) $data = array('id' => $data);
+        if (is_scalar($data)) $data = (object)['id'=>$data];
         
-        parent::__construct($connection, $data, $stub);
+        parent::__construct($data, $stub, $connection);
     }
 }

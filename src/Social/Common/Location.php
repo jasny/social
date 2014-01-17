@@ -4,7 +4,7 @@
  * A PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
- * @copyright 2012 Jasny
+ * @copyright 2012-2014 Jasny
  */
 
 /** */
@@ -105,16 +105,5 @@ class Location implements \Social\Location
     public function getCountry($format=null)
     {
         return isset($this->country) ? $this->country->getFormatted($format) : null;
-    }
-    
-    /**
-     * Cast object to string
-     * 
-     * @return string
-     */
-    public function __toString()
-    {
-        return (string)join(', ', array_filter([$this->getAddress(), $this->getCity(), $this->getState(),
-            $this->getCountry()]));
     }
 }
