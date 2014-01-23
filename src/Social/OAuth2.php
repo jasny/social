@@ -2,7 +2,7 @@
 /**
  * Jasny Social
  * A PHP library for webservice APIs
- * 
+ *
  * @license http://www.jasny.net/mit MIT
  * @copyright 2012 Jasny
  */
@@ -53,7 +53,7 @@ trait OAuth2
      */
     protected $scope;
 
-    
+
     /**
      * Authentication errors and their code
      * @var array
@@ -63,11 +63,11 @@ trait OAuth2
         'server_error' => 500,
         'temporarily_unavailable' => 503
     ];
-    
-    
+
+
     /**
      * Set the application's client credentials
-     * 
+     *
      * @param string $clientId
      * @param string $clientSecret
      */
@@ -76,51 +76,51 @@ trait OAuth2
         $this->clientId = $clientId;
         $this->clientSecret = $clientSecret;
     }
-    
+
     /**
      * Get the application client ID.
-     * 
+     *
      * @return string
      */
     public function getClientId()
     {
         return $this->clientId;
     }
-    
+
     /**
      * Get the user's access token.
-     * 
+     *
      * @return string
      */
     public function getAccessToken()
     {
         return $this->accessToken;
     }
-    
+
     /**
      * Get the timestamp of when the access token will expire.
-     * 
+     *
      * @return int
      */
     public function getAccessExpires()
     {
         return $this->accessExpires;
     }
-    
+
     /**
      * Set the access info.
-     * 
+     *
      * @param array|object $access  [ token, expires ] or { 'token': string, 'expires': unixtime }
      */
     protected function setAccessInfo($access)
     {
         if (!isset($access)) return;
-        
+
         if (isset($_SESSION) && $access === $_SESSION) {
             $this->authUseSession = true;
             $access = @$_SESSION[static::serviceProvider . ':access'];
         }
-        
+
         if (is_array($access) && is_int(key($access))) {
             list($this->accessToken, $this->accessExpires, $user) = $access + array(null, null, null);
         } elseif (isset($access)) {
@@ -130,7 +130,7 @@ trait OAuth2
             if (isset($access->user)) $user = $access->user;
         }
     }
-    
+
     /**
      * Get the access info.
      *
@@ -141,10 +141,10 @@ trait OAuth2
         if (!isset($this->accessToken)) return null;
         return (object)['access_token' => $this->accessToken, 'expires' => $this->accessExpires];
     }
-    
+
     /**
      * Generate a unique value, used as 'state' for oauth.
-     * 
+     *
      * @return string
      */
     protected function getUniqueState()
@@ -152,18 +152,18 @@ trait OAuth2
         $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['SERVER_ADDR'] : $_SERVER['REMOTE_ADDR'];
         return static::serviceProvider . ':' . md5($ip . $this->clientSecret);
     }
-    
+
     /**
      * Create a new connection using the specified access token.
-     * 
+     *
      * @param array|object $access  [ token, expires ] or { 'token': string, 'expires': unixtime }
      */
     public function asUser($access)
     {
         return new static($this->clientId, $this->clientSecret, $access);
     }
-    
-    
+
+
     /**
      * Initialise an HTTP request object.
      *
@@ -173,11 +173,11 @@ trait OAuth2
     protected function initRequest($request)
     {
         $request = parent::initRequest($request);
-        
+
         if ($this->accessToken) $request->queryParams['oauth_token'] = $this->accessToken;
         return $request;
     }
-    
+
      /**
      * Get the URL of the current script.
      *
@@ -192,10 +192,10 @@ trait OAuth2
 
         return parent::getCurrentUrl($page, $params);
     }
-    
+
     /**
      * Get authentication url.
-     * 
+     *
      * @param array  $scope        Permission list
      * @param string $redirectUrl  Redirect to this URL after authentication
      * @param array  $params       Additional URL parameters
@@ -211,13 +211,13 @@ trait OAuth2
         $scope = $this->setScope($scope);
         $params = ['client_id'=>$this->clientId, 'redirect_uri'=>$redirectUrl, 'scope'=>$scope,
             'state'=>$this->getUniqueState()] + $params + ['response_type'=>'code'];
-        
+
         return static::buildUrl(static::authURL, $params);
     }
 
     /**
      * Fetch the OAuth2 access token.
-     * 
+     *
      * @param array  $params  Parameters
      * @return object
      */
@@ -225,24 +225,24 @@ trait OAuth2
     {
         return $this->post('oauth2/token', $params);
     }
-    
+
     /**
      * Set the authorization scope.
-     * 
+     *
      * @param array|string $scope
      * @return string
      */
     protected function setScope($scope)
     {
         $this->scope = is_string($scope) ? explode(',', $scope) : $scope;
-        return is_string($scope) ? join(',', $scope) : $scope;
+        return is_string($scope) ? $scope : join(',', $scope);
     }
-    
-    
+
+
     /**
      * Handle an authentication response and sets the access token.
      * If $code and $state are omitted, they are taken from $_GET.
-     * 
+     *
      * @param string $code   Returned code generated by API.
      * @param string $state  Returned state generated by us; false means don't check state
      * @return Connection $this
@@ -253,21 +253,21 @@ trait OAuth2
             $code = $_GET['code'];
             if (isset($_GET['state'])) $state = $_GET['state'];
         }
-        
+
         if (!isset($code)) {
             if (!isset($_GET['error'])) throw new \Exception("Invalid authentication response.");
 
             $error = $_GET['error'];
             $code = isset($this->authErrors[$error]) ? $this->authErrors[$error] : 400;
-            
+
             $message = isset($_GET['error_description']) ? "{$_GET['error_description']} ($error)" : $error;
             if (isset($_GET['error_uri'])) $error .= " see {$_GET['error_uri']}";
-            
+
             throw new AuthException($message, $code);
         }
-        
+
         $redirectUrl = $this->getCurrentUrl();
-        
+
         if ($state !== false && $this->getUniqueState() != $state) {
             throw new AuthException('Authentication response not accepted. IP mismatch, possible cross-site request'
                 . 'forgery.');
@@ -286,15 +286,15 @@ trait OAuth2
 
         $this->accessToken = $data->access_token;
         $this->accessExpires = isset($expires_in) ? time() + $expires_in : null;
-        
+
         if ($this->authUseSession) $_SESSION[static::serviceProvider . ':access'] = $this->getAccessInfo();
-        
+
         return $this;
     }
 
     /**
      * Get authentication url.
-     * 
+     *
      * @param array  $scope        Permission list
      * @param string $redirectUrl  Redirect to this URL after authentication
      * @param array  $params       Additional URL parameters
@@ -303,7 +303,7 @@ trait OAuth2
     public function auth($scope=null, $redirectUrl=null, $params=[])
     {
         if ($this->isAuth()) return $this;
-        
+
         if (!empty($_GET['state']) && $_GET['state'] == $this->getUniqueState()) {
             $this->handleAuthResponse();
             self::redirect($this->getCurrentUrl());
@@ -335,10 +335,10 @@ trait OAuth2
     {
         return isset($this->accessExpires) && $this->accessExpires < (time() + $margin);
     }
-    
+
     /**
      * Check if a user is authenticated.
-     * 
+     *
      * @return boolean
      */
     public function isAuth()
