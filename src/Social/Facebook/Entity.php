@@ -48,4 +48,12 @@ abstract class Entity extends Base
     {
         return strtolower(preg_replace('/(?<=[a-z])([A-Z])(?![A-Z])/', '_$1', get_class($this)));
     }
+
+    /**
+     * Fetch new data of this entity
+     */
+    public function refresh()
+    {
+        $this->getConnection()->fetch($this->id);
+    }
 }
