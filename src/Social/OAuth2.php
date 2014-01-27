@@ -118,7 +118,8 @@ trait OAuth2
         
         if (isset($_SESSION) && $access === $_SESSION) {
             $this->authUseSession = true;
-            $access = @$_SESSION[static::serviceProvider . ':access'];
+            $access = isset($_SESSION[static::serviceProvider . ':access']) ?
+                $_SESSION[static::serviceProvider . ':access'] : null;
         }
         
         if (is_array($access) && is_int(key($access))) {
@@ -276,7 +277,7 @@ trait OAuth2
         $data = $this->fetchAccessToken(['client_id'=>$this->clientId, 'client_secret'=>$this->clientSecret,
             'redirect_uri'=>$redirectUrl, 'grant_type'=>'authorization_code', 'code'=>$code]);
 
-        if ($data->error) {
+        if (!empty($data->error)) {
             $error = isset($data->error_description) ? "{$data->error_description} ({$data->error})" : $data->error;
             if (isset($data->error_uri)) $error .= " see {$data->error_uri}";
             throw new AuthException($error);
