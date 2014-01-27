@@ -22,9 +22,9 @@ class Place extends Entity
      * @param boolean $refresh  Fetch new data, even if this isn't a stub
      * @return Place $this
      */
-    public function fetch($refresh=false)
+    public function refresh()
     {
-        if ($refresh || $this->isStub()) $this->getConnection()->get('geo/id/:place_id', array(':place_id'=>$this->id), $this);
+        $this->getConnection()->get('geo/id/:place_id', array(':place_id'=>$this->id), $this);
         return $this;
     }
     

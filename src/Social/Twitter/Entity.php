@@ -30,4 +30,14 @@ abstract class Entity extends Base
         
         parent::__construct($data, $stub, $connection);
     }
+    
+    /**
+     * Get entity id
+     * 
+     * @return int
+     */
+    public function getId()
+    {
+        return $this->id;
+    }
 }

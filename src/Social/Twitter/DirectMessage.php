@@ -19,13 +19,11 @@ class DirectMessage extends Entity
      * 
      * @see https://dev.twitter.com/docs/api/1.1/get/direct_messages/show
      * 
-     * @param boolean $refresh  Fetch new data, even if this isn't a stub
-     * @return SavedSearch $this
+     * @return DirectMessage $this
      */
-    public function fetch($refresh=false)
+    public function refresh()
     {
-        if ($refresh || $this->isStub()) $this->getConnection()->get('direct_messages/show', array('id'=>$this->id), $this);
-        return $this;
+        return $this->getConnection()->get('direct_messages/show', array('id'=>$this->id), $this);
     }
     
     /**
@@ -33,22 +31,10 @@ class DirectMessage extends Entity
      * 
      * @see https://dev.twitter.com/docs/api/1.1/post/direct_messages/destroy
      * 
-     * @return SavedSearch $this
+     * @return DirectMessage $this
      */
     public function destroy()
     {
         return $this->getConnection()->get('direct_messages/destroy', array('id'=>$this->id), $this);
-    }
-    
-    /**
-     * Check if this tweet is the same as the given one.
-     * 
-     * @param DirectMessage|string $directMessage  DirectMessage entity or id
-     * @return boolean
-     */
-    public function is($directMessage)
-    {
-        if (is_array($directMessage)) $directMessage = (object)$directMessage;
-        return $this->id == (is_scalar($directMessage) ? $directMessage : $directMessage->id); 
     }
 }
