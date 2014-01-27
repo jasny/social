@@ -4,7 +4,7 @@
  * A PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
- * @copyright 2012 Jasny
+ * @copyright 2012-2014 Jasny
  */
 
 /** */
@@ -179,7 +179,7 @@ class Connection extends Base implements \Social\Auth
             if ($user instanceof Entity) {
                 $this->me = $user->reconnectTo($this);
             } elseif (is_scalar($user)) {
-                $this->me = $this->entity('user', array('id' => $user), Entity::AUTOEXPAND);
+                $this->me = $this->entity('user', array('id' => $user), Entity::AUTO_HYDRATE);
             } else {
                 $type = (is_object($user) ? get_class($user) : get_type($user));
                 throw new \Exception("Was expecting an ID (int) or Entity for user, but got a $type");

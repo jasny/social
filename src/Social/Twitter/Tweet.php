@@ -3,7 +3,7 @@
  * Twitter tweet entity
  * 
  * @license MIT
- * @copyright 2012 Jasny
+ * @copyright 2012-2014 Jasny
  */
 
 /** */
@@ -19,13 +19,11 @@ class Tweet extends Entity
      * 
      * @see https://dev.twitter.com/docs/api/1.1/get/statuses/show/%3Aid
      * 
-     * @param boolean $refresh  Fetch new data, even if this isn't a stub
      * @return Tweet $this
      */
-    public function fetch($refresh=false)
+    public function refresh()
     {
-        if ($refresh || $this->isStub()) $this->getConnection()->get('statuses/show/:id', array(':id'=>$this->id), $this);
-        return $this;
+        return $this->getConnection()->get('statuses/show/:id', array(':id'=>$this->id), $this);
     }
     
     /**
@@ -66,18 +64,6 @@ class Tweet extends Entity
         return $this->getConnection()->get('statuses/destroy/:id', array(':id'=>$this->id), $this);
     }
     
-    
-    /**
-     * Check if this tweet is the same as the given one.
-     * 
-     * @param Tweet|string $tweet  Tweet entity or id
-     * @return boolean
-     */
-    public function is($tweet)
-    {
-        if (is_array($tweet)) $tweet = (object)$tweet;
-        return $this->id == (is_scalar($tweet) ? $tweet : $tweet->id); 
-    }
     
     /**
      * Get id in array.

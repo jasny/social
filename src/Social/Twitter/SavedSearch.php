@@ -3,7 +3,7 @@
  * Twitter saved search entity
  * 
  * @license MIT
- * @copyright 2012 Jasny
+ * @copyright 2012-2014 Jasny
  */
 
 /** */
@@ -19,13 +19,11 @@ class SavedSearch extends Entity
      * 
      * @see https://dev.twitter.com/docs/api/1.1/get/saved_searches/show/%3Aid
      * 
-     * @param boolean $refresh  Fetch new data, even if this isn't a stub
      * @return SavedSearch $this
      */
-    public function fetch($refresh=false)
+    public function refresh()
     {
-        if ($refresh || $this->isStub()) $this->getConnection()->get('saved_searches/show/:id', array(':id'=>$this->id), $this);
-        return $this;
+        return $this->getConnection()->get('saved_searches/show/:id', array(':id'=>$this->id), $this);
     }
     
     /**

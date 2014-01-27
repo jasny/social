@@ -4,7 +4,7 @@
  * World's best PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
- * @copyright 2012 Jasny
+ * @copyright 2012-2014 Jasny
  */
 
 /** */
@@ -116,7 +116,7 @@ trait EntityMapping
     {
         if (!isset($this->me)) {
             if (!method_exists($this, 'isAuth') || !$this->isAuth()) throw new Exception("There is no current user.");
-            $this->me = $this->entity('me', [], Entity::AUTOEXPAND);
+            $this->me = $this->entity('me', [], Entity::AUTO_HYDRATE);
         }
         
         return $this->me;
@@ -127,10 +127,10 @@ trait EntityMapping
      * 
      * @param string    $type  'me', 'user', 'tweet', 'direct_message', 'user_list', 'saved_search' or 'place'
      * @param array|int $data  Properties or ID
-     * @param int       $stub  Entity::NO_STUB, Entity::STUB or Entity::AUTOEXPAND
+     * @param int       $stub  Entity::NO_STUB, Entity::STUB or Entity::AUTO_HYDRATE
      * @return Entity
      */
-    public function entity($type, $data=[], $stub=Entity::AUTOEXPAND)
+    public function entity($type, $data=[], $stub=Entity::AUTO_HYDRATE)
     {
         if (isset($type) && $type[0] == '@') {
             $type = substr($type, 1);
@@ -146,7 +146,7 @@ trait EntityMapping
      * 
      * @param string $type  Type of entities in the collection (may be omitted)
      * @param array  $data
-     * @param int    $stub  Entity::NO_STUB, Entity::STUB or Entity::AUTOEXPAND
+     * @param int    $stub  Entity::NO_STUB, Entity::STUB or Entity::AUTO_HYDRATE
      * @return Collection
      */
     public function collection($type, array $data=[], $stub=Entity::STUB)
@@ -174,7 +174,7 @@ trait EntityMapping
      */
     public function __wakeup()
     {
-        if (isset($this->_me)) $this->me = $this->entity('me', $this->_me, Entity::AUTOEXPAND);
+        if (isset($this->_me)) $this->me = $this->entity('me', $this->_me, Entity::AUTO_HYDRATE);
         unset($this->_me);
     }
 }

@@ -4,7 +4,7 @@
  * World's best PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
- * @copyright 2012 Jasny
+ * @copyright 2012-2014 Jasny
  */
 
 /** */
@@ -21,8 +21,8 @@ abstract class Entity
     /** Doesn't contain all of entities properties */
     const STUB = 1;
 
-    /** Autoexpanding stub */
-    const AUTOEXPAND = 2;
+    /** Auto-hydrating stub */
+    const AUTO_HYDRATE = 2;
     
     
     /**
@@ -35,26 +35,31 @@ abstract class Entity
      * Entity is a stub
      * @var int
      */
-    protected $_stub = self::NO_STUB;
-    
-    
+    protected $_stub = self::STUB;
+
     /**
      * Class constructor
      * 
-     * @param Connection $connection
-     * @param string     $type
      * @param object     $data
-     * @param int        $stub        Entity::NO_STUB, Entity::STUB or Entity::AUTOEXPAND
+     * @param int        $stub        Entity::NO_STUB, Entity::STUB or Entity::AUTO_HYDRATE
+     * @param Connection $connection
      */
-    public function __construct(Connection $connection, $data=[], $stub=false)
+    public function __construct($data=[], $stub=self::STUB, $connection=null)
     {
         $this->_connection = $connection;
         $this->_stub = $stub;
-        
+
         foreach ($data as $key=>&$value) {
             $this->$key = $value;
         }
+        $this->cast();
     }
+    
+    /**
+     * Cast some of the data to entities
+     */
+    protected function cast()
+    { }
     
 
     /**
@@ -65,7 +70,7 @@ abstract class Entity
     public function getConnection()
     {
         if (!isset($this->_connection))
-            throw new Exception('This entity is not connected to an API. Please use $entity->reconnectTo($connection)');
+            throw new Exception('This entity is not connected to an API. Please reconnect before use.');
         
         return $this->_connection;
     }
@@ -78,16 +83,6 @@ abstract class Entity
      */
     abstract public function getId();
     
-    /**
-     * Check if this Entity is a stub.
-     * 
-     * @return boolean 
-     */
-    public function isStub()
-    {
-        return $this->_stub;
-    }
-
     /**
      * Check if entity is the same as the provided entity or id.
      * 
@@ -103,20 +98,44 @@ abstract class Entity
 
     
     /**
+     * Check if this Entity is a stub.
+     * 
+     * @return boolean 
+     */
+    public function isStub()
+    {
+        return $this->_stub;
+    }
+    
+    /**
+     * If this entity is a stub, fetch to get all properties.
+     * 
+     * @return Entity $this
+     */
+    public function hydrate()
+    {
+         if ($this->isStub()) $this->refresh();
+         return $this;
+    }
+    
+    /**
      * Fetch data of this entity.
      * 
      * @return Entity $this
      */
-    abstract public function fetch($refresh=false);
+    abstract public function refresh();
 
     /**
      * Process the result from a prepared request, where this object is targeted.
      * 
-     * @param object|Data $data
-     * @param int         $i     (ignored)
+     * @param Entity $data
+     * @param int    $i     (ignored)
      */
     public function processResult($data, $i)
     {
+        if ($data instanceof self || !$this->is($data))
+            throw new Exception("Unable to set data: Result doesn't represent this entity.");
+        
         if (!$data->isStub()) $this->_stub = self::NO_STUB;
         
         foreach ($data as $key=>&$value) {
@@ -133,11 +152,11 @@ abstract class Entity
      */
     public function __get($name)
     {
-        if ($this->_stub === self::AUTOEXPAND) {
-            $this->fetch();
+        if ($this->_stub === self::AUTO_HYDRATE) {
+            $this->hydrate();
         } elseif ($this->_stub) {
             $class = preg_replace('/^.+\\\\/', '', get_class($this));
-            trigger_error("This $class is a stub, please call method fetch() to get all properties.", E_USER_NOTICE);
+            trigger_error("This $class is a stub, please hydrade to get all properties.", E_USER_NOTICE);
         }
         
         return $this->$name;

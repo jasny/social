@@ -13,31 +13,14 @@ namespace Social\Facebook;
 use \Social\Common\Employment;
 
 /**
- * Entity representing a user
+ * Entity representing a page
  * 
  * @package Facebook
  */
-class User extends Entity implements \Social\Person, \Social\User, \Social\Profile
+class Page extends Entity implements \Social\Profile
 {
     use Profile;
-    
-    /** @var Employment */
-    protected $_employment;
 
-    /**
-     * Class constructor
-     * 
-     * @param object|array $data
-     */
-    public function __construct($data)
-    {
-        foreach ($data as $key=>$value) {
-            $this->$key = $value;
-        }
-        
-        $this->cast();
-    }
-    
     /**
      * Cast part of the data to entities
      */
@@ -45,19 +28,6 @@ class User extends Entity implements \Social\Person, \Social\User, \Social\Profi
     {
         if (isset($this->location) && !$this->location instanceof Location)
             $this->location = new Location($this->location);
-        
-        if (isset($this->work->location) && !$this->work->location instanceof Location)
-            $this->work->location = new Location($this->work->location);
-        
-        if (isset($this->work) && !empty($this->work)) {
-            $this->_employment = new Employment(['job_title'=>$this->work[0]->description,
-                 'address'=>$this->work[0]->location, 'company'=>$this->getCompany()]);
-
-            foreach ($this->work as $work) {
-                if (isset($work->employer) && !$work->employer instanceof Company)
-                    $work->employer = new Company((array)$work->employer + ['location'=>$work->location]);
-            }
-        }
     }
     
     
@@ -216,5 +186,16 @@ class User extends Entity implements \Social\Person, \Social\User, \Social\Profi
     public function getCompany()
     {
         return isset($this->work[0]->employer) ? $this->work[0]->employer : null;
+    }
+    
+    
+    /**
+     * Cast object to string
+     * 
+     * @return string
+     */
+    public function __toString()
+    {
+        return $this->getFullName() ?: (string)$this->getUsername();
     }
 }

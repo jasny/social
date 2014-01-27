@@ -4,7 +4,7 @@
  * A PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
- * @copyright 2012 Jasny
+ * @copyright 2012-2014 Jasny
  */
 
 /** */
@@ -13,7 +13,7 @@ namespace Social\Facebook;
 /**
  * Entity representing a company
  */
-class Company implements \Social\Company, \Social\Profile
+class Company extends Page implements \Social\Company
 {
     use Profile;
     

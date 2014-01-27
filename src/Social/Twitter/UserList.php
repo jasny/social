@@ -3,7 +3,7 @@
  * Twitter user list entity
  * 
  * @license MIT
- * @copyright 2012 Jasny
+ * @copyright 2012-2014 Jasny
  */
 
 /** */
@@ -19,13 +19,11 @@ class UserList extends Entity
      * 
      * @see https://dev.twitter.com/docs/api/1.1/get/lists/show
      * 
-     * @param boolean $refresh  Fetch new data, even if this isn't a stub
      * @return UserList $this
      */
-    public function fetch($refresh=false)
+    public function fetch()
     {
-        if ($refresh || $this->isStub()) $this->getConnection()->get('lists/show', $this->asParams(), $this);
-        return $this;
+        return $this->getConnection()->get('lists/show', $this->asParams(), $this);
     }
     
     
@@ -37,7 +35,7 @@ class UserList extends Entity
      * @params array $params
      * @return Collection of tweets
      */
-    public function getTweets(array $params=array())
+    public function getTweets(array $params=[])
     {
         return $this->getConnection()->get('lists/statuses', $this->asParams() + $params);
     }
@@ -50,7 +48,7 @@ class UserList extends Entity
      * @params array $params
      * @return Collection of users
      */
-    public function getSubscribers(array $params=array())
+    public function getSubscribers(array $params=[])
     {
         return $this->getConnection()->get('lists/subscribers', $this->asParams() + $params);
     }
@@ -73,7 +71,7 @@ class UserList extends Entity
         }
         
         // Multiple users (1 request per 100 users)
-        $ids = $names = array();
+        $ids = $names = [];
         
         foreach ($this as $entity) {
             if (isset($entity->id)) $ids[] = $entity->id;

@@ -4,7 +4,7 @@
  * A PHP library for webservice APIs
  * 
  * @license http://www.jasny.net/mit MIT
- * @copyright 2012 Jasny
+ * @copyright 2012-2014 Jasny
  */
 
 /** */
@@ -90,19 +90,5 @@ class Employment implements \Social\Employment
     public function getEndDate()
     {
         return isset($this->end_date) ? $this->end_date : null;
-    }
-    
-    
-    /**
-     * Cast object to string
-     * 
-     * @return string
-     */
-    public function __toString()
-    {
-        if (isset($this->company))
-            return (isset($this->job_title) ? $this->job_title : 'works') . ' at ' . $this->company;
-        
-        return isset($this->job_title) ? $this->job_title : '';
     }
 }
