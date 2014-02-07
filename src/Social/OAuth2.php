@@ -236,7 +236,7 @@ trait OAuth2
     protected function setScope($scope)
     {
         $this->scope = is_string($scope) ? explode(',', $scope) : $scope;
-        return is_string($scope) ? $scope : join(',', $scope);
+        return is_array($scope) ? join(',', $scope) : $scope;
     }
 
 
