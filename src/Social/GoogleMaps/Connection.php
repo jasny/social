@@ -47,7 +47,7 @@ class Connection extends Base
     public function __construct($apiKey=null)
     {
         if (isset($apiKey)) $this->queryParams['key'] = $apiKey;
-        $this->queryParam['sensor'] = false;
+        $this->queryParams['sensor'] = 'false';
     }
     
     /**
@@ -121,7 +121,8 @@ class Connection extends Base
             $destination = "$latitude,$longitute";
         }
         
-        $this->get('directions', compact('origin', 'destination') + $params);
+        $ret = $this->get('directions', compact('origin', 'destination') + $params);
+        return $ret ? $ret->results[0] : null;
     }
     
     /**
@@ -140,7 +141,8 @@ class Connection extends Base
             unset($params['components']['address']);
         }
         
-        return $this->get('geocode', compact('address') + $params);
+        $ret = $this->get('geocode', compact('address') + $params);
+        return $ret ? $ret->results[0] : null;
     }
     
     /**
@@ -158,6 +160,7 @@ class Connection extends Base
             $latlng = "$latitude,$longitute";
         }
         
-        return $this->get('geocode', compact('latlng') + $params);
+        $ret = $this->get('geocode', compact('latlng') + $params);
+        return $ret ? $ret->results[0] : null;
     }
 }
