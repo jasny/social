@@ -56,7 +56,7 @@ trait Profile
         
         if (!isset($size)) $size = '8192x';
         if (strpos($size, 'x') !== false) {
-            list($width, $height) = explode('x');
+            list($width, $height) = explode('x', $size);
             $query = "width=$width&height=$height";
         } else {
             $query = "type=$size";
