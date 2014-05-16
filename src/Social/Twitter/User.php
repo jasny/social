@@ -32,7 +32,10 @@ class User extends Entity implements \Social\User, \Social\Profile
         // Data should be set for any user except Me
         if (isset($data)) {
             if (is_scalar($data)) $data = self::makeUserData($data);
-            $this->setProperties($data);
+            foreach ($data as $key=>&$value) {
+                $this->$key = $value;
+            }
+            $this->cast();
         }
     }
         
