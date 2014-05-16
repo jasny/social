@@ -55,7 +55,7 @@ trait Profile
         if (!isset($this->id) && !isset($this->username)) return null;
         
         if (!isset($size)) $size = '8192x';
-        if (substr('x', $size) !== false) {
+        if (strpos($size, 'x') !== false) {
             list($width, $height) = explode('x');
             $query = "width=$width&height=$height";
         } else {
