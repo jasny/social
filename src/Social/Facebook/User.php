@@ -46,16 +46,16 @@ class User extends Entity implements \Social\Person, \Social\User, \Social\Profi
         if (isset($this->location) && !$this->location instanceof Location)
             $this->location = new Location($this->location);
         
-        if (isset($this->work->location) && !$this->work->location instanceof Location)
-            $this->work->location = new Location($this->work->location);
-        
         if (isset($this->work) && !empty($this->work)) {
             $this->_employment = new Employment(['job_title'=>$this->work[0]->description,
                  'address'=>$this->work[0]->location, 'company'=>$this->getCompany()]);
 
             foreach ($this->work as $work) {
+                if (isset($work->location) && !$work->location instanceof Location)
+                    $work->location = new Location($work->location);
+                
                 if (isset($work->employer) && !$work->employer instanceof Company)
-                    $work->employer = new Company((array)$work->employer + ['location'=>$work->location]);
+                    $work->employer = new Company((array)$work->employer + ['location'=>isset($work->location) ? $work->location : null]);
             }
         }
     }
