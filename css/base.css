@@ -125,6 +125,14 @@ header.container { padding: 40px 0 50px 0; position: relative; }
 .social-buttons { text-align: center; margin: 0; }
 .dummy { background: url(../images/dummy.png) no-repeat center center; }
 
+.header pre {
+    background: rgba(255,255, 255, 0.1);
+    padding: 10px 0;
+    margin-bottom: 40px;
+    font-size: 20px;
+    font-family: monospace;
+}
+
 /* #Getting started
 ================================================== */
 #getting-started {
