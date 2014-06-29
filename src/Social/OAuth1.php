@@ -49,8 +49,8 @@ trait OAuth1
     /**
      * Set application credentials.
      * 
-     * @param string          $consumerKey     Application's consumer key
-     * @param string          $consumerSecret  Application's consumer secret
+     * @param string $consumerKey     Application's consumer key
+     * @param string $consumerSecret  Application's consumer secret
      */
     protected function setCredentials($consumerKey, $consumerSecret)
     {
@@ -350,16 +350,14 @@ trait OAuth1
      */
     public function auth()
     {
-        if ($this->isAuth()) return;
+        if ($this->isAuth()) return $this;
         
         if (isset($_GET['oauth_verifier'])) {
             $this->handleAuthResponse();
-            return self::redirect($this->getCurrentUrl());
+            self::redirect($this->getCurrentUrl());
         }
   
         self::redirect($this->getAuthUrl());
-        
-        return $this;
     }
 
     /**
