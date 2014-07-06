@@ -12,15 +12,5 @@
     },
     "replace": {
         "jasny/social": "self.version"
-    },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "http://github.com/jasny-social/social"
-        },
-        {
-            "type": "vcs",
-            "url": "http://github.com/jasny-social/social-twitter"
-        }
-    ]
+    }
 }
