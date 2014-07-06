@@ -7,9 +7,20 @@
     },
     "require": {
         "php": ">=5.4.0",
+        "ext-curl": "*",
         "jasny/iso": "dev-master"
     },
     "replace": {
         "jasny/social": "self.version"
-    }
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "http://github.com/jasny-social/social"
+        },
+        {
+            "type": "vcs",
+            "url": "http://github.com/jasny-social/social-twitter"
+        }
+    ]
 }
