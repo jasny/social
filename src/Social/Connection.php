@@ -25,7 +25,7 @@ abstract class Connection
      * 
      * @var array
      */
-    protected $curl_opts = array(
+    public $curl_opts = array(
         CURLOPT_CONNECTTIMEOUT      => 10,
         CURLOPT_TIMEOUT             => 60,
         CURLOPT_USERAGENT           => 'JasnySocial/0.2',
