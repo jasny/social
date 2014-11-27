@@ -307,10 +307,13 @@ trait OAuth1
      * 
      * @param string $oauthToken     Returned oauth_token.
      * @param string $oauthVerifier  Returned oauth_verifier.
-     * @param object $tmpAccess      Temp access information.
+     * @param string $denied         Returned denied token
      */
-    public function handleAuthResponse($oauthToken=null, $oauthVerifier=null)
+    public function handleAuthResponse($oauthToken=null, $oauthVerifier=null, $denied=null)
     {
+        if ((isset($denied) && $denied) || isset($_GET['denied']))
+            throw new AuthException("Authentication was denied by client.");
+        
         if (!isset($oauthToken)) {
             if (!isset($_GET['oauth_token']))
                 throw new AuthException("Unable to handle authentication response: oauth_token wasn't returned.");
@@ -352,7 +355,7 @@ trait OAuth1
     {
         if ($this->isAuth()) return;
         
-        if (isset($_GET['oauth_verifier'])) {
+        if (isset($_GET['oauth_verifier']) || isset($_GET['denied'])) {
             $this->handleAuthResponse();
             return self::redirect($this->getCurrentUrl());
         }

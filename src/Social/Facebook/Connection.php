@@ -82,8 +82,8 @@ class Connection extends Base implements \Social\Auth
     public function extendAccess()
     {
         if (!isset($this->accessToken)) throw new Exception("Unable to extend access token. Access token isn't set.");
-        $response = $this->httpRequest('GET', "oauth/access_token", ['client_id'=>$this->appId,
-            'client_secret'=>$this->appSecret, 'grant_type'=>'fb_exchange_token',
+        $response = $this->get("oauth/access_token", ['client_id'=>$this->clientId,
+            'client_secret'=>$this->clientSecret, 'grant_type'=>'fb_exchange_token',
             'fb_exchange_token'=>$this->getAccessToken()]);
         
         parse_str($response, $data);
@@ -111,8 +111,8 @@ class Connection extends Base implements \Social\Auth
         $permissions = array_keys(array_filter((array)$this->get('me/permissions')->data[0]));
 
         if (array_diff($this->scope, $permissions)) {
-           $this->accessToken = null;
-           return $this->auth($this->scope);
+            $this->accessToken = null;
+            return $this->auth($this->scope);
         }
 
         return $this; 

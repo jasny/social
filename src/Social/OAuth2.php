@@ -306,12 +306,11 @@ trait OAuth2
         if ($this->isAuth()) return $this;
 
         if (!empty($_GET['state']) && $_GET['state'] == $this->getUniqueState()) {
-            $this->handleAuthResponse();
-            self::redirect($this->getCurrentUrl());
-        } else {
-            if (isset($this->accessToken)) $params['grant_type'] = 'refresh_token';
-            self::redirect($this->getAuthUrl($scope, $redirectUrl, $params));
+            return $this->handleAuthResponse();
         }
+        
+        if (isset($this->accessToken)) $params['grant_type'] = 'refresh_token';
+        self::redirect($this->getAuthUrl($scope, $redirectUrl, $params));
     }
 
     /**

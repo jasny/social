@@ -387,7 +387,7 @@ class Connection extends Base implements \Social\Auth
     {
         if ($this->isAuth()) return;
 
-        if (isset($_GET['oauth_verifier'])) {
+        if (isset($_GET['oauth_verifier']) || isset($_GET['denied'])) {
             $this->handleAuthResponse();
             return;
         }
