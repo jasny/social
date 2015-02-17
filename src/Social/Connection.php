@@ -74,13 +74,26 @@ abstract class Connection
      * Get an HTTP query parameter used in each request
      * 
      * @param string $param  Paramater key
-     * @return 
+     * @return array
      */
     public function getQueryParam($param)
     {
         return isset($this->queryParams[$param]) ? $this->queryParams[$param] : null;
     }
     
+    /**
+     * Use a proxy server
+     * 
+     * @param string $proxy
+     */
+    public function useProxy($proxy)
+    {
+        if ($proxy) {
+            $this->curl_opts[CURLOPT_PROXY] = $proxy;
+        } elseif (isset($this->curl_opts[CURLOPT_PROXY])) {
+            unset($this->curl_opts[CURLOPT_PROXY]);
+        }
+    }
     
     /**
      * Get default parameters for resource.
