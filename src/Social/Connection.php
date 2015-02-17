@@ -34,7 +34,7 @@ abstract class Connection
     protected $curl_opts = array(
         CURLOPT_CONNECTTIMEOUT      => 10,
         CURLOPT_TIMEOUT             => 60,
-        CURLOPT_USERAGENT           => 'JasnySocial/0.3',
+        CURLOPT_USERAGENT           => 'JasnySocial/0.4',
         CURLOPT_HTTPHEADER          => ['Accept'=>'application/json, */*'],
         CURLOPT_ENCODING            => '',
         CURLOPT_FOLLOWLOCATION      => true, 
