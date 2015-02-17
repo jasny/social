@@ -309,6 +309,7 @@ trait OAuth2
 
         $this->accessToken = $data->access_token;
         $this->accessExpires = isset($expires_in) ? time() + $expires_in : null;
+        $this->refreshToken = isset($data->refresh_token) ? $data->refresh_token : null;
 
         if ($this->authUseSession) $_SESSION[static::serviceProvider . ':access'] = $this->getAccessInfo();
 

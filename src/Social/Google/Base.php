@@ -142,7 +142,10 @@ abstract class Base extends \Social\Connection implements \Social\Auth
      */
     protected static function httpError($info, $result=null, $request=null)
     {
-        if (is_object($result) && $result->error) return $result->error->code . ' - ' . $result->error->message;
+        if (is_object($result) && $result->error) {
+            return is_object($result->error) ? $result->error->code . ' - ' . $result->error->message : $result->error;
+        }
+        
         return parent::httpError($info, $result, $request);
     }
     
@@ -177,7 +180,8 @@ abstract class Base extends \Social\Connection implements \Social\Auth
      */
     protected function fetchAccessToken(array $params)
     {
-        return $this->post(static::oauthUrl . 'token', $params);
+        $info = $this->post(static::oauthUrl . 'token', $params);
+        return $info;
     }
     
     /**
