@@ -213,7 +213,8 @@ trait OAuth2
         $params = ['client_id'=>$this->clientId, 'redirect_uri'=>$redirectUrl, 'scope'=>$scope,
             'state'=>$this->getUniqueState()] + $params + ['response_type'=>'code'];
 
-        return static::buildUrl(static::authURL, $params);
+        $url = str_replace('{v}', $this->apiVersion, static::authURL);
+        return static::buildUrl($url, $params);
     }
 
     /**

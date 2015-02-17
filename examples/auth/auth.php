@@ -26,7 +26,6 @@ $user = (object)[];
 $me = $conn->me();
 
 $user->name = $me->getName();
-$user->last_name = $me->getLastName();
 $user->gender = $me->getGender();
 $user->date_of_birth = $me->getDateOfBirth();
 $user->company = $me->getCompany();
@@ -35,3 +34,4 @@ $user->website = $me->getWebsite();
 $user->description = $me->getDescription();
 
 var_dump($user);
+echo "<a href='./'>&larr; Back</a>";

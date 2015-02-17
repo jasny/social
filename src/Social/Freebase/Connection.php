@@ -36,7 +36,7 @@ class Connection extends Google
      * Api version
      * @var string 
      */
-    protected $apiVersion = "v1";
+    public $apiVersion = "v1";
     
     
     /**

@@ -109,7 +109,7 @@ class Connection extends Base implements \Social\Auth
      */
     public function me()
     {
-        $data = $this->get('people/~:(' . join(',', Me::$fields) . ')');
+        $data = $this->get('people/~:(' . join(',', User::$fields) . ')');
         return new User($data);
     }
 }

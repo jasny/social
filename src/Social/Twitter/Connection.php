@@ -22,9 +22,7 @@ use Social\Connection as Base;
  */
 class Connection extends Base implements \Social\Auth
 {
-    use \Social\OAuth1 {
-        setAccessInfo as protected setOAuth1AccessInfo;
-    }
+    use \Social\OAuth1;
 
     /**
      * API version
@@ -132,40 +130,6 @@ class Connection extends Base implements \Social\Auth
     }
 
     /**
-     * Set the access info.
-     * 
-     * @param array|object $access  [ token, secret, me ] or { 'token': string, 'secret': string, 'user': me }
-     */
-    protected function setAccessInfo($access)
-    {
-        $this->setOAuth1AccessInfo($access);
-        
-        if (is_array($access) && !is_int(key($access))) $access = (object)$access;
-
-        if ((isset($access->user_id) && (!isset($this->me) || isset($this->me->user_id)
-            && $this->me->user_id != $access->user_id)) ||
-            (isset($access->screen_name) && (!isset($this->me) || isset($this->me->screen_name)
-            && $this->me->screen_name != $access->screen_name))
-        ) {
-            $user = [
-                'id' => isset($access->user_id) ? $access->user_id : null,
-                'screen_name' => isset($access->screen_name) ? $access->screen_name : NULL
-            ];
-        }
-
-        if (isset($user)) {
-            if ($user instanceof Entity) {
-                $this->me = $user->reconnectTo($this);
-            } elseif (is_scalar($user)) {
-                $this->me = $this->entity('user', array('id' => $user), Entity::AUTO_HYDRATE);
-            } else {
-                $type = (is_object($user) ? get_class($user) : get_type($user));
-                throw new \Exception("Was expecting an ID (int) or Entity for user, but got a $type");
-            }
-        }
-    }
-    
-    /**
      * Build a full url.
      * 
      * @param string  $url
@@ -174,7 +138,7 @@ class Connection extends Base implements \Social\Auth
      */
     protected function getFullUrl($url, array $params=[])
     {
-        if (strpos($url, '://') === false) $url = static::getBaseUrl($url) . ltrim($url, '/');
+        if (strpos($url, '://') === false) $url = $this->getBaseUrl($url) . ltrim($url, '/');
         return self::buildUrl($url, $params);
     }
     
@@ -184,7 +148,7 @@ class Connection extends Base implements \Social\Auth
      * @param string $url
      * @return string
      */
-    protected static function getBaseUrl($url=null)
+    protected function getBaseUrl($url=null)
     {
         $resource = static::normalizeResource($url);
         

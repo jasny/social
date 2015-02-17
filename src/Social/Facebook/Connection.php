@@ -43,7 +43,7 @@ class Connection extends Base implements \Social\Auth
     /**
      * Facebook authentication URL
      */
-    const authURL = "https://www.facebook.com/dialog/oauth/";
+    const authURL = "https://www.facebook.com/{v}/dialog/oauth/";
 
     
     /**
@@ -131,6 +131,7 @@ class Connection extends Base implements \Social\Auth
      */
     public function me()
     {
-        return new Me($this->get('me'));
+        $data = $this->get('me');
+        return new User($data);
     }
 }

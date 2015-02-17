@@ -15,7 +15,7 @@ namespace Social\LinkedIn;
  * 
  * @package LinkedIn
  */
-class Person extends \Social\Entity implements \Social\Person
+class User extends \Social\Entity implements \Social\User
 {
     /**
      * Available profile fields

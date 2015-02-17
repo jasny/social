@@ -57,7 +57,7 @@ abstract class Base extends \Social\Connection implements \Social\Auth
      * Google API version
      * @var string 
      */
-    protected $apiVersion;
+    public $apiVersion;
     
     
     /**
