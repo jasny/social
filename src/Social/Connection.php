@@ -379,7 +379,7 @@ abstract class Connection
         if ($error || $info->http_code >= 300) {
             if (!$error) $error = static::httpError($info, $result, $request);
             if ($error !== false) throw new \Exception("HTTP " . (@$request->method ?: 'GET') . " request for '" .
-                $this->getFullUrl($request->url). "' failed: $error");
+                $this->getFullUrl($request->url). "' failed: " . (@$result->error->message ?: $error));
         }
         
         return $result;
