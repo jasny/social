@@ -46,6 +46,12 @@ trait OAuth2
     protected $accessExpires;
 
     /**
+     * User's refresh token
+     * @var type 
+     */
+    protected $refreshToken;
+    
+    /**
      * The requested permissions
      * Note: It's not certain the authenticated user has given these permissions
      *
@@ -108,6 +114,16 @@ trait OAuth2
     }
 
     /**
+     * Get the timestamp of when the access token will expire.
+     *
+     * @return int
+     */
+    public function getRefreshToken()
+    {
+        return $this->refreshToken;
+    }
+
+    /**
      * Set the access info.
      *
      * @param array|object $access  [ token, expires ] or { 'token': string, 'expires': unixtime }
@@ -122,12 +138,12 @@ trait OAuth2
                 $_SESSION[static::serviceProvider . ':access'] : null;
         }
 
-        if (is_array($access) && is_int(key($access))) {
-            list($this->accessToken, $this->accessExpires, $user) = $access + array(null, null, null);
-        } elseif (isset($access)) {
+        if (isset($access)) {
             $access = (object)$access;
             $this->accessToken = $access->access_token;
             $this->accessExpires = isset($access->expires) ? $access->expires : null;
+            $this->refreshToken = isset($access->refresh_token) ? $access->refresh_token : null;
+            
             if (isset($access->user)) $user = $access->user;
         }
     }
@@ -140,7 +156,12 @@ trait OAuth2
     public function getAccessInfo()
     {
         if (!isset($this->accessToken)) return null;
-        return (object)['access_token' => $this->accessToken, 'expires' => $this->accessExpires];
+        
+        return (object)[
+            'access_token' => $this->accessToken,
+            'expires' => $this->accessExpires,
+            'refreshToken' => $this->refreshToken
+        ];
     }
 
     /**
@@ -168,12 +189,12 @@ trait OAuth2
     /**
      * Initialise an HTTP request object.
      *
-     * @param object|string $request  url or value object
+     * @param object|string $url  url or value object
      * @return object
      */
-    protected function initRequest($request)
+    protected function initRequest($url)
     {
-        $request = parent::initRequest($request);
+        $request = parent::initRequest($url);
 
         if ($this->accessToken) $request->queryParams['oauth_token'] = $this->accessToken;
         return $request;
