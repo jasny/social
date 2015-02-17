@@ -36,10 +36,14 @@ abstract class Base extends \Social\Connection implements \Social\Auth
     const discoveryURL = "https://www.googleapis.com/discovery/v1/";
     
     /**
+     * Google oauth API URL
+     */
+    const oauthUrl = "https://www.googleapis.com/oauth2/v3/";
+    
+    /**
      * Google authentication URL
      */
     const authURL = "https://accounts.google.com/o/oauth2/auth";
-    
     
     /**
      * The application's API key
@@ -173,7 +177,7 @@ abstract class Base extends \Social\Connection implements \Social\Auth
      */
     protected function fetchAccessToken(array $params)
     {
-        return $this->post(dirname(static::authURL) . '/token', $params);
+        return $this->post(static::oauthUrl . 'token', $params);
     }
     
     /**
@@ -206,7 +210,7 @@ abstract class Base extends \Social\Connection implements \Social\Auth
     public function me()
     {
         // Use absolute URL, so this will also work when a different API is selected.
-        $data = $this->get(static::apiURL . 'oauth2/v2/userinfo');
+        $data = $this->get(static::oauthUrl . 'userinfo');
         
         return new User($data);
     }
