@@ -24,27 +24,14 @@ $user = (object)[];
 
 // Add (missing) profile information
 $me = $conn->me();
-if ($me instanceof \Social\Person) {
-    $user->first_name = $me->getFirstName();
-    $user->last_name = $me->getLastName();
-    $user->gender = $me->getGender();
-    $user->date_of_birth = $me->getDateOfBirth();
-    if ($me->getEmployment()) $user->profession = $me->getEmployment()->getJobTitle();
-    $user->company = (string)$me->getCompany();
-} else {
-    list($user->first_name, $user->last_name) = explode(' ', $me->getName(), 2) + [null, null];
-}
 
+$user->name = $me->getName();
+$user->last_name = $me->getLastName();
+$user->gender = $me->getGender();
+$user->date_of_birth = $me->getDateOfBirth();
+$user->company = $me->getCompany();
 $user->email = $me->getEmail();
 $user->website = $me->getWebsite();
 $user->description = $me->getDescription();
 
-if ($me->getLocation()) {
-    $user->address = $me->getLocation()->getAddress();
-    $user->city = $me->getLocation()->getCity();
-    $user->state = $me->getLocation()->getState('name');
-    $user->country = $me->getLocation()->getCountry('name');
-}
-
 var_dump($user);
-var_dump($me);

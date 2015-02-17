@@ -10,28 +10,13 @@
 /** */
 namespace Social\Gravatar;
 
-use \Social\Common\Location;
-
 /**
  * Profile entity on Gravatar
  * 
  * @package Gravatar
  */
-class Profile implements \Social\Person, \Social\Profile, \Social\User
+class Profile extends \Social\Entity implements \Social\User
 {
-    /**
-     * Class constructor
-     * 
-     * @param object|array $data
-     */
-    public function __construct($data)
-    {
-        foreach ($data as $key=>$value) {
-            $this->$key = $value;
-        }
-    }
-    
-
     /**
      * Get profile identifier
      * 
@@ -185,17 +170,11 @@ class Profile implements \Social\Person, \Social\Profile, \Social\User
     /**
      * Get person's location
      * 
-     * @return Location
+     * @return string
      */
     public function getLocation()
     {
-        if (!isset($this->currentLocation)) return null;
-        
-        $values = explode(', ', $this->currentLocation);
-        if (count($values) == 2) $values = array_combine(['city', 'country'], $values);
-        if (count($values) == 3) $values = array_combine(['city', 'state', 'country'], $values);
-        
-        return new Location($values);
+        return isset($this->currentLocation) ? $this->currentLocation : null;
     }
 
     /**

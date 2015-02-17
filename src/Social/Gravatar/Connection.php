@@ -179,6 +179,6 @@ class Connection extends Base
         if (strpos($resource, '@')) $resource = $this->hash($resource);
         
         $result = $this->get($resource, $params);
-        return $result ? new Profile($result->entry[0]) : null;
+        return $result ? new User($result->entry[0]) : null;
     }
 }

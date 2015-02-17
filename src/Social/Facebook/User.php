@@ -10,69 +10,13 @@
 /** */
 namespace Social\Facebook;
 
-use \Social\Common\Employment;
-
 /**
  * Entity representing a user
  * 
  * @package Facebook
  */
-class User extends Entity implements \Social\Person, \Social\User, \Social\Profile
+class User extends \Social\Entity implements \Social\User
 {
-    use Profile;
-    
-    /** @var Employment */
-    protected $_employment;
-
-    /**
-     * Class constructor
-     * 
-     * @param object|array $data
-     */
-    public function __construct($data)
-    {
-        foreach ($data as $key=>$value) {
-            $this->$key = $value;
-        }
-        
-        $this->cast();
-    }
-    
-    /**
-     * Cast part of the data to entities
-     */
-    protected function cast()
-    {
-        if (isset($this->location) && !$this->location instanceof Location)
-            $this->location = new Location($this->location);
-        
-        if (isset($this->work) && !empty($this->work)) {
-            $this->_employment = new Employment(['job_title'=>$this->work[0]->description,
-                 'address'=>$this->work[0]->location, 'company'=>$this->getCompany()]);
-
-            foreach ($this->work as $work) {
-                if (isset($work->location) && !$work->location instanceof Location)
-                    $work->location = new Location($work->location);
-                
-                if (isset($work->employer) && !$work->employer instanceof Company)
-                    $work->employer = new Company((array)$work->employer + ['location'=>isset($work->location) ? $work->location : null]);
-            }
-        }
-    }
-    
-    
-    /**
-     * Get the user at another service provider.
-     * 
-     * @param \Social\Connection $service  Service provider
-     * @return null
-     */
-    public function atProvider($service)
-    {
-        return null;
-    }
-    
-    
     /**
      * Return user ID
      * 
@@ -82,6 +26,55 @@ class User extends Entity implements \Social\Person, \Social\User, \Social\Profi
     {
         return $this->id;
     }
+
+    /**
+     * Get username on Facebook.
+     * Returns the ID is the username is unknown.
+     * 
+     * @return string
+     */
+    public function getUsername()
+    {
+        if (isset($this->username)) return $this->username;
+        if (isset($this->link)) return parse_url($this->link, PHP_URL_PATH);
+        return $this->id;
+    }
+    
+    /**
+     * Get URL to profile on Facebook
+     * 
+     * @return string
+     */
+    public function getLink()
+    {
+        if (isset($this->link)) return $this->link;
+        return 'http://www.facebook.com/' . $this->getUsername();
+    }
+    
+    /**
+     * Get url to profile picture.
+     * 
+     * If size is omited the largest available image is returned.
+     * $size is an just an indication, the image may not have those exact dimensions.
+     * 
+     * @param string $size   'square', 'small', 'medium', 'large' or {width}x{height} (eg '800x600' or 'x400')
+     * @return string
+     */
+    public function getPicture($size=null)
+    {
+        if (!isset($this->id) && !isset($this->username)) return null;
+        
+        if (!isset($size)) $size = '8192x';
+        if (strpos($size, 'x') !== false) {
+            list($width, $height) = explode('x', $size);
+            $query = "width=$width&height=$height";
+        } else {
+            $query = "type=$size";
+        }
+        
+        return "http://graph.facebook.com/" . $this->getUsername() . "/picture?$query";
+    }
+
     
     /**
      * Get user's full name
@@ -180,7 +173,7 @@ class User extends Entity implements \Social\Person, \Social\User, \Social\Profi
     /**
      * Get user's address
      * 
-     * @return Location
+     * @return string
      */
     public function getLocation()
     {

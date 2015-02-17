@@ -24,6 +24,12 @@ class Connection extends Base implements \Social\Auth
     use \Social\OAuth2;
     
     /**
+     * Api version
+     * @var string
+     */
+    public $apiVersion = 'v1';
+    
+    /**
      * Name of the API's service provider
      */
     const serviceProvider = 'linkedin';
@@ -31,7 +37,7 @@ class Connection extends Base implements \Social\Auth
     /**
      * LinkedIn API URL
      */
-    const apiURL = "https://api.linkedin.com/v1/";
+    const apiURL = "https://api.linkedin.com/{v}/";
     
     /**
      * LinkedIn authentication URL
@@ -99,12 +105,11 @@ class Connection extends Base implements \Social\Auth
     /**
      * Get current user profile.
      * 
-     * @return Me
+     * @return User
      */
     public function me()
     {
-        $me = new Me($this->get('people/~:(' . join(',', Me::$fields) . ')'));
-        $me->setConnection($this);
-        return $me;
+        $data = $this->get('people/~:(' . join(',', Me::$fields) . ')');
+        return new User($data);
     }
 }

@@ -11,7 +11,6 @@
 namespace Social\Facebook;
 
 use Social\Connection as Base;
-use Social\Collection;
 
 /**
  * Facebook Graph API connection.
@@ -26,6 +25,12 @@ class Connection extends Base implements \Social\Auth
     use \Social\OAuth2;
     
     /**
+     * Facebook API version.
+     * @var string
+     */
+    public $apiVersion = 'v2.2';
+    
+    /**
      * Name of the API service
      */
     const serviceProvider = 'facebook';
@@ -33,12 +38,12 @@ class Connection extends Base implements \Social\Auth
     /**
      * Facebook Open Graph API URL
      */
-    const apiURL = "https://graph.facebook.com/";
+    const apiURL = "https://graph.facebook.com/{v}/";
     
     /**
      * Facebook authentication URL
      */
-    const authURL = "https://www.facebook.com/dialog/oauth";
+    const authURL = "https://www.facebook.com/dialog/oauth/";
 
     
     /**
@@ -127,54 +132,5 @@ class Connection extends Base implements \Social\Auth
     public function me()
     {
         return new Me($this->get('me'));
-    }
-
-    
-    /**
-     * Convert data to Entity, Collection or DateTime.
-     * 
-     * @todo fix this
-     * 
-     * @param mixed   $data
-     * @param string  $type    Entity type
-     * @param boolean $stub    If an Entity, asume it's a stub
-     * @param object  $source  { 'url': string, 'params': array }
-     * @return Entity|Collection|DateTime|mixed
-     */
-    public function convert($data, $type=null, $stub=true, $source=null)
-    {
-        // Don't convert
-        if ($data instanceof Entity || $data instanceof Collection || $data instanceof \DateTime) {
-            return $data;
-        }
-        
-        // Scalar
-        if (is_scalar($data) || is_null($data)) {
-            if (preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$/', $data)) return new \DateTime($data);
-            if (isset($type)) return $this->stub($type, $data);
-            return $data;
-        }
-
-        // Entity
-        if ($data instanceof \stdClass && isset($data->id)) return new Entity($this, $type, $data, $stub);
-           
-        // Collection
-        if ($data instanceof \stdClass && isset($data->data) && is_array($data->data)) {
-            if (is_string($source)) $source = $this->extractParams($source);
-            if (isset($data->paging->next)) // Make sure the same parameters are used in the next query
-                $data->paging->next = $this->buildUrl($data->paging->next, (array)$source, false);
-            return new Collection($this, $type, $data->data, isset($data->paging->next) ? $data->paging->next : null);
-        }
-        
-        // Array or value object
-        if (is_array($data) || $data instanceof \stdClass) {
-            foreach ($data as &$value) {
-                $value = $this->convertData($value, $type);
-            }
-            return $data;
-        }
-        
-        // Probably some other kind of object
-        return $data;
     }
 }

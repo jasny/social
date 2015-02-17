@@ -22,9 +22,16 @@ use Social\Connection as Base;
  */
 class Connection extends Base implements \Social\Auth
 {
-    use \Social\EntityMapping;
-    use \Social\OAuth1;
+    use \Social\OAuth1 {
+        setAccessInfo as protected setOAuth1AccessInfo;
+    }
 
+    /**
+     * API version
+     * @var string
+     */
+    public $apiVersion = '1.1';
+    
     /**
      * Name of the API service
      */
@@ -33,12 +40,12 @@ class Connection extends Base implements \Social\Auth
     /**
      * Twitter REST API URL
      */
-    const restURL = "https://api.twitter.com/1.1/";
+    const restURL = "https://api.twitter.com/{v}/";
 
     /**
      * Twitter upload API URL
      */
-    const uploadURL = "https://upload.twitter.com/1.1/";
+    const uploadURL = "https://upload.twitter.com/{v}/";
     
     /**
      * Twitter OAuth API URL
@@ -48,54 +55,22 @@ class Connection extends Base implements \Social\Auth
     /**
      * Twitter streaming API URL
      */
-    const streamUrl = "https://stream.twitter.com/1.1/";
+    const streamUrl = "https://stream.twitter.com/{v}/";
 
     /**
      * Twitter streaming API URL for user stream
      */
-    const userstreamUrl = "https://userstream.twitter.com/1.1/";
+    const userstreamUrl = "https://userstream.twitter.com/{v}/";
 
     /**
      * Twitter streaming API URL for site stream
      */
-    const sitestreamUrl = "https://sitestream.twitter.com/1.1/";
+    const sitestreamUrl = "https://sitestream.twitter.com/{v}/";
     
     /**
      * The default file extension for API URLs
      */
     const defaultExtension = 'json';
-    
-    /**
-     * Entity type per resource
-     * @var array
-     */
-    protected static $resourceTypes = [
-        'statuses'                  => 'tweet',
-        'statuses/*/retweeted_by'   => 'user',
-        'statuses/oembed'           => null,
-        'direct_messages'           => 'direct_message',
-        'followers'                 => 'user',
-        'friends'                   => 'user',
-        'friendships'               => '@user',
-        'friendships/exists'        => null,
-        'users'                     => 'user',
-        'users/suggestions'         => null,
-        'users/profile_image'       => null,
-        'favorites'                 => 'tweet',
-        'lists'                     => 'list',
-        'lists/statuses'            => 'tweet',
-        'lists/members'             => 'user',
-        'account'                   => 'me',
-        'account/rate_limit_status' => null,
-        'account/totals'            => null,
-        'account/settings'          => null,
-        'notifications'             => 'user',
-        'saved_searches'            => 'saved_search',
-        'geo'                       => 'place',
-        'geo/reverse_geocode'       => null,
-        'blocks'                    => 'user',
-        'report_spam'               => 'user',
-    ];
 
     /**
      * API url per resource
@@ -161,9 +136,9 @@ class Connection extends Base implements \Social\Auth
      * 
      * @param array|object $access  [ token, secret, me ] or { 'token': string, 'secret': string, 'user': me }
      */
-    protected function setAccessInfo_entity($access)
+    protected function setAccessInfo($access)
     {
-        $this->OAuth1_setAccessInfo($access);
+        $this->setOAuth1AccessInfo($access);
         
         if (is_array($access) && !is_int(key($access))) $access = (object)$access;
 
@@ -172,7 +147,10 @@ class Connection extends Base implements \Social\Auth
             (isset($access->screen_name) && (!isset($this->me) || isset($this->me->screen_name)
             && $this->me->screen_name != $access->screen_name))
         ) {
-            $user = ['id'=>@$access->user_id, 'screen_name'=>@$access->screen_name];
+            $user = [
+                'id' => isset($access->user_id) ? $access->user_id : null,
+                'screen_name' => isset($access->screen_name) ? $access->screen_name : NULL
+            ];
         }
 
         if (isset($user)) {
@@ -203,7 +181,7 @@ class Connection extends Base implements \Social\Auth
     /**
      * Get Twitter API URL based on de resource.
      * 
-     * @param string $resource
+     * @param string $url
      * @return string
      */
     protected static function getBaseUrl($url=null)
@@ -215,7 +193,7 @@ class Connection extends Base implements \Social\Auth
             $resource = dirname($resource);
         } while ($resource != '.');
 
-        return static::$resourceApi['*'];
+        return str_replace('{v}', $this->apiVersion, static::$resourceApi['*']);
     }
     
     
@@ -234,24 +212,24 @@ class Connection extends Base implements \Social\Auth
     /**
      * Get default parameters for resource.
      * 
-     * @param string $resource
+     * @param string $url
      * @return array
      */
-    public static function getDefaultParams($resource)
+    public static function getDefaultParams($url)
     {
-        $resource = self::normalizeResource($resource);
+        $resource = self::normalizeResource($url);
         return isset(self::$defaultParams[$resource]) ? self::$defaultParams[$resource] : [];
     }
 
     /**
      * Get entity type for resource.
      * 
-     * @param string $resource 
+     * @param string $url 
      * @return string
      */
-    public static function detectType($resource)
+    public static function detectType($url)
     {
-        $resource = self::normalizeResource($resource);
+        $resource = self::normalizeResource($url);
         
         do {
             if (array_key_exists($resource, self::$resourceTypes)) return self::$resourceTypes[$resource];
@@ -359,14 +337,14 @@ class Connection extends Base implements \Social\Auth
      * @param string $returnUrl  The URL to return to after successfully authenticating.
      * @return string
      */
-    protected function getAuthUrl($level, $returnUrl=null)
+    protected function getAuthUrl($level = null, $returnUrl=null)
     {
         if (!isset($returnUrl)) {
             $returnUrl = $this->getCurrentUrl($returnUrl);
             if (!isset($returnUrl)) throw new Exception("Unable to determine the redirect URL, please specify it.");
         }
 
-        $level = $level ?: 'authorize';
+        if (!$level) $level = 'authorize';
 
 	$oauth = ['oauth_callback'=>$returnUrl];
         $request = $this->initRequest(['method'=>'POST', 'url'=>'oauth/request_token', 'oauth'=>$oauth]);
@@ -465,99 +443,7 @@ class Connection extends Base implements \Social\Auth
      */
     public function me()
     {
-        return new Me($this->get('account/verify_credentials'));
-    }
-    
-    /**
-     * Convert data to Entity, Collection or DateTime.
-     * 
-     * @param mixed    $data
-     * @param string   $type     Entity type, true is autodetect
-     * @param boolean  $stub     If an Entity, asume it's a stub
-     * @param object   $request  Request used to get this data
-     * @return Entity|Collection|DateTime|mixed
-     */
-    public function convert($data, $type=null, $stub=Entity::NO_STUB, $request=null)
-    {
-        if ($type === true) $type = $this->detectType($request->url);
-        
-        // Don't convert
-        if ($data instanceof Entity || $data instanceof Collection || $data instanceof \DateTime) {
-            return $data;
-        }
-        
-        // Scalar
-        if (is_scalar($data) || is_null($data)) {
-            if (preg_match('/^\w{3}\s\w{3}\s\d+\s\d+:\d+:\d+\s\+\d{4}\s\d{4}$/', $data)) return new \DateTime($data);
-            if (isset($type)) return $this->entity($type, $data, ENTITY::STUB);
-            return $data;
-        }
-
-        if (isset($type)) {
-            // Entity
-            if ($data instanceof \stdClass && isset($data->id)) {
-                return $this->entity($type, $data, $stub);
-            }
-
-            // Collection
-            if ($data instanceof \stdClass && array_key_exists('next_cursor', $data)) {
-                $cursor_keys = ['next_cursor', 'previous_cursor', 'next_cursor_str', 'previous_cursor_str'];
-                list($key) = array_diff(array_keys(get_object_vars($data)), $cursor_keys);
-                $request->params['cursor'] = $data->next_cursor_str;
-
-                foreach ($data->$key as &$value) $value = $this->entity($type, $value, $stub);
-                return new Collection($this, $data->$key, $data->next_cursor_str ? $request : null);
-            }
-
-            if (is_array($data) && $type) {
-                if ($request && array_key_exists('max_id', $request->params)) {
-                    $last = end($data);
-                    $request->params['max_id'] = $last && isset($last->id) ?
-                        self::decrementId(isset($last->id_str) ? $last->id_str : $last->id) : null;
-                }
-
-                foreach ($data as &$value) $value = $this->entity($type, $value, $stub);
-                return new Collection($this, $data, $request && !empty($request->params['max_id']) ? $request : null);
-            }
-        }
-        
-        // Value object
-        if ($data instanceof \stdClass) {
-            foreach ($data as $key=>&$value) {
-                $type = $key == 'user' || $key == 'user_mentions' ? 'user' : ($key == 'status' ? 'tweet' : null);
-                $value = $this->convert($value, $type);
-            }
-            return $data;
-        }
-        
-        // Array
-        if (is_array($data)) {
-            foreach ($data as &$value) {
-                $value = $this->convert($value);
-            }
-            return $data;
-        }
-        
-        // Probably some other kind of object
-        return $data;
-    }
-    
-    /**
-     * Subtract 1 from ID.
-     * 
-     * @param string $id  A big integer
-     * @return string
-     */
-    static private function decrementId($id)
-    {
-        // We have bcsub :)
-        if (function_exists('bcsub')) return bcsub($id, 1);
-        
-        // No bcsub :/
-        $i = strlen($id) - 1;
-        while ($id[$i] == 0) $id[$i++] = 9;
-        $id[$i]--;
-        
-        return $id;
+        $data = $this->get('account/verify_credentials');
+        return new User($data);
     }
 }

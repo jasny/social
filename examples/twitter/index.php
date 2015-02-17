@@ -12,11 +12,6 @@ if (isset($_POST['tweet'])) {
 }
 
 $me = $twitter->me();
-//$peerreach = $me->getFriendship('PeerReach');
-
-//if ($me->screen_name != 'ArnoldDaniels' && !$me->isFollowing('ArnoldDaniels')) $arnold = $me->follow('ArnoldDaniels'); // Everybody who runs this demo will follow me.. ghne ghne
-
-var_dump($twitter->get('statuses/user_timeline'));
 
 ?>
 <!DOCTYPE html>
@@ -30,7 +25,7 @@ var_dump($twitter->get('statuses/user_timeline'));
           <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
         <![endif]-->
 
-        <link rel="stylesheet" href="http://jasny.github.com/bootstrap/assets/css/bootstrap.css" />
+        <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css" />
     </head>
     <body style="padding-top: 60px">
         <div class="navbar navbar-fixed-top">
@@ -49,20 +44,19 @@ var_dump($twitter->get('statuses/user_timeline'));
             <h1>Hi <?= $me->name ?>,</h1>
             <div><a href="http://twitter.com/<?= $me->screen_name ?>">@<?= $me->screen_name ?></a></div>
 
-            <br>
-
-            <? if (isset($arnold)): ?><p><i class="iconic-check" style="color: green"></i> You are now following <a href="http://twitter.com/<?= $arnold->screen_name ?>"><?= $arnold->name ?></a></p><? endif ?>
-            <p>You are <?= $peerreach->following ? 'following' : 'not following' ?> <a href="http://twitter.com/<?= $peerreach->screen_name ?>"><?= $peerreach->name ?></a> and they're <?= $peerreach->followed_by ? 'following' : 'not following' ?> you.</p>
-
             <hr>
             <h3>Send a tweet</h3>
 
-            <? if (isset($success)): ?><div class="alert alert-success"><?= $success ?></div><? endif ?>
+            <?php if (isset($success)): ?><div class="alert alert-success"><?= $success ?></div><?php endif ?>
 
             <form method="post" action="index.php">
                 <fieldset><textarea name="tweet" class="span8" rows="5"></textarea></fieldset>
                 <button class="btn">Tweet</button>
             </form>
         </div>
+        
+        <pre>
+            <?php var_dump($twitter->get('statuses/user_timeline')); ?>
+        </pre>
     </body>
 </html>

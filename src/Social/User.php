@@ -16,21 +16,6 @@ namespace Social;
 interface User
 {
     /**
-     * Get the user at another service provider.
-     * 
-     * {{ @internal Do *not* search at $service, only return a stub if the id or username is known. }}
-     * 
-     * <code>
-     *   $service->me()->atProvider('twitter');
-     * </code>
-     * 
-     * @param Connection $service  Service provider
-     * @return User
-     */
-    public function atProvider($service);
-    
-    
-    /**
      * Get user's full name
      * 
      * @return string
@@ -55,12 +40,35 @@ interface User
      */
     public function getPicture($size=null);
     
+    
     /**
-     * Get url to user's locale (= language)
+     * Get user's first name
      * 
      * @return string
      */
-    public function getLocale();
+    public function getFirstName();
+    
+    /**
+     * Get user's last name
+     * 
+     * @return string
+     */
+    public function getLastName();
+    
+    
+    /**
+     * Get user's gender
+     * 
+     * @return string  'male' or 'female'
+     */
+    public function getGender();
+    
+    /**
+     * Get user's date of birth
+     * 
+     * @return string
+     */
+    public function getDateOfBirth();
     
     
     /**
@@ -86,9 +94,24 @@ interface User
     public function getDescription();
     
     /**
+     * Get user's employment company.
+     * 
+     * @return null
+     */
+    public function getCompany();
+
+    
+    /**
+     * Get the user's locale (= language)
+     * 
+     * @return string
+     */
+    public function getLocale();
+    
+    /**
      * Get user's location
      * 
-     * @return Location
+     * @return string
      */
     public function getLocation();
     

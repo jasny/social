@@ -21,6 +21,12 @@ abstract class Connection
     const defaultExtension = '';
 
     /**
+     * API version
+     * @var string
+     */
+    public $apiVersion;
+    
+    /**
      * Default options for curl.
      * 
      * @var array
@@ -28,7 +34,7 @@ abstract class Connection
     protected $curl_opts = array(
         CURLOPT_CONNECTTIMEOUT      => 10,
         CURLOPT_TIMEOUT             => 60,
-        CURLOPT_USERAGENT           => 'JasnySocial/0.2',
+        CURLOPT_USERAGENT           => 'JasnySocial/0.3',
         CURLOPT_HTTPHEADER          => ['Accept'=>'application/json, */*'],
         CURLOPT_ENCODING            => '',
         CURLOPT_FOLLOWLOCATION      => true, 
@@ -98,7 +104,6 @@ abstract class Connection
         return false;
     }
     
-    
     /**
      * Build an absolute url, relative to the api url.
      * 
@@ -107,7 +112,11 @@ abstract class Connection
      */
     protected function getFullUrl($url, array $params=[])
     {
-        if (strpos($url, '://') === false) $url = static::apiURL . ltrim($url, '/');
+        if (strpos($url, '://') === false) {
+            $apiUrl = str_replace('{v}', $this->apiVersion, static::apiURL);
+            $url = $apiUrl . ltrim($url, '/');
+        }
+        
         return self::buildUrl($url, $params);
     }
     
@@ -139,7 +148,7 @@ abstract class Connection
      * Request buffers are stackable, that is, you may call prepare() while another prepare() is active. Just make sure
      * that you call execute() the appropriate number of times.
      * 
-     * @param Entity|Result $target  Sets data of target by calling $target->processResult()
+     * @param Entity $target  Sets data of target by calling $target->processResult()
      * @param Connection $this
      */
     public function prepare($target=null)
@@ -271,7 +280,7 @@ abstract class Connection
      * @param array $prepared
      * @param array $requests
      * @param array $results
-     * @return array|Collection|Result
+     * @return array
      */
     private function handlePrepared($prepared, $requests, $results)
     {

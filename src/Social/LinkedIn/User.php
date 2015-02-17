@@ -15,7 +15,7 @@ namespace Social\LinkedIn;
  * 
  * @package LinkedIn
  */
-class Person implements \Social\Person, \Social\User, \Social\Profile
+class Person extends \Social\Entity implements \Social\Person
 {
     /**
      * Available profile fields
@@ -89,53 +89,6 @@ class Person implements \Social\Person, \Social\User, \Social\Profile
         // r_network
         'connections'
     ];
-    
-    /**
-     * Class constructor
-     * 
-     * @param object|array $data
-     */
-    public function __construct($data)
-    {
-        foreach ($data as $key=>$value) {
-            $this->$key = $value;
-        }
-        
-        $this->cast();
-    }
-    
-    /**
-     * Cast part of the data to entities
-     */
-    protected function cast()
-    {
-        if (isset($this->location)) $this->location = new Address($this->location);
-        
-        if (isset($this->positions)) {
-            foreach ($this->positions->values as &$position) {
-               $position = new Position($position);
-            }
-        }
-    }
-    
-    
-    /**
-     * Get the person's ID at another service provider.
-     * 
-     * <code>
-     *   $linkedin->me()->atProvider('twitter');
-     * </code>
-     * 
-     * @param \Social\Connection $service  Service provider
-     * @return \Social\Person
-     */
-    public function atProvider($service)
-    {
-        if ($service instanceof \Social\Twitter\Connection && isset($this->primaryTwitterAccount)) {
-            $account = $this->primaryTwitterAccount;
-            return $service->user(['id'=>$account->providerAccountId, 'screen_name'=>$account->providerAccountName]);
-        }
-    }
     
     
     /**
@@ -212,7 +165,7 @@ class Person implements \Social\Person, \Social\User, \Social\Profile
     
     
     /**
-     * Get username on Facebook.
+     * Get username.
      * 
      * @return string
      */
@@ -222,7 +175,7 @@ class Person implements \Social\Person, \Social\User, \Social\Profile
     }
     
     /**
-     * Get URL to profile on Facebook
+     * Get URL to profile
      * 
      * @return string
      */
@@ -301,25 +254,15 @@ class Person implements \Social\Person, \Social\User, \Social\Profile
     }
     
     /**
-     * Get information about person's employment
-     * 
-     * @return Employment
-     */
-    public function getEmployment()
-    {
-        if (!empty($this->positions->values)) return $this->positions->values[0];
-        return isset($this->headline) ? new Position($this->headline) : null;
-    }
-    
-    /**
      * Get person's employment company.
      * 
      * @return Company
      */
     public function getCompany()
     {
-        $employment = $this->getEmployment();
-        return isset($employment) ? $employment->getCompany() : null;
+        return !empty($this->positions->values) ?
+            $this->positions->values[0]->company->name :
+            null;
     }
     
     

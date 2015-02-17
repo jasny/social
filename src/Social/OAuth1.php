@@ -112,7 +112,8 @@ trait OAuth1
         
         if (isset($_SESSION) && $access === $_SESSION) {
             $this->authUseSession = true;
-            $access = @$_SESSION[static::serviceProvider . ':access'];
+            $access = isset($_SESSION[static::serviceProvider . ':access']) ?
+                $_SESSION[static::serviceProvider . ':access'] : null;
         }
         
         if (is_array($access) && is_int(key($access))) {

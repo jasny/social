@@ -71,12 +71,12 @@ class Connection extends Base implements \Social\Auth
     /**
      * Initialise an HTTP request object.
      *
-     * @param object|string  $request  url or { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
+     * @param object|string  $url  url or { 'method': string, 'url': string, 'params': array, 'headers': array, 'convert': mixed }
      * @return object
      */
-    protected function initRequest($request)
+    protected function initRequest($url)
     {
-        $request = parent::initRequest($request);
+        $request = parent::initRequest($url);
 
         if ($this->accessToken && !in_array($request->url, $this->publicResources)) {
             $request->queryParams['oauth_token'] = $this->accessToken;
@@ -117,6 +117,8 @@ class Connection extends Base implements \Social\Auth
 
     /**
      * Get current user profile.
+     * 
+     * @todo create User object
      * 
      * @return object
      */

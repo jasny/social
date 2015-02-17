@@ -29,11 +29,22 @@ class Connection extends Base implements \Social\Auth
      */
     const serviceProvider = 'yahoo';
     
+    /**
+     * API version
+     * @var string
+     */
+    public $apiVersion = 'v1';
+    
+    /**
+     * YQL version
+     * @var string
+     */
+    public $yqlVersion = 'v1';
     
     /**
      * Yahoo! Social directory API URL
      */
-    const apiURL = "http://social.yahooapis.com/v1/";
+    const apiURL = "http://social.yahooapis.com/{v}/";
     
     /**
      * Yahoo! authentication URL
@@ -43,7 +54,7 @@ class Connection extends Base implements \Social\Auth
     /**
      * Yahoo! Query Language URL
      */
-    const yqlURL = "http://query.yahooapis.com/v1/public/yql";
+    const yqlURL = "http://query.yahooapis.com/{v}/public/yql";
     
     
     /**
@@ -110,13 +121,17 @@ class Connection extends Base implements \Social\Auth
      */
     public function query($yql, $params=[])
     {
+        $url = str_replace('{v}', $this->version, static::yqlURL);
         $params['q'] = static::YQLBind($yql, $params);
-        return $this->get(static::yqlURL, $params);
+        
+        return $this->get($url, $params);
     }
     
     
     /**
      * Get current user profile.
+     * 
+     * @todo create Yahoo User object
      * 
      * @return object
      */

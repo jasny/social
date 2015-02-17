@@ -15,33 +15,8 @@ namespace Social\Google;
  * 
  * @package Google
  */
-class User implements \Social\Person, \Social\User, \Social\Profile
+class User extends \Social\Entity implements \Social\User
 {
-    /**
-     * Class constructor
-     * 
-     * @param object|array $data
-     */
-    public function __construct($data)
-    {
-        foreach ($data as $key=>$value) {
-            $this->$key = $value;
-        }
-    }
-    
-    
-    /**
-     * Get the user at another service provider.
-     * 
-     * @param \Social\Connection $service  Service provider
-     * @return null
-     */
-    public function atProvider($service)
-    {
-        return null;
-    }
-    
-
     /**
      * Return user ID
      * 
