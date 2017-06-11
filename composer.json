@@ -7,6 +7,7 @@
     },
     "require": {
         "php": ">=5.4.0",
-        "jasny/iso": "dev-master"
+        "ext-curl": "*",
+        "jasny/iso": "~0.2.0"
     }
 }
