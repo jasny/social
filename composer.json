@@ -1,5 +1,5 @@
 {
-    "name": "social/social",
+    "name": "jasny/social",
     "autoload": {
         "psr-0": {
             "Social": "src/"
@@ -8,9 +8,6 @@
     "require": {
         "php": ">=5.4.0",
         "ext-curl": "*",
-        "jasny/iso": "dev-master"
-    },
-    "replace": {
-        "jasny/social": "self.version"
+        "jasny/iso": "~0.2.0"
     }
 }
