@@ -131,7 +131,10 @@ class Connection extends Base implements \Social\Auth
      */
     public function me()
     {
-        $data = $this->get('me');
+        $fields = 'id,link,name,first_name,last_name,gender,birthday,locale,email,website,location';
+
+     	$data = $this->get('me', compact('field'));
         return new User($data);
     }
 }
+
