@@ -133,7 +133,7 @@ class Connection extends Base implements \Social\Auth
     {
         $fields = 'id,link,name,first_name,last_name,gender,birthday,locale,email,website,location';
 
-     	$data = $this->get('me', compact('field'));
+     	$data = $this->get('me', compact('fields'));
         return new User($data);
     }
 }
