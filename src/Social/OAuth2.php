@@ -332,7 +332,7 @@ trait OAuth2
             return $this->handleAuthResponse();
         }
         
-        if (isset($this->accessToken)) $params['grant_type'] = 'refresh_token';
+        //if (isset($this->accessToken)) $params['grant_type'] = 'refresh_token';
         self::redirect($this->getAuthUrl($scope, $redirectUrl, $params));
     }
 
