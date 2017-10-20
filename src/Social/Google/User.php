@@ -24,7 +24,7 @@ class User extends \Social\Entity implements \Social\User
      */
     public function getId()
     {
-        return $this->id;
+        return $this->sub;
     }
     
     /**
