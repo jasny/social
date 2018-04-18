@@ -43,4 +43,38 @@ class ConnectionTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(array(), $method->invoke(null, 'http://www.example.com'));
         $this->assertEquals(array('foo'=>'bar', 'fox'=>'dog'), $method->invoke(null, 'http://www.example.com?foo=bar&fox=dog'));
     }
+
+    /**
+     * Provide data for testing 'getScheme' method
+     *
+     * @return array
+     */
+    public function getSchemeProvider()
+    {
+        return [
+            [['HTTPS' => 'on'], 'https://'],
+            [['HTTP_X_FORWARDED_PROTO' => 'https'], 'https://'],
+            [['HTTP_X_FORWARDED_SSL' => 'on'], 'https://'],
+
+            [['HTTPS' => 'foo'], 'http://'],
+            [['HTTP_X_FORWARDED_PROTO' => 'foo'], 'http://'],
+            [['HTTP_X_FORWARDED_SSL' => 'foo'], 'http://'],
+            [[], 'http://']
+        ];
+    }
+
+    /**
+     * Test 'getScheme' method
+     *
+     * @dataProvider getSchemeProvider
+     */
+    public function testGetScheme($server, $expected)
+    {
+        $method = new \ReflectionMethod('Social\Connection', 'getScheme');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(null, $server);
+
+        $this->assertSame($expected, $result);
+    }
 }
