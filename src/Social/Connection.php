@@ -612,13 +612,29 @@ abstract class Connection
             $dir = dirname($_SERVER['REQUEST_URI']);
             $page = ($dir == '.' ? '' : $dir) . '/' . $page;
         }
-        
-        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on' ? 'https://' : 'http://';
+
+        $protocol = static::getScheme($_SERVER);
         $currentUrl = $protocol . $_SERVER['HTTP_HOST'] . $page;
-        
+
         return static::buildUrl($currentUrl, $params);
     }
-    
+
+    /**
+     * Get current url scheme
+     *
+     * @param array $server  $_SERVER array
+     * @return string
+     */
+    protected static function getScheme($server)
+    {
+        $isSafe =
+            (isset($server['HTTPS']) && $server['HTTPS'] === 'on') ||
+            (isset($server['HTTP_X_FORWARDED_PROTO']) && $server['HTTP_X_FORWARDED_PROTO'] === 'https') ||
+            (isset($server['HTTP_X_FORWARDED_SSL']) && $server['HTTP_X_FORWARDED_SSL'] === 'on');
+
+        return $isSafe ? 'https://' : 'http://';
+    }
+
     /**
      * Build a url adding query paramaters.
      * 
